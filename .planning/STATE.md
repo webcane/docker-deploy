@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 1 — Plugin Scaffolding
+**Current focus:** Phase 2 — SSH Transport & Config
 
 ## Current Position
 
-Phase: 1 of 6 (Plugin Scaffolding)
-Plan: 0 of 2 in current phase
-Status: Ready to execute
-Last activity: 2026-05-13 — Phase 1 planned (2 plans, 2 waves)
+Phase: 2 of 6 (SSH Transport & Config)
+Plan: 0 of ? in current phase
+Status: Phase 1 complete — ready to plan Phase 2
+Last activity: 2026-05-13 — Phase 1 executed (2/2 plans complete)
 Resume file: .planning/phases/01-plugin-scaffolding/01-PLAN-01.md
 
 Progress: [░░░░░░░░░░] 0%
