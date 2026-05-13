@@ -30,3 +30,16 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# build dirs
+bin/
+dist/
+
+# macos
+.DS_Store
+
+# logs
+*.log
+
+#
+docker-deploy
