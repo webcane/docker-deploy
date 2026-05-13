@@ -1,0 +1,31 @@
+version: 2
+
+builds:
+  - main: ./cmd/docker-deploy
+    binary: docker-deploy
+    ldflags:
+      - -s
+      - -w
+      - -X main.version={{.Version}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: linux
+        format: tar.gz
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  draft: false
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
