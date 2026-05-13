@@ -96,34 +96,34 @@ Updated during roadmap creation.
 | PLUG-01 | Phase 1 | Pending |
 | PLUG-02 | Phase 1 | Pending |
 | PLUG-03 | Phase 1 | Pending |
-| DEPLOY-01 | Phase 4 | Pending |
-| DEPLOY-02 | Phase 3 | Pending |
-| DEPLOY-03 | Phase 3 | Pending |
-| DEPLOY-04 | Phase 4 | Pending |
-| DEPLOY-05 | Phase 4 | Pending |
-| DEPLOY-06 | Phase 4 | Pending |
-| FILES-01 | Phase 3 | Pending |
-| FILES-02 | Phase 3 | Pending |
-| FILES-03 | Phase 3 | Pending |
 | CFG-01 | Phase 2 | Pending |
 | CFG-02 | Phase 2 | Pending |
 | CFG-03 | Phase 2 | Pending |
 | CFG-04 | Phase 2 | Pending |
 | CFG-05 | Phase 2 | Pending |
-| CHECK-01 | Phase 4 | Pending |
-| CHECK-02 | Phase 4 | Pending |
-| CHECK-03 | Phase 4 | Pending |
-| CHECK-04 | Phase 4 | Pending |
-| CHECK-05 | Phase 4 | Pending |
-| CHECK-06 | Phase 4 | Pending |
-| CHECK-07 | Phase 4 | Pending |
-| HEALTH-01 | Phase 4 | Pending |
-| HEALTH-02 | Phase 4 | Pending |
-| HEALTH-03 | Phase 4 | Pending |
-| INIT-01 | Phase 5 | Pending |
-| INIT-02 | Phase 5 | Pending |
-| INIT-03 | Phase 5 | Pending |
-| INIT-04 | Phase 5 | Pending |
+| DEPLOY-02 | Phase 3 | Pending |
+| DEPLOY-03 | Phase 3 | Pending |
+| FILES-01 | Phase 3 | Pending |
+| FILES-02 | Phase 3 | Pending |
+| FILES-03 | Phase 3 | Pending |
+| DEPLOY-01 | Phase 4 | Pending |
+| DEPLOY-04 | Phase 4 | Pending |
+| DEPLOY-05 | Phase 4 | Pending |
+| DEPLOY-06 | Phase 4 | Pending |
+| CHECK-01 | Phase 5 | Pending |
+| CHECK-02 | Phase 5 | Pending |
+| CHECK-03 | Phase 5 | Pending |
+| CHECK-04 | Phase 5 | Pending |
+| CHECK-05 | Phase 5 | Pending |
+| CHECK-06 | Phase 5 | Pending |
+| CHECK-07 | Phase 5 | Pending |
+| HEALTH-01 | Phase 5 | Pending |
+| HEALTH-02 | Phase 5 | Pending |
+| HEALTH-03 | Phase 5 | Pending |
+| INIT-01 | Phase 6 | Pending |
+| INIT-02 | Phase 6 | Pending |
+| INIT-03 | Phase 6 | Pending |
+| INIT-04 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
@@ -132,4 +132,4 @@ Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-05-13*
-*Last updated: 2026-05-13 after initial definition*
+*Last updated: 2026-05-13 after roadmap creation*
