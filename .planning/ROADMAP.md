@@ -30,7 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Running `docker deploy --help` from a shell with the binary installed shows command usage via the Docker CLI
   2. Running `docker-deploy docker-cli-plugin-metadata` returns valid JSON with plugin name and version
   3. GoReleaser builds a cross-platform binary and CI passes on every push
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-PLAN-01.md — Go module + plugin binary scaffold (plugin.Run(), cobra root, Makefile)
+- [ ] 01-PLAN-02.md — CI/CD pipeline (GoReleaser cross-platform builds, GitHub Actions workflows)
 
 ### Phase 2: SSH Transport & Config
 **Goal**: The plugin can open a verified SSH connection to a remote host and resolve configuration from flags, deploy.yaml, and defaults in the correct precedence order
@@ -101,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Plugin Scaffolding | 0/? | Not started | - |
+| 1. Plugin Scaffolding | 0/2 | Not started | - |
 | 2. SSH Transport & Config | 0/? | Not started | - |
 | 3. File Copy | 0/? | Not started | - |
 | 4. Core Deploy Loop | 0/? | Not started | - |
