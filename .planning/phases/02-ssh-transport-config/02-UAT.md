@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: complete
 phase: 02-ssh-transport-config
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md]
 started: 2026-05-14T11:00:00Z
@@ -53,8 +53,8 @@ result: pass
 ## Summary
 
 total: 9
-passed: 8
-issues: 1
+passed: 9
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
@@ -62,7 +62,7 @@ blocked: 0
 ## Gaps
 
 - truth: "deploy.yaml in cwd is loaded when present; fields populate config when not overridden by flags"
-  status: resolved
+  status: not_a_bug
   reason: "User reported: no host configured — deploy.yaml appeared not to be read"
   severity: major
   test: 5
