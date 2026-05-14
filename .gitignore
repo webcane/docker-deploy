@@ -26,6 +26,7 @@ go.work.sum
 
 # env file
 .env
+*.env
 
 # Editor/IDE
 # .idea/
@@ -44,7 +45,4 @@ dist/
 #
 docker-deploy
 
-# Never commit secrets or local config
-.env
-*.env
-deploy.yaml
+

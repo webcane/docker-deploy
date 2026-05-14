@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/docker/cli/cli-plugins/metadata"
 	"github.com/docker/cli/cli-plugins/plugin"
 	"github.com/docker/cli/cli/command"
@@ -15,7 +17,7 @@ func main() {
 			Use:   "deploy",
 			Short: "Deploy a docker-compose project to a remote VPS",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				return nil
+				return fmt.Errorf("not implemented yet")
 			},
 		}
 		return cmd
