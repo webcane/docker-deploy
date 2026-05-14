@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Plugin Scaffolding** - `docker deploy --help` works in the Docker CLI; module locked; CI configured — completed 2026-05-13
 - [x] **Phase 2: SSH Transport & Config** - SSH dial (knownhosts, timeout, auth chain) and config resolution work; operator can verify connectivity — completed 2026-05-14
-- [ ] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote
+- [x] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote — completed 2026-05-14
 - [ ] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct
 - [ ] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
@@ -82,11 +82,11 @@ Plans:
 - [x] 03-02-PLAN.md — filetransfer package (ShouldExclude/WalkFiles filter logic, SFTP Upload with atomic staging, unit tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 03-03-PLAN.md — Wire into main.go (--exclude/--force flags, replace-confirmation prompt, Upload() call, human verification)
+- [x] 03-03-PLAN.md — Wire into main.go (--exclude/--force flags, replace-confirmation prompt, Upload() call, human verification)
 
 Cross-cutting constraints:
 - .env must never appear in default excludes — it is the core value proposition of the tool
-- Staging dir uses `filepath.Dir(remoteBase)` as parent to guarantee same-filesystem rename
+- Staging dir uses `/tmp/docker-deploy-<ts>` (always writable); target dir created separately with optional sudo fallback
 - Each SSH exec command uses a separate client.NewSession() call (sessions are not reusable)
 
 ### Phase 4: Core Deploy Loop
@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
-| 3. File Copy | 2/3 | In Progress|  |
+| 3. File Copy | 3/3 | Complete | 2026-05-14 |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |

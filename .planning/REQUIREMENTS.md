@@ -14,16 +14,16 @@
 ### Deploy (DEPLOY)
 
 - [ ] **DEPLOY-01**: User can deploy with `docker deploy --host ssh://user@host:port`
-- [ ] **DEPLOY-02**: Project files are copied to remote via SFTP (`github.com/pkg/sftp` over the existing SSH connection)
-- [ ] **DEPLOY-03**: Files are staged to a temp directory first (`/opt/<project>/.deploy-tmp-<timestamp>`) via SFTP, then moved atomically on the remote to prevent partial-deploy state
+- [x] **DEPLOY-02**: Project files are copied to remote via SFTP (`github.com/pkg/sftp` over the existing SSH connection)
+- [x] **DEPLOY-03**: Files are staged to a temp directory first (`/tmp/docker-deploy-<timestamp>`) via SFTP, then moved atomically on the remote to prevent partial-deploy state
 - [ ] **DEPLOY-04**: `docker compose up -d` is executed on the remote via SSH after file copy
 - [ ] **DEPLOY-05**: Plugin exits with non-zero code if any step (pre-flight, copy, compose) fails
 - [ ] **DEPLOY-06**: Deploy output (compose up result) is streamed back to the local terminal
 
 ### File Management (FILES)
 
-- [ ] **FILES-01**: Default include list: compose.yaml (or docker-compose.yml), .env, Makefile, README.md
-- [ ] **FILES-02**: Default exclude list: .git/, node_modules/, vendor/, *.log, .DS_Store, __pycache__/
+- [x] **FILES-01**: Default include list: compose.yaml (or docker-compose.yml), .env, Makefile, README.md
+- [x] **FILES-02**: Default exclude list: .git/, node_modules/, vendor/, *.log, .DS_Store, __pycache__/
 - [x] **FILES-03**: User can extend or override include/exclude lists via deploy.yaml
 
 ### Configuration (CFG)
@@ -101,10 +101,10 @@ Updated during roadmap creation.
 | CFG-03 | Phase 2 | Pending |
 | CFG-04 | Phase 2 | Pending |
 | CFG-05 | Phase 2 | Pending |
-| DEPLOY-02 | Phase 3 | Pending |
-| DEPLOY-03 | Phase 3 | Pending |
-| FILES-01 | Phase 3 | Pending |
-| FILES-02 | Phase 3 | Pending |
+| DEPLOY-02 | Phase 3 | Complete |
+| DEPLOY-03 | Phase 3 | Complete |
+| FILES-01 | Phase 3 | Complete |
+| FILES-02 | Phase 3 | Complete |
 | FILES-03 | Phase 3 | Complete |
 | DEPLOY-01 | Phase 4 | Pending |
 | DEPLOY-04 | Phase 4 | Pending |
