@@ -117,7 +117,7 @@ func TestResolveHostPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Host: tt.fileHost},
 			}
-			cfg, err := Resolve(tt.flagHost, "", file, "myproject")
+			cfg, err := Resolve(tt.flagHost, "", nil, false, file, "myproject")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -174,7 +174,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Path: tt.filePath},
 			}
-			cfg, err := Resolve("", tt.flagPath, file, tt.projectName)
+			cfg, err := Resolve("", tt.flagPath, nil, false, file, tt.projectName)
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -186,7 +186,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 }
 
 func TestResolveInvalidHostReturnsError(t *testing.T) {
-	_, err := Resolve("http://not-ssh.example.com", "", FileConfig{}, "proj")
+	_, err := Resolve("http://not-ssh.example.com", "", nil, false, FileConfig{}, "proj")
 	if err == nil {
 		t.Fatal("Resolve() with non-ssh scheme should return error")
 	}

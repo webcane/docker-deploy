@@ -12,6 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// defaultExcludes is the built-in exclude list that is always active.
+// User-supplied excludes (via deploy.yaml or --exclude flag) extend this list;
+// they cannot remove these entries.
+var defaultExcludes = []string{
+	".git/", "node_modules/", "vendor/", "*.log", ".DS_Store", "__pycache__/",
+}
+
 // Host holds a parsed SSH host specification.
 type Host struct {
 	User     string
@@ -22,8 +29,10 @@ type Host struct {
 // TargetConfig holds the single-target subsection of deploy.yaml.
 // Future phases will add a "targets" (plural) map for named targets.
 type TargetConfig struct {
-	Host string `yaml:"host"`
-	Path string `yaml:"path"`
+	Host    string   `yaml:"host"`
+	Path    string   `yaml:"path"`
+	Exclude []string `yaml:"exclude"`
+	Force   bool     `yaml:"force"`
 }
 
 // FileConfig is the top-level structure of deploy.yaml.
@@ -35,9 +44,11 @@ type FileConfig struct {
 
 // Config is the fully resolved runtime configuration.
 type Config struct {
-	Host    Host
-	Path    string
-	DryRun  bool
+	Host     Host
+	Path     string
+	DryRun   bool
+	Excludes []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
+	Force    bool     // flag || file.Target.Force (flag > deploy.yaml > false)
 }
 
 // ParseHost parses an SSH URI of the form ssh://[user@]host[:port].
@@ -107,15 +118,53 @@ func LoadFile(dir string) (FileConfig, error) {
 	return fc, nil
 }
 
+// mergeExcludes builds the final exclude list by starting with the built-in
+// defaults, then appending file-level excludes, then flag-level excludes.
+// Deduplication is by string equality, preserving insertion order; later
+// duplicates are dropped.
+func mergeExcludes(fileExcludes, flagExcludes []string) []string {
+	seen := make(map[string]struct{}, len(defaultExcludes)+len(fileExcludes)+len(flagExcludes))
+	result := make([]string, 0, len(defaultExcludes)+len(fileExcludes)+len(flagExcludes))
+
+	for _, e := range defaultExcludes {
+		if _, ok := seen[e]; !ok {
+			seen[e] = struct{}{}
+			result = append(result, e)
+		}
+	}
+	for _, e := range fileExcludes {
+		if _, ok := seen[e]; !ok {
+			seen[e] = struct{}{}
+			result = append(result, e)
+		}
+	}
+	for _, e := range flagExcludes {
+		if _, ok := seen[e]; !ok {
+			seen[e] = struct{}{}
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 // Resolve applies three-tier precedence (flag > deploy.yaml > default) to
 // produce a fully resolved Config.
 //
+// New parameters (Phase 3):
+//   - flagExcludes: values from the repeatable --exclude flag (nil is safe)
+//   - flagForce: value from the --force flag
+//
+// Note: cmd/docker-deploy/main.go must be updated to pass these two new
+// arguments. Current call site passes 4 args; updated call site must pass 6.
+//
 // Host precedence: flagHost > file.Target.Host > zero value (caller validates).
 // Path precedence: flagPath > file.Target.Path > "/opt/" + projectName.
+// Excludes: defaultExcludes + file.Target.Exclude + flagExcludes (deduped, order preserved).
+// Force: flagForce || file.Target.Force (flag > deploy.yaml > false).
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
-func Resolve(flagHost, flagPath string, file FileConfig, projectName string) (Config, error) {
+func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, file FileConfig, projectName string) (Config, error) {
 	var cfg Config
 
 	switch {
@@ -142,6 +191,9 @@ func Resolve(flagHost, flagPath string, file FileConfig, projectName string) (Co
 	default:
 		cfg.Path = "/opt/" + projectName
 	}
+
+	cfg.Excludes = mergeExcludes(file.Target.Exclude, flagExcludes)
+	cfg.Force = flagForce || file.Target.Force
 
 	return cfg, nil
 }

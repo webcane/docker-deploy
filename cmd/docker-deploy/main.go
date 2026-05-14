@@ -66,7 +66,8 @@ func runDryRun(host, path string) error {
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	resolved, err := config.Resolve(host, path, fileConfig, projectName)
+	// TODO(phase3): wire --exclude and --force flags; for now pass nil/false.
+	resolved, err := config.Resolve(host, path, nil, false, fileConfig, projectName)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
