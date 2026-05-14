@@ -20,9 +20,10 @@ import (
 // excludes is the list of exclude patterns (from Config.Excludes).
 //
 // Atomic swap strategy:
-//  1. Create staging dir: filepath.Dir(remoteBase)/<basename>.deploy-tmp-<unixTimestamp>
+//  1. Create staging dir: /tmp/tmp-deploy-<unixTimestamp> (always writable on remote)
 //  2. Upload all files into staging dir maintaining relative path structure
-//  3. Via SSH session exec: if remoteBase exists, mv to .old-<timestamp>, mv staging to
+//  3. Ensure remoteBase exists (mkdir -p, falling back to sudo mkdir -p + chown)
+//  4. Via SSH session exec: if remoteBase exists, mv to .old-<timestamp>, mv staging to
 //     remoteBase, rm -rf the .old dir; if absent, just mv staging to remoteBase
 //
 // If WalkFiles returns 0 files, Upload returns an error.
@@ -51,29 +52,22 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return fmt.Errorf("opening SFTP session: %w", err)
 	}
 
-	// Step 4: Derive staging directory path.
-	// Use path (not filepath) for remote Linux paths.
-	remoteParent := path.Dir(remoteBase)
-	projectName := path.Base(remoteBase)
+	// Step 4: Derive staging directory in the remote /tmp (always writable).
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	stagingDir := remoteParent + "/" + projectName + ".deploy-tmp-" + timestamp
+	stagingDir := "/tmp/tmp-deploy-" + timestamp
 
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {
 		sftpClient.Close()
-		return fmt.Errorf(
-			"creating staging directory %s: %w\n\n"+
-				"Hint: the deploy user may lack write access to %s.\n"+
-				"On the remote server, run:\n"+
-				"  sudo mkdir -p %s\n"+
-				"  sudo chown $(whoami) %s\n"+
-				"Or use --path to deploy to a user-writable directory (e.g. --path /home/<user>/%s)",
-			stagingDir, err,
-			path.Dir(remoteBase),
-			remoteBase, remoteBase,
-			path.Base(remoteBase),
-		)
+		return fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
 	}
+
+	// Ensure staging dir is cleaned up on early return (success path: mv empties it,
+	// so this is a no-op on happy path; on error path it removes partial uploads).
+	cleanupStaging := func() {
+		_ = sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(stagingDir)))
+	}
+	defer cleanupStaging()
 
 	// Step 6: Upload each file into the staging directory.
 	for _, relPath := range files {
@@ -123,6 +117,22 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	// Step 7: Close SFTP session before running SSH mv/rename commands.
 	sftpClient.Close()
+
+	// Step 7b: Ensure the target directory exists, trying sudo if plain mkdir fails.
+	if err := sshExec(client, fmt.Sprintf("mkdir -p %s", shellQuote(remoteBase))); err != nil {
+		sudoCmd := fmt.Sprintf(
+			"sudo mkdir -p %s && sudo chown $(id -un):$(id -gn) %s",
+			shellQuote(remoteBase), shellQuote(remoteBase),
+		)
+		if sudoErr := sshExec(client, sudoCmd); sudoErr != nil {
+			fmt.Fprintf(os.Stderr,
+				"Warning: could not create %s: %v\n"+
+					"Ensure the directory exists and is writable, or run on the remote:\n"+
+					"  sudo mkdir -p %s && sudo chown $(whoami) %s\n",
+				remoteBase, err, remoteBase, remoteBase,
+			)
+		}
+	}
 
 	// Step 8: Check if remoteBase exists on remote.
 	exists, err := remoteExists(client, remoteBase)
