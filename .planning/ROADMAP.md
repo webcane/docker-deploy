@@ -52,8 +52,8 @@ Plans:
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 02-01-PLAN.md — Dependencies + config resolution (go.mod, internal/config package, --host/--path/--dry-run flags)
-- [ ] 02-02-PLAN.md — SSH transport (internal/ssh package, knownhosts TOFU, hard-fail, auth chain, timeout)
+- [x] 02-01-PLAN.md — Dependencies + config resolution (go.mod, internal/config package, --host/--path/--dry-run flags)
+- [x] 02-02-PLAN.md — SSH transport (internal/ssh package, knownhosts TOFU, hard-fail, auth chain, timeout)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 02-03-PLAN.md — Dry-run integration (wire Resolve + Dial in deploy RunE; human verification)
