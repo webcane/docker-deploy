@@ -68,11 +68,26 @@ Cross-cutting constraints:
 **Depends on**: Phase 2
 **Requirements**: DEPLOY-02, DEPLOY-03, FILES-01, FILES-02, FILES-03
 **Success Criteria** (what must be TRUE):
-  1. Running the copy step uploads compose.yaml, .env, Makefile, and README.md to the remote by default when no include list is configured
-  2. .git/, node_modules/, vendor/, *.log, .DS_Store, and __pycache__/ are excluded from the upload by default
-  3. Files are staged to `/opt/<project>/.deploy-tmp-<timestamp>` first, then moved atomically; a failed mid-copy never leaves the target directory in a partial state
-  4. User can specify custom include or exclude lists in deploy.yaml and they take effect on the next deploy
-**Plans**: TBD
+  1. Running the copy step uploads all non-excluded files (copy-everything-minus-excludes model) to the remote; .env is always copied
+  2. .git/, node_modules/, vendor/, *.log, .DS_Store, and __pycache__/ are excluded from the upload by default and cannot be removed from the exclude list
+  3. Files are staged to a `.deploy-tmp-<timestamp>` directory first, then moved atomically; a failed mid-copy never leaves the target directory in a partial state
+  4. User can extend the exclude list via deploy.yaml `target.exclude:` or `--exclude` flag; both extend rather than replace the built-in defaults
+  5. Repeat deploys prompt for confirmation (default No); --force or `force: true` in deploy.yaml skips the prompt
+**Plans**: 3 plans
+
+Plans:
+
+**Wave 1** *(run in parallel)*
+- [ ] 03-01-PLAN.md — Config extension (Excludes/Force fields in Config and TargetConfig, updated Resolve() signature, tests)
+- [ ] 03-02-PLAN.md — filetransfer package (ShouldExclude/WalkFiles filter logic, SFTP Upload with atomic staging, unit tests)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 03-03-PLAN.md — Wire into main.go (--exclude/--force flags, replace-confirmation prompt, Upload() call, human verification)
+
+Cross-cutting constraints:
+- .env must never appear in default excludes — it is the core value proposition of the tool
+- Staging dir uses `filepath.Dir(remoteBase)` as parent to guarantee same-filesystem rename
+- Each SSH exec command uses a separate client.NewSession() call (sessions are not reusable)
 
 ### Phase 4: Core Deploy Loop
 **Goal**: A developer can deploy a local compose project to a remote VPS with a single command and see compose output streamed to their terminal
@@ -119,8 +134,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
-| 2. SSH Transport & Config | 0/3 | Not started | - |
-| 3. File Copy | 0/? | Not started | - |
+| 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
+| 3. File Copy | 0/3 | Not started | - |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
