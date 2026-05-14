@@ -61,7 +61,18 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {
 		sftpClient.Close()
-		return fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
+		return fmt.Errorf(
+			"creating staging directory %s: %w\n\n"+
+				"Hint: the deploy user may lack write access to %s.\n"+
+				"On the remote server, run:\n"+
+				"  sudo mkdir -p %s\n"+
+				"  sudo chown $(whoami) %s\n"+
+				"Or use --path to deploy to a user-writable directory (e.g. --path /home/<user>/%s)",
+			stagingDir, err,
+			path.Dir(remoteBase),
+			remoteBase, remoteBase,
+			path.Base(remoteBase),
+		)
 	}
 
 	// Step 6: Upload each file into the staging directory.
