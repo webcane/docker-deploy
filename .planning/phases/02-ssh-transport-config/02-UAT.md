@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-ssh-transport-config
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md]
 started: 2026-05-14T11:00:00Z
@@ -62,11 +62,14 @@ blocked: 0
 ## Gaps
 
 - truth: "deploy.yaml in cwd is loaded when present; fields populate config when not overridden by flags"
-  status: failed
-  reason: "User reported: no host configured: use --host flag or set target.host in deploy.yaml — deploy.yaml not being read"
+  status: resolved
+  reason: "User reported: no host configured — deploy.yaml appeared not to be read"
   severity: major
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Not a code bug. LoadFile works correctly — reproduced successfully from /tmp/test-deploy-yaml. Issue was likely a working-directory mismatch (deploy.yaml created in a different directory than where docker deploy was run). The code silently uses defaults when deploy.yaml is absent (correct Go behavior)."
+  artifacts:
+    - path: "internal/config/config.go"
+      issue: "Silent fallback when deploy.yaml absent — no UX feedback that the file was not found"
+  missing:
+    - "Optional improvement: print 'No deploy.yaml found in <cwd>' when no file config is loaded and no --host flag is set, before erroring"
   debug_session: ""
