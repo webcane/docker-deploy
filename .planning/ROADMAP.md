@@ -50,9 +50,17 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
+
+**Wave 1** *(run in parallel)*
 - [ ] 02-01-PLAN.md — Dependencies + config resolution (go.mod, internal/config package, --host/--path/--dry-run flags)
 - [ ] 02-02-PLAN.md — SSH transport (internal/ssh package, knownhosts TOFU, hard-fail, auth chain, timeout)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 02-03-PLAN.md — Dry-run integration (wire Resolve + Dial in deploy RunE; human verification)
+
+Cross-cutting constraints:
+- InsecureIgnoreHostKey must not appear anywhere in the codebase (verified by grep gate in 02-02 and 02-03)
+- SSH dial timeout uses goroutine + context.WithTimeout pattern (not ClientConfig.Timeout alone)
 
 ### Phase 3: File Copy
 **Goal**: Local project files are transferred to the remote host atomically via SFTP using smart defaults and user-defined overrides
