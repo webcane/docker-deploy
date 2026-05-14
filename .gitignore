@@ -43,3 +43,8 @@ dist/
 
 #
 docker-deploy
+
+# Never commit secrets or local config
+.env
+*.env
+deploy.yaml
