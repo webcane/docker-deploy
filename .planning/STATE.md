@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 2 complete
-last_updated: "2026-05-14T10:30:00.000Z"
-last_activity: 2026-05-14 — Phase 2 complete (3/3 plans, human-verified)
+status: ready_to_execute
+stopped_at: Phase 3 planned
+last_updated: "2026-05-14T12:00:00.000Z"
+last_activity: 2026-05-14 — Phase 3 planned (3 plans, ready to execute)
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
+  total_plans: 8
   completed_plans: 5
   percent: 33
 ---
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 2 — SSH Transport & Config
+**Current focus:** Phase 3 — File Copy
 
 ## Current Position
 
-Phase: 3 of 6 (File Copy — not yet planned)
-Plan: 0 of ? in current phase
-Status: Ready to plan Phase 3
-Last activity: 2026-05-14 — Phase 2 complete (3/3 plans, human-verified)
-Resume file: .planning/phases/02-ssh-transport-config/02-VERIFICATION.md
+Phase: 3 of 6 (File Copy — ready to execute)
+Plan: 0 of 3 in current phase
+Status: Ready to execute Phase 3
+Last activity: 2026-05-14 — Phase 3 planned (3 plans, ready to execute)
+Resume file: .planning/phases/03-file-copy/03-01-PLAN.md
 
 Progress: [██░░░░░░░░] 33%
 
