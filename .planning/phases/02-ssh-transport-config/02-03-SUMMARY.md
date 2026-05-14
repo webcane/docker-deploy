@@ -21,7 +21,7 @@ decisions:
 metrics:
   duration: "10 minutes"
   completed: "2026-05-14T09:30:34Z"
-  tasks_completed: 1
+  tasks_completed: 2
   tasks_total: 2
   files_modified: 1
 ---
@@ -49,7 +49,29 @@ Non-dry-run path unchanged: returns `"deploy not implemented yet"`.
 | # | Name | Commit | Status |
 |---|------|--------|--------|
 | 1 | Wire --dry-run flow in deploy RunE | 4bd777d | complete |
-| 2 | Human verify checkpoint | — | awaiting |
+| 2 | Human verify checkpoint | — | complete |
+
+## Human Verification Results
+
+Checkpoint approved 2026-05-14. Results from live test:
+
+```
+docker deploy --host ssh://sshuser@192.168.1.99 --dry-run
+Dry-run: connectivity check passed
+  Host:        sshuser@192.168.1.99:22
+  Remote path: /opt/docker-deploy
+  Auth method: ssh-agent
+  Server:      SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.16
+  Status:      OK
+
+docker deploy --host ssh://user@yourhost --dry-run
+SSH connection failed: dial tcp: lookup yourhost: no such host
+```
+
+All Phase 2 success criteria confirmed:
+- SSH connectivity works with a real Ubuntu host
+- Error cases produce clear messages and non-zero exit
+- Config precedence and path resolution work correctly
 
 ## Deviations from Plan
 
