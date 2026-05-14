@@ -78,7 +78,7 @@ Cross-cutting constraints:
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 03-01-PLAN.md — Config extension (Excludes/Force fields in Config and TargetConfig, updated Resolve() signature, tests)
+- [x] 03-01-PLAN.md — Config extension (Excludes/Force fields in Config and TargetConfig, updated Resolve() signature, tests)
 - [ ] 03-02-PLAN.md — filetransfer package (ShouldExclude/WalkFiles filter logic, SFTP Upload with atomic staging, unit tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
-| 3. File Copy | 0/3 | Not started | - |
+| 3. File Copy | 1/3 | In Progress|  |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |

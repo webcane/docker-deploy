@@ -24,7 +24,7 @@
 
 - [ ] **FILES-01**: Default include list: compose.yaml (or docker-compose.yml), .env, Makefile, README.md
 - [ ] **FILES-02**: Default exclude list: .git/, node_modules/, vendor/, *.log, .DS_Store, __pycache__/
-- [ ] **FILES-03**: User can extend or override include/exclude lists via deploy.yaml
+- [x] **FILES-03**: User can extend or override include/exclude lists via deploy.yaml
 
 ### Configuration (CFG)
 
@@ -105,7 +105,7 @@ Updated during roadmap creation.
 | DEPLOY-03 | Phase 3 | Pending |
 | FILES-01 | Phase 3 | Pending |
 | FILES-02 | Phase 3 | Pending |
-| FILES-03 | Phase 3 | Pending |
+| FILES-03 | Phase 3 | Complete |
 | DEPLOY-01 | Phase 4 | Pending |
 | DEPLOY-04 | Phase 4 | Pending |
 | DEPLOY-05 | Phase 4 | Pending |
