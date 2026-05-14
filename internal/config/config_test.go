@@ -192,6 +192,159 @@ func TestResolveInvalidHostReturnsError(t *testing.T) {
 	}
 }
 
+// TestResolveExcludes verifies that Config.Excludes follows the
+// defaultExcludes + file.Target.Exclude + flagExcludes merge model with
+// deduplication (insertion-order preserved, later duplicates dropped).
+func TestResolveExcludes(t *testing.T) {
+	// builtInPatterns is the expected set of 6 built-in defaults.
+	// We do not access the unexported defaultExcludes var directly;
+	// instead we verify through Resolve() output.
+	builtInPatterns := []string{
+		".git/", "node_modules/", "vendor/", "*.log", ".DS_Store", "__pycache__/",
+	}
+
+	containsAll := func(t *testing.T, got []string, want []string) {
+		t.Helper()
+		set := make(map[string]struct{}, len(got))
+		for _, g := range got {
+			set[g] = struct{}{}
+		}
+		for _, w := range want {
+			if _, ok := set[w]; !ok {
+				t.Errorf("Excludes missing %q; got %v", w, got)
+			}
+		}
+	}
+
+	countOf := func(got []string, target string) int {
+		n := 0
+		for _, g := range got {
+			if g == target {
+				n++
+			}
+		}
+		return n
+	}
+
+	tests := []struct {
+		name         string
+		fileExclude  []string
+		flagExcludes []string
+		wantLen      int
+		wantContains []string // must all be present
+		wantDedupOf  string   // if non-empty, must appear exactly once
+	}{
+		{
+			name:         "defaults_when_no_input",
+			fileExclude:  nil,
+			flagExcludes: nil,
+			wantLen:      6,
+			wantContains: builtInPatterns,
+		},
+		{
+			name:         "file_extends_defaults",
+			fileExclude:  []string{"*.tmp"},
+			flagExcludes: nil,
+			wantLen:      7,
+			wantContains: append(append([]string{}, builtInPatterns...), "*.tmp"),
+		},
+		{
+			name:         "flag_extends_file_and_defaults",
+			fileExclude:  []string{"*.tmp"},
+			flagExcludes: []string{"logs/"},
+			wantLen:      8,
+			wantContains: append(append([]string{}, builtInPatterns...), "*.tmp", "logs/"),
+		},
+		{
+			name:         "flag_deduplicates",
+			fileExclude:  nil,
+			flagExcludes: []string{".git/"}, // already in defaults
+			wantLen:      6,
+			wantContains: builtInPatterns,
+			wantDedupOf:  ".git/",
+		},
+		{
+			name:         "file_deduplicates",
+			fileExclude:  []string{".git/"}, // already in defaults
+			flagExcludes: nil,
+			wantLen:      6,
+			wantContains: builtInPatterns,
+			wantDedupOf:  ".git/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := FileConfig{
+				Target: TargetConfig{Exclude: tt.fileExclude},
+			}
+			cfg, err := Resolve("", "", tt.flagExcludes, false, file, "proj")
+			if err != nil {
+				t.Fatalf("Resolve() unexpected error: %v", err)
+			}
+			if len(cfg.Excludes) != tt.wantLen {
+				t.Errorf("len(Excludes) = %d, want %d; got %v", len(cfg.Excludes), tt.wantLen, cfg.Excludes)
+			}
+			containsAll(t, cfg.Excludes, tt.wantContains)
+			if tt.wantDedupOf != "" {
+				if c := countOf(cfg.Excludes, tt.wantDedupOf); c != 1 {
+					t.Errorf("%q appears %d times in Excludes, want exactly 1; got %v", tt.wantDedupOf, c, cfg.Excludes)
+				}
+			}
+		})
+	}
+}
+
+// TestResolveForce verifies that Config.Force follows flag > file > false precedence.
+func TestResolveForce(t *testing.T) {
+	tests := []struct {
+		name      string
+		fileForce bool
+		flagForce bool
+		wantForce bool
+	}{
+		{
+			name:      "default_false",
+			fileForce: false,
+			flagForce: false,
+			wantForce: false,
+		},
+		{
+			name:      "file_sets_true",
+			fileForce: true,
+			flagForce: false,
+			wantForce: true,
+		},
+		{
+			name:      "flag_overrides",
+			fileForce: false,
+			flagForce: true,
+			wantForce: true,
+		},
+		{
+			name:      "both_true",
+			fileForce: true,
+			flagForce: true,
+			wantForce: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := FileConfig{
+				Target: TargetConfig{Force: tt.fileForce},
+			}
+			cfg, err := Resolve("", "", nil, tt.flagForce, file, "proj")
+			if err != nil {
+				t.Fatalf("Resolve() unexpected error: %v", err)
+			}
+			if cfg.Force != tt.wantForce {
+				t.Errorf("Force = %v, want %v", cfg.Force, tt.wantForce)
+			}
+		})
+	}
+}
+
 // --- LoadFile tests ---
 
 func TestLoadFile(t *testing.T) {
