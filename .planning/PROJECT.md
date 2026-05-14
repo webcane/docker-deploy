@@ -12,7 +12,8 @@ A developer can deploy their local docker-compose project to any SSH-accessible 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Configurable via flags (`--host "ssh://user@host:port"`) with `deploy.yaml` override — Validated in Phase 2: SSH Transport & Config
+- [x] Default deploy target `/opt/<proj_name>`, configurable via flag/config — Validated in Phase 2: SSH Transport & Config
 
 ### Active
 
@@ -59,11 +60,13 @@ The problem this solves: docker remote context requires project files on the rem
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Docker CLI plugin over standalone binary | Integrates naturally into Docker workflow, user runs `docker deploy` | — Pending |
-| Flags-first, deploy.yaml for persistence | Flags for quick starts, config for repeat deploys — mirrors docker-compose UX | — Pending |
+| Docker CLI plugin over standalone binary | Integrates naturally into Docker workflow, user runs `docker deploy` | ✓ Validated Phase 1 |
+| Flags-first, deploy.yaml for persistence | Flags for quick starts, config for repeat deploys — mirrors docker-compose UX | ✓ Validated Phase 2 |
+| Manual `Resolve(flags, file, defaults)` — no Viper | Viper has flag-override ordering bugs; manual precedence is explicit and testable | ✓ Validated Phase 2 |
+| golang.org/x/crypto/ssh + knownhosts (no InsecureIgnoreHostKey) | Tool copies .env files; MITM is catastrophic | ✓ Validated Phase 2 |
 | Copy .env as-is | User responsibility; simplest behavior; warning can be added in v2 | — Pending |
 | Smart file defaults + user override | Opinionated but flexible — avoids copying entire project tree inadvertently | — Pending |
-| Go | Single binary distribution, no deps on VPS or dev machine beyond the binary | — Pending |
+| Go | Single binary distribution, no deps on VPS or dev machine beyond the binary | ✓ Validated Phase 1 |
 
 ## Evolution
 
@@ -83,4 +86,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-13 after initialization*
+*Last updated: 2026-05-14 after Phase 2 completion*
