@@ -56,7 +56,7 @@ Plans:
 - [x] 02-02-PLAN.md — SSH transport (internal/ssh package, knownhosts TOFU, hard-fail, auth chain, timeout)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 02-03-PLAN.md — Dry-run integration (wire Resolve + Dial in deploy RunE; human verification)
+- [x] 02-03-PLAN.md — Dry-run integration (wire Resolve + Dial in deploy RunE; human verification)
 
 Cross-cutting constraints:
 - InsecureIgnoreHostKey must not appear anywhere in the codebase (verified by grep gate in 02-02 and 02-03)
