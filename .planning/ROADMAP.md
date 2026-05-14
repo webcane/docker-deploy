@@ -13,7 +13,7 @@ The plugin is built bottom-up: scaffold the Docker CLI plugin first so the inter
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Plugin Scaffolding** - `docker deploy --help` works in the Docker CLI; module locked; CI configured — completed 2026-05-13
-- [ ] **Phase 2: SSH Transport & Config** - SSH dial (knownhosts, timeout, auth chain) and config resolution work; operator can verify connectivity
+- [x] **Phase 2: SSH Transport & Config** - SSH dial (knownhosts, timeout, auth chain) and config resolution work; operator can verify connectivity — completed 2026-05-14
 - [ ] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote
 - [ ] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct
 - [ ] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up
