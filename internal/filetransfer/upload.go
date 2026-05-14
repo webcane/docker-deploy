@@ -20,7 +20,7 @@ import (
 // excludes is the list of exclude patterns (from Config.Excludes).
 //
 // Atomic swap strategy:
-//  1. Create staging dir: /tmp/tmp-deploy-<unixTimestamp> (always writable on remote)
+//  1. Create staging dir: /tmp/docker-deploy-<unixTimestamp> (always writable on remote)
 //  2. Upload all files into staging dir maintaining relative path structure
 //  3. Ensure remoteBase exists (mkdir -p, falling back to sudo mkdir -p + chown)
 //  4. Via SSH session exec: if remoteBase exists, mv to .old-<timestamp>, mv staging to
@@ -54,7 +54,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	// Step 4: Derive staging directory in the remote /tmp (always writable).
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	stagingDir := "/tmp/tmp-deploy-" + timestamp
+	stagingDir := "/tmp/docker-deploy-" + timestamp
 
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {
