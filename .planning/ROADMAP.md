@@ -47,7 +47,12 @@ Plans:
   3. SSH handshake timeout is enforced — a non-responsive host does not hang the process indefinitely
   4. `deploy.yaml` values are loaded when present; flag values override deploy.yaml; deploy.yaml overrides built-in defaults
   5. `deploy.yaml` schema accommodates future multi-target keys without breaking existing single-target configs
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Dependencies + config resolution (go.mod, internal/config package, --host/--path/--dry-run flags)
+- [ ] 02-02-PLAN.md — SSH transport (internal/ssh package, knownhosts TOFU, hard-fail, auth chain, timeout)
+- [ ] 02-03-PLAN.md — Dry-run integration (wire Resolve + Dial in deploy RunE; human verification)
 
 ### Phase 3: File Copy
 **Goal**: Local project files are transferred to the remote host atomically via SFTP using smart defaults and user-defined overrides
@@ -106,7 +111,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
-| 2. SSH Transport & Config | 0/? | Not started | - |
+| 2. SSH Transport & Config | 0/3 | Not started | - |
 | 3. File Copy | 0/? | Not started | - |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
