@@ -7,9 +7,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/pkg/sftp"
+	"golang.org/x/term"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -22,7 +24,8 @@ import (
 // Atomic swap strategy:
 //  1. Create staging dir: /tmp/docker-deploy-<unixTimestamp> (always writable on remote)
 //  2. Upload all files into staging dir maintaining relative path structure
-//  3. Ensure remoteBase exists (mkdir -p, falling back to sudo mkdir -p + chown)
+//  3. Ensure remoteBase exists (mkdir -p, falling back to interactive sudo with up to 3
+//     password attempts). If target cannot be created: warn, leave staged files, return error.
 //  4. Via SSH session exec: if remoteBase exists, mv to .old-<timestamp>, mv staging to
 //     remoteBase, rm -rf the .old dir; if absent, just mv staging to remoteBase
 //
@@ -62,85 +65,115 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
 	}
 
-	// Ensure staging dir is cleaned up on early return (success path: mv empties it,
-	// so this is a no-op on happy path; on error path it removes partial uploads).
-	cleanupStaging := func() {
-		_ = sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(stagingDir)))
-	}
-	defer cleanupStaging()
-
 	// Step 6: Upload each file into the staging directory.
-	for _, relPath := range files {
-		if err := ctx.Err(); err != nil {
-			sftpClient.Close()
-			return fmt.Errorf("upload cancelled: %w", err)
-		}
+	// On any upload error: clean up the partial staging dir (unusable) and return.
+	uploadErr := func() error {
+		for _, relPath := range files {
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("upload cancelled: %w", err)
+			}
 
-		localPath := filepath.Join(localDir, filepath.FromSlash(relPath))
-		remotePath := path.Join(stagingDir, relPath)
+			localPath := filepath.Join(localDir, filepath.FromSlash(relPath))
+			remotePath := path.Join(stagingDir, relPath)
 
-		// Ensure parent directory exists on remote.
-		remoteDir := path.Dir(remotePath)
-		if err := sftpClient.MkdirAll(remoteDir); err != nil {
-			sftpClient.Close()
-			return fmt.Errorf("creating remote directory %s: %w", remoteDir, err)
-		}
+			// Ensure parent directory exists on remote.
+			remoteDir := path.Dir(remotePath)
+			if err := sftpClient.MkdirAll(remoteDir); err != nil {
+				return fmt.Errorf("creating remote directory %s: %w", remoteDir, err)
+			}
 
-		// Open local file for reading.
-		localFile, err := os.Open(localPath)
-		if err != nil {
-			sftpClient.Close()
-			return fmt.Errorf("opening local file %s: %w", localPath, err)
-		}
+			// Open local file for reading.
+			localFile, err := os.Open(localPath)
+			if err != nil {
+				return fmt.Errorf("opening local file %s: %w", localPath, err)
+			}
 
-		// Create remote file.
-		remoteFile, err := sftpClient.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
-		if err != nil {
-			localFile.Close()
-			sftpClient.Close()
-			return fmt.Errorf("creating remote file %s: %w", remotePath, err)
-		}
+			// Create remote file.
+			remoteFile, err := sftpClient.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+			if err != nil {
+				localFile.Close()
+				return fmt.Errorf("creating remote file %s: %w", remotePath, err)
+			}
 
-		// Copy contents.
-		if _, err := io.Copy(remoteFile, localFile); err != nil {
+			// Copy contents.
+			if _, err := io.Copy(remoteFile, localFile); err != nil {
+				remoteFile.Close()
+				localFile.Close()
+				return fmt.Errorf("copying %s to remote: %w", relPath, err)
+			}
+
 			remoteFile.Close()
 			localFile.Close()
-			sftpClient.Close()
-			return fmt.Errorf("copying %s to remote: %w", relPath, err)
+
+			fmt.Fprintf(os.Stdout, "  -> %s\n", relPath)
 		}
-
-		remoteFile.Close()
-		localFile.Close()
-
-		fmt.Fprintf(os.Stdout, "  -> %s\n", relPath)
-	}
+		return nil
+	}()
 
 	// Step 7: Close SFTP session before running SSH mv/rename commands.
 	sftpClient.Close()
 
-	// Step 7b: Ensure the target directory exists, trying sudo if plain mkdir fails.
-	if err := sshExec(client, fmt.Sprintf("mkdir -p %s", shellQuote(remoteBase))); err != nil {
-		sudoCmd := fmt.Sprintf(
-			"sudo mkdir -p %s && sudo chown $(id -un):$(id -gn) %s",
-			shellQuote(remoteBase), shellQuote(remoteBase),
-		)
-		if sudoErr := sshExec(client, sudoCmd); sudoErr != nil {
-			fmt.Fprintf(os.Stderr,
-				"Warning: could not create %s: %v\n"+
-					"Ensure the directory exists and is writable, or run on the remote:\n"+
-					"  sudo mkdir -p %s && sudo chown $(whoami) %s\n",
-				remoteBase, err, remoteBase, remoteBase,
+	if uploadErr != nil {
+		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
+		_ = sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(stagingDir)))
+		return uploadErr
+	}
+
+	// Step 8: Ensure the target directory exists.
+	// Attempt 1 — without sudo.
+	mkdirOK := sshExec(client, fmt.Sprintf("mkdir -p %s", shellQuote(remoteBase))) == nil
+
+	if !mkdirOK {
+		// Attempt 2 — interactive sudo with up to 3 password prompts.
+		sudoOK := false
+		for attempt := 1; attempt <= 3; attempt++ {
+			fmt.Fprintf(os.Stderr, "[sudo] password for remote host: ")
+			pw, err := term.ReadPassword(int(syscall.Stdin))
+			fmt.Fprintln(os.Stderr)
+			if err != nil {
+				break
+			}
+			sudoCmd := fmt.Sprintf(
+				"echo %s | sudo -S -p '' sh -c 'mkdir -p %s && chown $(id -un):$(id -gn) %s'",
+				shellQuote(string(pw)), shellQuote(remoteBase), shellQuote(remoteBase),
 			)
+			if err := sshExec(client, sudoCmd); err == nil {
+				sudoOK = true
+				break
+			}
+			if attempt < 3 {
+				fmt.Fprintln(os.Stderr, "Sorry, try again.")
+			}
+		}
+
+		if !sudoOK {
+			// Could not create target dir. Leave staged files for manual recovery.
+			// Determine the remote host for the hint message.
+			remoteHost := client.RemoteAddr().String()
+			fmt.Fprintf(os.Stderr,
+				"Warning: could not create target directory %s.\n"+
+					"Uploaded files are staged at %s on the remote server.\n"+
+					"To deploy manually:\n"+
+					"  ssh %s 'sudo mv %s %s'\n"+
+					"Or re-run after granting access:\n"+
+					"  ssh %s 'sudo mkdir -p %s && sudo chown <user> %s'\n",
+				remoteBase,
+				stagingDir,
+				remoteHost, stagingDir, remoteBase,
+				remoteHost, remoteBase, remoteBase,
+			)
+			return fmt.Errorf("could not create target directory %s", remoteBase)
 		}
 	}
 
-	// Step 8: Check if remoteBase exists on remote.
+	// Step 9: Check if remoteBase exists on remote (it should now — this guards the
+	// case where mkdir -p succeeded but the dir was removed between steps).
 	exists, err := remoteExists(client, remoteBase)
 	if err != nil {
 		return fmt.Errorf("checking remote target existence: %w", err)
 	}
 
-	// Step 9: Perform atomic swap via SSH exec commands.
+	// Step 10: Perform atomic swap via SSH exec commands.
 	if exists {
 		// Three-step atomic swap:
 		// 1. mv remoteBase remoteBase.old-<timestamp>
