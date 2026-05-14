@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-05-14T16:39:07.746Z"
+stopped_at: Completed 03-02 filetransfer package
+last_updated: "2026-05-14T17:10:00.000Z"
 last_activity: 2026-05-14
 progress:
   total_phases: 6
@@ -26,31 +26,33 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 3 of 6 (File Copy — ready to execute)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Ready to execute
 Last activity: 2026-05-14
 Resume file: None
 
-Progress: [██░░░░░░░░] 33%
+Progress: [███░░░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 7
+- Average duration: ~5 min
+- Total execution time: ~35 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1 | 2 | ~10 min | ~5 min |
+| 2 | 3 | ~15 min | ~5 min |
+| 3 (partial) | 2 | ~11 min | ~5.5 min |
 
 **Recent Trend:**
 
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 03-02 (8min), 03-01 (3min), 02-03, 02-02, 02-01
+- Trend: consistent 3-8 min per plan
 
 *Updated after each plan completion*
 
@@ -65,6 +67,9 @@ Recent decisions affecting current work:
 - Initial: Manual config resolution `Resolve(flags, file, defaults)` — Viper excluded due to flag-override ordering bugs
 - Initial: SFTP staging-dir pattern (`/opt/<project>/.deploy-tmp-<timestamp>`) — prevents partial-deploy state from day one
 - Initial: knownhosts verification required from day one — tool copies .env files, InsecureIgnoreHostKey is unacceptable
+- 03-02: ShouldExclude does three-level directory matching: exact, prefix, and component scan for deep paths
+- 03-02: Upload closes sftpClient before SSH exec mv/rename commands (resource ordering)
+- 03-02: Remote path operations use path (not filepath) — remote is Linux, local may be any OS
 
 ### Pending Todos
 
@@ -82,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-14T16:39:07.741Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/01-plugin-scaffolding/01-PLAN-01.md
+Last session: 2026-05-14T17:10:00Z
+Stopped at: Completed 03-02 filetransfer package (filter + upload)
+Resume file: None
