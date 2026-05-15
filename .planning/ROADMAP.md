@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct
 - [ ] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
-- [ ] **Phase 7: v2 — Skip .env Override Option** - CLI flag and deploy.yaml setting to skip .env overriding on remote
+- [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
 
 ## Phase Details
 
@@ -74,7 +74,7 @@ Cross-cutting constraints:
   3. Files are staged to a `.deploy-tmp-<timestamp>` directory first, then moved atomically; a failed mid-copy never leaves the target directory in a partial state
   4. User can extend the exclude list via deploy.yaml `target.exclude:` or `--exclude` flag; both extend rather than replace the built-in defaults
   5. Repeat deploys prompt for confirmation (default No); --force or `force: true` in deploy.yaml skips the prompt
-**Plans**: 3 plans
+**Plans**: 5 plans
 
 Plans:
 
@@ -84,6 +84,10 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [x] 03-03-PLAN.md — Wire into main.go (--exclude/--force flags, replace-confirmation prompt, Upload() call, human verification)
+
+**Wave 3** *(gap closure — blocked on Wave 2 completion)*
+- [x] 03-04-PLAN.md — Gap closure: ShellQuote export, sudoPw reuse, four-step atomic swap with rollback
+- [ ] 03-05-PLAN.md — Gap closure: first-deploy mv nesting bug (rm -rf target placeholder before rename)
 
 Cross-cutting constraints:
 - .env must never appear in default excludes — it is the core value proposition of the tool
@@ -127,16 +131,22 @@ Cross-cutting constraints:
   4. A `deploy.yaml` containing host, user, and path is written to the project root after a successful wizard run
 **Plans**: TBD
 
-### Phase 7: v2 — Skip .env Override Option
-**Goal**: A developer can opt out of having the tool overwrite the `.env` file on the remote, either via a CLI flag (`--skip-env`) or a `deploy.yaml` setting (`skip_env_override: true`), so that production secrets already on the server are preserved across deploys
+### Phase 7: v2 — Leftovers
+**Goal**: Ship a wave of small v2 quality-of-life improvements: expand the built-in exclude list to cover common dev-tooling directories, add a `--skip-env` flag so operators can preserve remote secrets across deploys, and add a `--verbose` flag for detailed deploy output
 **Depends on**: Phase 6
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
+
+**Wave 1 — Expanded default excludes + skip-env**
   1. Passing `--skip-env` on the command line causes the `.env` file to be excluded from the SFTP upload, leaving the remote copy untouched
-  2. Setting `skip_env_override: true` in `deploy.yaml` has the same effect as `--skip-env`; the CLI flag takes precedence when both are set
+  2. Setting `skip_env: true` in `deploy.yaml` has the same effect as `--skip-env`; the CLI flag takes precedence when both are set
   3. The exclude logic is additive — `--skip-env` appends `.env` to the effective exclude list without replacing any other configured excludes
   4. When `.env` is skipped, a visible warning is printed so the operator knows the remote `.env` was not updated
+  5. `.claude/`, `.github/`, `.planning/`, `.idea/`, `.vscode/`, `*.swp`, `*.swo`, `coverage/`, `dist/`, and `.terraform/` are added to the built-in default exclude list and silently skipped unless the user explicitly re-includes them
+
+**Wave 2 — Verbose flag**
+  6. `--verbose` prints each file being transferred, each SSH command executed, and its exit code; without the flag output remains as terse as today
 
 ## Progress
 
@@ -147,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
-| 3. File Copy | 4/4 | Complete   | 2026-05-15 |
+| 3. File Copy | 4/5 | Gap closure in progress | 2026-05-15 |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
