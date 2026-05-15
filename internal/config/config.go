@@ -29,10 +29,11 @@ type Host struct {
 // TargetConfig holds the single-target subsection of deploy.yaml.
 // Future phases will add a "targets" (plural) map for named targets.
 type TargetConfig struct {
-	Host    string   `yaml:"host"`
-	Path    string   `yaml:"path"`
-	Exclude []string `yaml:"exclude"`
-	Force   bool     `yaml:"force"`
+	Host        string   `yaml:"host"`
+	Path        string   `yaml:"path"`
+	Exclude     []string `yaml:"exclude"`
+	Force       bool     `yaml:"force"`
+	ComposeFile string   `yaml:"compose_file"`
 }
 
 // FileConfig is the top-level structure of deploy.yaml.
@@ -44,11 +45,12 @@ type FileConfig struct {
 
 // Config is the fully resolved runtime configuration.
 type Config struct {
-	Host     Host
-	Path     string
-	DryRun   bool
-	Excludes []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
-	Force    bool     // flag || file.Target.Force (flag > deploy.yaml > false)
+	Host        Host
+	Path        string
+	DryRun      bool
+	Excludes    []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
+	Force       bool     // flag || file.Target.Force (flag > deploy.yaml > false)
+	ComposeFile string   // resolved compose filename basename (flag > deploy.yaml > auto-detect)
 }
 
 // ParseHost parses an SSH URI of the form ssh://[user@]host[:port].
@@ -153,21 +155,27 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 // Resolve applies three-tier precedence (flag > deploy.yaml > default) to
 // produce a fully resolved Config.
 //
-// New parameters (Phase 3):
+// Parameters:
+//   - flagHost: value from the --host flag (empty string = not set)
+//   - flagPath: value from the --path flag (empty string = not set)
 //   - flagExcludes: values from the repeatable --exclude flag (nil is safe)
 //   - flagForce: value from the --force flag
-//
-// Note: cmd/docker-deploy/main.go must be updated to pass these two new
-// arguments. Current call site passes 4 args; updated call site must pass 6.
+//   - flagComposeFile: value from the --compose-file flag (empty string = not set)
+//   - file: parsed deploy.yaml content (zero value is safe when no file present)
+//   - projectName: basename of the local project directory
+//   - localDir: absolute path to the local project directory (used for auto-detect)
 //
 // Host precedence: flagHost > file.Target.Host > zero value (caller validates).
 // Path precedence: flagPath > file.Target.Path > "/opt/" + projectName.
 // Excludes: defaultExcludes + file.Target.Exclude + flagExcludes (deduped, order preserved).
 // Force: flagForce || file.Target.Force (flag > deploy.yaml > false).
+// ComposeFile: flagComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
-func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, file FileConfig, projectName string) (Config, error) {
+// T-04-01-01: ComposeFile is stored as supplied (basename); Plan 02 validates
+// filepath.Base(ComposeFile) == ComposeFile before constructing remote commands.
+func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, flagComposeFile string, file FileConfig, projectName string, localDir string) (Config, error) {
 	var cfg Config
 
 	switch {
@@ -197,6 +205,25 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 
 	cfg.Excludes = mergeExcludes(file.Target.Exclude, flagExcludes)
 	cfg.Force = flagForce || file.Target.Force
+
+	// ComposeFile resolution: flag > deploy.yaml > auto-detect (D-07, D-08, D-09).
+	switch {
+	case flagComposeFile != "":
+		cfg.ComposeFile = flagComposeFile
+	case file.Target.ComposeFile != "":
+		cfg.ComposeFile = file.Target.ComposeFile
+	default:
+		// Auto-detect: try compose.yaml first, then docker-compose.yml.
+		for _, candidate := range []string{"compose.yaml", "docker-compose.yml"} {
+			if _, err := os.Stat(filepath.Join(localDir, candidate)); err == nil {
+				cfg.ComposeFile = candidate
+				break
+			}
+		}
+		if cfg.ComposeFile == "" {
+			return Config{}, fmt.Errorf("no compose file found; use --compose-file to specify one")
+		}
+	}
 
 	return cfg, nil
 }

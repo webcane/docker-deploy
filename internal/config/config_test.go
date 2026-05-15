@@ -118,7 +118,7 @@ func TestResolveHostPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Host: tt.fileHost},
 			}
-			cfg, err := Resolve(tt.flagHost, "", nil, false, file, "myproject")
+			cfg, err := Resolve(tt.flagHost, "", nil, false, "compose.yaml", file, "myproject", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -175,7 +175,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Path: tt.filePath},
 			}
-			cfg, err := Resolve("", tt.flagPath, nil, false, file, tt.projectName)
+			cfg, err := Resolve("", tt.flagPath, nil, false, "compose.yaml", file, tt.projectName, "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -187,7 +187,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 }
 
 func TestResolveInvalidHostReturnsError(t *testing.T) {
-	_, err := Resolve("http://not-ssh.example.com", "", nil, false, FileConfig{}, "proj")
+	_, err := Resolve("http://not-ssh.example.com", "", nil, false, "compose.yaml", FileConfig{}, "proj", "")
 	if err == nil {
 		t.Fatal("Resolve() with non-ssh scheme should return error")
 	}
@@ -279,7 +279,7 @@ func TestResolveExcludes(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Exclude: tt.fileExclude},
 			}
-			cfg, err := Resolve("", "", tt.flagExcludes, false, file, "proj")
+			cfg, err := Resolve("", "", tt.flagExcludes, false, "compose.yaml", file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -335,7 +335,7 @@ func TestResolveForce(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Force: tt.fileForce},
 			}
-			cfg, err := Resolve("", "", nil, tt.flagForce, file, "proj")
+			cfg, err := Resolve("", "", nil, tt.flagForce, "compose.yaml", file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
