@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -342,6 +343,134 @@ func TestResolveForce(t *testing.T) {
 				t.Errorf("Force = %v, want %v", cfg.Force, tt.wantForce)
 			}
 		})
+	}
+}
+
+// --- TestResolveComposeFile tests (TDD: 04-01) ---
+
+// TestResolveComposeFile_FlagWins verifies that the --compose-file flag takes
+// priority over deploy.yaml compose_file and local auto-detection.
+func TestResolveComposeFile_FlagWins(t *testing.T) {
+	dir := t.TempDir()
+	// Create compose.yaml in local dir so auto-detect would find it.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+	file := FileConfig{
+		Target: TargetConfig{ComposeFile: "compose.yaml"},
+	}
+	cfg, err := Resolve("", "", nil, false, "docker-compose.yml", file, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.ComposeFile != "docker-compose.yml" {
+		t.Errorf("ComposeFile = %q, want %q", cfg.ComposeFile, "docker-compose.yml")
+	}
+}
+
+// TestResolveComposeFile_FileWins verifies that deploy.yaml compose_file wins
+// over auto-detection when the flag is empty.
+func TestResolveComposeFile_FileWins(t *testing.T) {
+	dir := t.TempDir()
+	// Create compose.yaml in local dir so auto-detect would find it.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+	file := FileConfig{
+		Target: TargetConfig{ComposeFile: "mycompose.yaml"},
+	}
+	cfg, err := Resolve("", "", nil, false, "", file, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.ComposeFile != "mycompose.yaml" {
+		t.Errorf("ComposeFile = %q, want %q", cfg.ComposeFile, "mycompose.yaml")
+	}
+}
+
+// TestResolveComposeFile_AutoDetectComposeYaml verifies auto-detection finds
+// compose.yaml when no flag or deploy.yaml compose_file is set.
+func TestResolveComposeFile_AutoDetectComposeYaml(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+	cfg, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.ComposeFile != "compose.yaml" {
+		t.Errorf("ComposeFile = %q, want %q", cfg.ComposeFile, "compose.yaml")
+	}
+}
+
+// TestResolveComposeFile_AutoDetectDockerComposeYml verifies auto-detection
+// falls back to docker-compose.yml when compose.yaml is absent.
+func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating docker-compose.yml: %v", err)
+	}
+	cfg, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.ComposeFile != "docker-compose.yml" {
+		t.Errorf("ComposeFile = %q, want %q", cfg.ComposeFile, "docker-compose.yml")
+	}
+}
+
+// TestResolveComposeFile_NoFileFound verifies that Resolve() returns an error
+// containing "no compose file found" when no compose file is available by any
+// resolution method.
+func TestResolveComposeFile_NoFileFound(t *testing.T) {
+	dir := t.TempDir()
+	_, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error when no compose file found, got nil")
+	}
+	if !strings.Contains(err.Error(), "no compose file found") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "no compose file found")
+	}
+}
+
+// TestResolveComposeFile_PreservesExistingFields verifies that adding the
+// ComposeFile parameter does not break Host, Path, Excludes, and Force
+// resolution.
+func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+	file := FileConfig{
+		Target: TargetConfig{
+			Host:  "ssh://user@host.example.com:22",
+			Path:  "/opt/myapp",
+			Force: true,
+		},
+	}
+	cfg, err := Resolve("", "", []string{"*.tmp"}, false, "", file, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Host.Hostname != "host.example.com" {
+		t.Errorf("Host.Hostname = %q, want %q", cfg.Host.Hostname, "host.example.com")
+	}
+	if cfg.Path != "/opt/myapp" {
+		t.Errorf("Path = %q, want %q", cfg.Path, "/opt/myapp")
+	}
+	if cfg.Force != true {
+		t.Errorf("Force = %v, want true", cfg.Force)
+	}
+	found := false
+	for _, e := range cfg.Excludes {
+		if e == "*.tmp" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Excludes does not contain *.tmp; got %v", cfg.Excludes)
 	}
 }
 
