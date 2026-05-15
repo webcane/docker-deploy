@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 04-02 — RunCompose() with PTY/pipe output routing and exit code propagation; plan 03 next
-last_updated: "2026-05-15T19:58:49Z"
+stopped_at: Completed 04-03 — Full deploy loop wired and human-verified (6 tests); Phase 4 complete; Phase 5 next
+last_updated: "2026-05-15T20:30:00Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 10
-  percent: 43
+  completed_plans: 11
+  percent: 57
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 4 — Core Deploy Loop
+**Current focus:** Phase 5 — Pre-flight & Health Polling
 
 ## Current Position
 
-Phase: 04 of 7 (Core Deploy Loop)
-Plan: 02 complete, 03 next
-Status: In progress
+Phase: 04 of 7 (Core Deploy Loop) — COMPLETE
+Plan: 03 of 03 complete
+Status: Phase 4 complete; Phase 5 next
 Last activity: 2026-05-15
 Resume file: None
 
-Progress: [█████░░░░░] 52%
+Progress: [██████░░░░] 57%
 
 ## Performance Metrics
 
@@ -80,6 +80,7 @@ Recent decisions affecting current work:
 - 03-05: Insert rm -rf remoteBase in first-deploy else branch before mv — fixes nesting bug where mkdir-p placeholder caused mv to nest staging inside remoteBase
 - 04-01: Resolve() updated to 8-arg signature; ComposeFile auto-detects compose.yaml then docker-compose.yml; Plan 02 is responsible for filepath.Base() validation of ComposeFile value before remote execution
 - 04-02: RunCompose() uses session.Start() not session.Run(); wg.Wait() before session.Wait() in non-TTY path ensures pipe drain before exit check; composeFile NOT ShellQuote'd (basename validated by callers per T-04-01-01)
+- 04-03: RunCompose() writes its own stderr failure line; runDeploy() returns error without double-printing; basename validation (filepath.Base check) in runDeploy() per T-04-03-01; context.Background() passed to RunCompose (compose up -d is detached)
 
 ### Roadmap Evolution
 
@@ -102,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T19:58:49Z
-Stopped at: Completed 04-02 — RunCompose() with PTY/pipe output routing and exit code propagation; plan 03 next
+Last session: 2026-05-15T20:30:00Z
+Stopped at: Completed 04-03 — Full deploy loop wired and human-verified (6 tests); Phase 4 complete; Phase 5 next
 Resume file: None

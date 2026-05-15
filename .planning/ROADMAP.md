@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Plugin Scaffolding** - `docker deploy --help` works in the Docker CLI; module locked; CI configured — completed 2026-05-13
 - [x] **Phase 2: SSH Transport & Config** - SSH dial (knownhosts, timeout, auth chain) and config resolution work; operator can verify connectivity — completed 2026-05-14
 - [x] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote — completed 2026-05-14
-- [ ] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct
+- [x] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct — completed 2026-05-15
 - [ ] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
 - [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
@@ -112,7 +112,7 @@ Plans:
 - [x] 04-02-PLAN.md — compose package (RunCompose() with PTY/pipe output routing, exit code propagation, TDD)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 04-03-PLAN.md — Wire into main.go (--compose-file flag, Resolve() call update, basename validation, RunCompose() call, human verification)
+- [x] 04-03-PLAN.md — Wire into main.go (--compose-file flag, Resolve() call update, basename validation, RunCompose() call, human verification)
 
 Cross-cutting constraints:
 - InsecureIgnoreHostKey must not appear anywhere in the codebase (grep gate in 04-02 and 04-03)
@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
-| 4. Core Deploy Loop | 2/3 | In progress | - |
+| 4. Core Deploy Loop | 3/3 | Complete | 2026-05-15 |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Skip .env Override Option | 0/? | Not started | - |
