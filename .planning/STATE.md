@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 3 complete — ready to plan Phase 4
-last_updated: "2026-05-14T18:00:00.000Z"
+status: planning
+stopped_at: Completed 03-03 main.go wiring — Phase 3 complete, human verification passed
+last_updated: "2026-05-15T05:00:21.380Z"
 last_activity: 2026-05-14
 progress:
-  total_phases: 6
-  completed_phases: 3
-  total_plans: 9
+  total_phases: 7
+  completed_phases: 2
+  total_plans: 7
   completed_plans: 9
-  percent: 50
+  percent: 29
 ---
 
 # Project State
@@ -73,6 +73,13 @@ Recent decisions affecting current work:
 - 03-03: Staging in /tmp/docker-deploy-<ts> avoids /opt permission issues; target dir creation is separate step with sudo fallback
 - 03-03: Interactive sudo with term.ReadPassword + 3 retry attempts for target dir creation on remote
 - 03-03: Graceful staging fallback leaves /tmp staged files with exact recovery commands when sudo exhausted
+- 03-04: ShellQuote exported from filetransfer package; main.go uses filetransfer.ShellQuote to avoid duplication
+- 03-04: sudoPw captured as Upload()-local var; sudoRun closure reuses it for all sudo mv/rm ops — single prompt per deploy
+- 03-04: Four-step atomic swap (staging->new, remoteBase->old, new->remoteBase, rm backup) with rollback at step-2 and step-3; backup rm is non-fatal
+
+### Roadmap Evolution
+
+- Phase 7 added: v2 — Skip .env Override Option (CLI flag and deploy.yaml setting to skip .env overriding on remote)
 
 ### Pending Todos
 
@@ -90,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-14T17:35:00Z
-Stopped at: Completed 03-03 main.go wiring — Phase 3 complete, human verification passed
+Last session: 2026-05-15T00:00:00Z
+Stopped at: Completed 03-04 tasks 1+2 — ShellQuote fix, sudo ownership+atomic swap rollback; human checkpoint pending (Task 3)
 Resume file: None

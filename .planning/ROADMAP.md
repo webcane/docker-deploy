@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct
 - [ ] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
+- [ ] **Phase 7: v2 — Skip .env Override Option** - CLI flag and deploy.yaml setting to skip .env overriding on remote
 
 ## Phase Details
 
@@ -126,6 +127,17 @@ Cross-cutting constraints:
   4. A `deploy.yaml` containing host, user, and path is written to the project root after a successful wizard run
 **Plans**: TBD
 
+### Phase 7: v2 — Skip .env Override Option
+**Goal**: A developer can opt out of having the tool overwrite the `.env` file on the remote, either via a CLI flag (`--skip-env`) or a `deploy.yaml` setting (`skip_env_override: true`), so that production secrets already on the server are preserved across deploys
+**Depends on**: Phase 6
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. Passing `--skip-env` on the command line causes the `.env` file to be excluded from the SFTP upload, leaving the remote copy untouched
+  2. Setting `skip_env_override: true` in `deploy.yaml` has the same effect as `--skip-env`; the CLI flag takes precedence when both are set
+  3. The exclude logic is additive — `--skip-env` appends `.env` to the effective exclude list without replacing any other configured excludes
+  4. When `.env` is skipped, a visible warning is printed so the operator knows the remote `.env` was not updated
+
 ## Progress
 
 **Execution Order:**
@@ -135,7 +147,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
-| 3. File Copy | 3/3 | Complete | 2026-05-14 |
+| 3. File Copy | 4/4 | Complete   | 2026-05-15 |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
+| 7. v2 — Skip .env Override Option | 0/? | Not started | - |
