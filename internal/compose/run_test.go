@@ -189,7 +189,9 @@ func TestRunCompose_CommandConstruction(t *testing.T) {
 	if len(cmds) == 0 {
 		t.Fatal("no commands recorded by mock server")
 	}
-	want := "docker compose -f '/opt/myapp'/compose.yaml up -d --remove-orphans"
+	// CR-01 fix: both remotePath and composeFile are combined and shell-quoted
+	// as a single token, so the full path is wrapped in one set of quotes.
+	want := "docker compose -f '/opt/myapp/compose.yaml' up -d --remove-orphans"
 	if cmds[0] != want {
 		t.Errorf("command = %q; want %q", cmds[0], want)
 	}
@@ -236,8 +238,10 @@ func TestRunCompose_ShellQuoteRemotePath(t *testing.T) {
 	if len(cmds) == 0 {
 		t.Fatal("no commands recorded by mock server")
 	}
-	if !strings.Contains(cmds[0], "'/opt/my app'") {
-		t.Errorf("command %q does not contain quoted path '/opt/my app'", cmds[0])
+	// CR-01 fix: the full path (remotePath + "/" + composeFile) is combined
+	// and shell-quoted as a single token, so check for the combined quoted form.
+	if !strings.Contains(cmds[0], "'/opt/my app/compose.yaml'") {
+		t.Errorf("command %q does not contain quoted combined path '/opt/my app/compose.yaml'", cmds[0])
 	}
 }
 
