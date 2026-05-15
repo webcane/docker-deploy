@@ -71,7 +71,13 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 	// The deferred close below handles the normal (non-cancelled) exit path.
 	// When the context is cancelled the goroutine above closes the session first;
 	// the subsequent defer call is a no-op (double-close is safe for gossh).
-	defer session.Close() //nolint:errcheck
+	// io.EOF is expected after session.Wait() drains the remote process; any
+	// other error is unexpected and logged to stderr for diagnosis (WR-04).
+	defer func() {
+		if closeErr := session.Close(); closeErr != nil && !errors.Is(closeErr, io.EOF) {
+			fmt.Fprintf(os.Stderr, "warning: session close: %v\n", closeErr)
+		}
+	}()
 
 	// TTY detection: decide between PTY allocation and goroutine pipe drains.
 	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
