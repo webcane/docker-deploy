@@ -200,6 +200,13 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 	} else {
 		// First deploy — move staging directly to target.
+		// Step 8 (mkdir -p) created remoteBase as an empty directory. If we now
+		// run `mv stagingDir remoteBase`, Unix mv moves stagingDir *inside*
+		// remoteBase (because the destination exists) instead of renaming it.
+		// Remove the empty placeholder first so that mv performs a clean rename.
+		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
+			return fmt.Errorf("removing target placeholder before first deploy: %w", err)
+		}
 		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return fmt.Errorf("moving staging dir to target: %w", err)
 		}
