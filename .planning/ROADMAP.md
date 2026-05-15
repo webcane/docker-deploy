@@ -87,7 +87,7 @@ Plans:
 
 **Wave 3** *(gap closure — blocked on Wave 2 completion)*
 - [x] 03-04-PLAN.md — Gap closure: ShellQuote export, sudoPw reuse, four-step atomic swap with rollback
-- [ ] 03-05-PLAN.md — Gap closure: first-deploy mv nesting bug (rm -rf target placeholder before rename)
+- [x] 03-05-PLAN.md — Gap closure: first-deploy mv nesting bug (rm -rf target placeholder before rename)
 
 Cross-cutting constraints:
 - .env must never appear in default excludes — it is the core value proposition of the tool
@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
-| 3. File Copy | 4/5 | Gap closure in progress | 2026-05-15 |
+| 3. File Copy | 5/5 | Complete | 2026-05-15 |
 | 4. Core Deploy Loop | 0/? | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |

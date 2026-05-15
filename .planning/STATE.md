@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 03-04 — all 4 gaps verified, human checkpoint approved, plan complete
-last_updated: "2026-05-15T07:37:24.361Z"
+stopped_at: Completed 03-05 — first-deploy mv nesting bug fixed with regression tests
+last_updated: "2026-05-15T08:00:00.000Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
@@ -77,10 +77,12 @@ Recent decisions affecting current work:
 - 03-04: ShellQuote exported from filetransfer package; main.go uses filetransfer.ShellQuote to avoid duplication
 - 03-04: sudoPw captured as Upload()-local var; sudoRun closure reuses it for all sudo mv/rm ops — single prompt per deploy
 - 03-04: Four-step atomic swap (staging->new, remoteBase->old, new->remoteBase, rm backup) with rollback at step-2 and step-3; backup rm is non-fatal
+- 03-05: Insert rm -rf remoteBase in first-deploy else branch before mv — fixes nesting bug where mkdir-p placeholder caused mv to nest staging inside remoteBase
 
 ### Roadmap Evolution
 
-- Phase 7 added: v2 — Skip .env Override Option (CLI flag and deploy.yaml setting to skip .env overriding on remote)
+- Phase 7 added: v2 — Leftovers (expanded default excludes, --skip-env / skip_env setting, --verbose flag)
+- Phase 7 edited: renamed from "Skip .env Override Option" to "Leftovers"; skip_env_override → skip_env; --verbose split into its own Wave 2
 
 ### Pending Todos
 
