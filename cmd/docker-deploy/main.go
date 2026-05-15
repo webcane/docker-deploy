@@ -14,6 +14,7 @@ import (
 	"github.com/docker/cli/cli/command"
 	"github.com/spf13/cobra"
 
+	"github.com/mniedre/docker-deploy/internal/compose"
 	"github.com/mniedre/docker-deploy/internal/config"
 	filetransfer "github.com/mniedre/docker-deploy/internal/filetransfer"
 	sshpkg "github.com/mniedre/docker-deploy/internal/ssh"
@@ -28,15 +29,16 @@ func main() {
 		var dryRun bool
 		var excludes []string
 		var force bool
+		var composeFile string
 
 		cmd := &cobra.Command{
 			Use:   "deploy",
 			Short: "Deploy a docker-compose project to a remote VPS",
 			RunE: func(cmd *cobra.Command, args []string) error {
 				if dryRun {
-					return runDryRun(host, path, excludes, force)
+					return runDryRun(host, path, excludes, force, composeFile)
 				}
-				return runDeploy(host, path, excludes, force)
+				return runDeploy(host, path, excludes, force, composeFile)
 			},
 		}
 
@@ -45,6 +47,7 @@ func main() {
 		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Verify SSH connectivity and print resolved config; do not deploy")
 		cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "Exclude pattern (repeatable); extends built-in defaults")
 		cmd.Flags().BoolVar(&force, "force", false, "Skip replace-confirmation on repeat deploy")
+		cmd.Flags().StringVar(&composeFile, "compose-file", "", "Compose file name in project root (default: auto-detect compose.yaml or docker-compose.yml)")
 
 		return cmd
 	}, metadata.Metadata{
@@ -56,7 +59,7 @@ func main() {
 }
 
 // runDryRun implements the --dry-run flow: Resolve() -> Dial() -> print summary or error.
-func runDryRun(host, path string, excludes []string, force bool) error {
+func runDryRun(host, path string, excludes []string, force bool, composeFile string) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -71,10 +74,12 @@ func runDryRun(host, path string, excludes []string, force bool) error {
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	resolved, err := config.Resolve(host, path, excludes, force, fileConfig, projectName)
+	// composeFile is not resolved for dry-run; validation happens in runDeploy.
+	resolved, err := config.Resolve(host, path, excludes, force, "" /* compose not needed for dry-run */, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
+	_ = composeFile // dry-run does not execute compose
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
@@ -121,8 +126,8 @@ func runDryRun(host, path string, excludes []string, force bool) error {
 }
 
 // runDeploy implements the full deploy flow:
-// Resolve() -> Dial() -> exists-check -> prompt-or-skip -> Upload() -> success.
-func runDeploy(host, path string, excludes []string, force bool) error {
+// Resolve() -> Dial() -> exists-check -> prompt-or-skip -> Upload() -> RunCompose() -> success.
+func runDeploy(host, path string, excludes []string, force bool, composeFile string) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -137,7 +142,7 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	resolved, err := config.Resolve(host, path, excludes, force, fileConfig, projectName)
+	resolved, err := config.Resolve(host, path, excludes, force, composeFile, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
@@ -145,6 +150,12 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
 		return fmt.Errorf("no host configured: use --host flag or set target.host in deploy.yaml")
+	}
+
+	// 4b. Validate that ComposeFile is a basename (no path separators) to prevent
+	// shell injection via the --compose-file flag (T-04-03-01).
+	if filepath.Base(resolved.ComposeFile) != resolved.ComposeFile {
+		return fmt.Errorf("compose file must be a filename, not a path: %q", resolved.ComposeFile)
 	}
 
 	// 5. Build ssh.DialConfig from the resolved config.
@@ -210,7 +221,14 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 		return err
 	}
 
-	// 9. Print success summary.
+	// 9. Execute docker compose up on the remote host, streaming output locally.
+	// RunCompose() writes the failure line to os.Stderr on non-zero exit; no
+	// additional wrapping is needed here.
+	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile); err != nil {
+		return err
+	}
+
+	// 10. Print success summary after compose completes successfully.
 	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s:%s\n", fileCount, resolved.Host.Hostname, resolved.Path)
 
 	return nil
