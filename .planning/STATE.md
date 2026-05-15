@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 04-01 — Config.ComposeFile + updated Resolve() signature; main.go broken until Plan 03
-last_updated: "2026-05-15T19:54:11Z"
+stopped_at: Completed 04-02 — RunCompose() with PTY/pipe output routing and exit code propagation; plan 03 next
+last_updated: "2026-05-15T19:58:49Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 of 7 (Core Deploy Loop)
-Plan: 01 complete, 02 next
+Plan: 02 complete, 03 next
 Status: In progress
 Last activity: 2026-05-15
 Resume file: None
 
-Progress: [█████░░░░░] 50%
+Progress: [█████░░░░░] 52%
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Recent decisions affecting current work:
 - 03-04: Four-step atomic swap (staging->new, remoteBase->old, new->remoteBase, rm backup) with rollback at step-2 and step-3; backup rm is non-fatal
 - 03-05: Insert rm -rf remoteBase in first-deploy else branch before mv — fixes nesting bug where mkdir-p placeholder caused mv to nest staging inside remoteBase
 - 04-01: Resolve() updated to 8-arg signature; ComposeFile auto-detects compose.yaml then docker-compose.yml; Plan 02 is responsible for filepath.Base() validation of ComposeFile value before remote execution
+- 04-02: RunCompose() uses session.Start() not session.Run(); wg.Wait() before session.Wait() in non-TTY path ensures pipe drain before exit check; composeFile NOT ShellQuote'd (basename validated by callers per T-04-01-01)
 
 ### Roadmap Evolution
 
@@ -101,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T19:54:11Z
-Stopped at: Completed 04-01 — Config.ComposeFile + updated Resolve() signature; plan 02 next
+Last session: 2026-05-15T19:58:49Z
+Stopped at: Completed 04-02 — RunCompose() with PTY/pipe output routing and exit code propagation; plan 03 next
 Resume file: None
