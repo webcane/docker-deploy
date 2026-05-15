@@ -13,12 +13,12 @@
 
 ### Deploy (DEPLOY)
 
-- [ ] **DEPLOY-01**: User can deploy with `docker deploy --host ssh://user@host:port`
+- [x] **DEPLOY-01**: User can deploy with `docker deploy --host ssh://user@host:port`
 - [x] **DEPLOY-02**: Project files are copied to remote via SFTP (`github.com/pkg/sftp` over the existing SSH connection)
 - [x] **DEPLOY-03**: Files are staged to a temp directory first (`/tmp/docker-deploy-<timestamp>`) via SFTP, then moved atomically on the remote to prevent partial-deploy state
-- [ ] **DEPLOY-04**: `docker compose up -d` is executed on the remote via SSH after file copy
-- [ ] **DEPLOY-05**: Plugin exits with non-zero code if any step (pre-flight, copy, compose) fails
-- [ ] **DEPLOY-06**: Deploy output (compose up result) is streamed back to the local terminal
+- [x] **DEPLOY-04**: `docker compose up -d` is executed on the remote via SSH after file copy
+- [x] **DEPLOY-05**: Plugin exits with non-zero code if any step (pre-flight, copy, compose) fails
+- [x] **DEPLOY-06**: Deploy output (compose up result) is streamed back to the local terminal
 
 ### File Management (FILES)
 
@@ -106,10 +106,10 @@ Updated during roadmap creation.
 | FILES-01 | Phase 3 | Complete |
 | FILES-02 | Phase 3 | Complete |
 | FILES-03 | Phase 3 | Complete |
-| DEPLOY-01 | Phase 4 | Pending |
-| DEPLOY-04 | Phase 4 | Pending |
-| DEPLOY-05 | Phase 4 | Pending |
-| DEPLOY-06 | Phase 4 | Pending |
+| DEPLOY-01 | Phase 4 | Complete |
+| DEPLOY-04 | Phase 4 | Complete |
+| DEPLOY-05 | Phase 4 | Complete |
+| DEPLOY-06 | Phase 4 | Complete |
 | CHECK-01 | Phase 5 | Pending |
 | CHECK-02 | Phase 5 | Pending |
 | CHECK-03 | Phase 5 | Pending |
