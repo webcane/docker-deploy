@@ -96,6 +96,12 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		if pipeErr != nil {
 			return fmt.Errorf("getting stderr pipe: %w", pipeErr)
 		}
+		// Start the command BEFORE launching goroutines. If Start fails, no
+		// goroutines have been spawned, so there is nothing to leak (CR-02).
+		if startErr := session.Start(cmd); startErr != nil {
+			return fmt.Errorf("starting compose session: %w", startErr)
+		}
+		// Pipes are live — launch drain goroutines now that Start succeeded.
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
@@ -106,10 +112,6 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 			defer wg.Done()
 			io.Copy(os.Stderr, stderrPipe) //nolint:errcheck
 		}()
-		// Start the command; drain goroutines; then wait for exit.
-		if startErr := session.Start(cmd); startErr != nil {
-			return fmt.Errorf("starting compose session: %w", startErr)
-		}
 		// Wait for both drains to complete before calling session.Wait() to
 		// ensure all output is flushed (prevents truncated log lines in CI).
 		wg.Wait()
