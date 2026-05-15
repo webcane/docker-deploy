@@ -1,197 +1,210 @@
 ---
 phase: 03-file-copy
-reviewed: 2026-05-14T00:00:00Z
-depth: standard
-files_reviewed: 6
+reviewed: 2026-05-15T00:00:00Z
+depth: quick
+files_reviewed: 3
 files_reviewed_list:
-  - cmd/docker-deploy/main.go
-  - internal/config/config.go
-  - internal/config/config_test.go
-  - internal/filetransfer/filter.go
-  - internal/filetransfer/filter_test.go
   - internal/filetransfer/upload.go
+  - internal/filetransfer/shellquote_test.go
+  - cmd/docker-deploy/main.go
 findings:
   critical: 2
-  warning: 3
+  warning: 2
   info: 1
-  total: 6
+  total: 5
 status: issues_found
 ---
 
-# Phase 03: Code Review Report
+# Phase 03: Gap-Closure Code Review Report (Plan 03-04 Re-Review)
 
-**Reviewed:** 2026-05-14
-**Depth:** standard
-**Files Reviewed:** 6
+**Reviewed:** 2026-05-15
+**Depth:** quick
+**Files Reviewed:** 3 (targeted re-review of gap-closure changes)
 **Status:** issues_found
 
 ## Summary
 
-This phase adds the `filetransfer` package (`filter.go`, `upload.go`) and extends `config.go` with exclude and force fields. The SSH session model is followed correctly (one session per exec, SFTP wraps the existing client). Known-hosts verification is intact. The main structural concerns are: (1) `shellQuote` does not escape embedded single quotes, creating a command injection path for any path value containing a `'` character; (2) file permissions are silently dropped on upload, breaking executable scripts; (3) the atomic swap leaves the service directory absent if the second `mv` fails; (4) `WalkFiles` is called twice in `runDeploy`, creating a TOCTOU race between the count display and the actual upload.
+This review validates the gap-closure fixes for CR-01 (shellquote injection) and CR-02 (atomic swap rollback) from plan 03-04. Findings:
+
+1. **CR-01 RESOLVED** — ShellQuote correctly escapes embedded single quotes using the `'\''` technique. All call sites in upload.go and main.go:179 use the escaped version.
+2. **CR-02 PARTIALLY RESOLVED BUT NEW BLOCKER** — The atomic swap now includes rollback logic on step-2 failure (lines 191-194), but the rollback itself is fatally flawed: it calls `sudoRun(fmt.Sprintf("mv %s %s", ...))`, which will fail silently if the password is empty (the backup `oldDir` is not restored; remoteBase remains absent). This is a regression relative to the original code, which at least had deterministic behavior.
+3. **NEW BLOCKER** — The `sudoRun` closure's lazy-sudo logic has a critical flow: if step 2 (placement of staging dir) is reached but fails **before** collecting the password (because the first unsudo'd attempt itself fails), and if the rollback in step 2 error path is reached, the rollback will SILENTLY FAIL because `sudoPw` is empty and the rollback uses `sudoRun` which tries without-sudo-first. The old backup dir is left in place and remoteBase is absent.
+4. **CR-02 REGRESSION** — The backup cleanup (line 196: `rm -rf`) is now non-fatal (warning only, per the summary), but the error message does not include the backup directory path, leaving the operator without actionable recovery instructions.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `shellQuote` does not escape embedded single quotes — command injection on remote
+### CR-01: ShellQuote injection — RESOLVED
 
-**File:** `internal/filetransfer/upload.go:252-254`
+**File:** `internal/filetransfer/upload.go:259-261` (lines verified)
 
-**Issue:** `shellQuote` wraps a string in single quotes without escaping any `'` characters inside it. Every SSH command constructed in `Upload` (mkdir, mv, rm, test -d) and in `main.go:179` uses this function or an equivalent inline pattern. A path value containing a single quote — whether from the `--path` CLI flag, `deploy.yaml`, or the project directory basename — breaks out of the single-quoted context and injects arbitrary shell commands that execute on the remote server.
+**Status:** FIXED ✓
 
-Demonstration: `remoteBase = "/opt/app'; rm -rf /opt; echo '"` produces:
-```
-mkdir -p '/opt/app'; rm -rf /opt; echo ''
-```
-This is a real injection vector: `deploy.yaml` is typically committed to a repository; if a malicious path value is committed, any team member running `docker deploy` executes the injected command on their server under their SSH credentials.
+The implementation correctly uses `strings.ReplaceAll(s, "'", "'\\''")` to escape embedded single quotes. Test cases in `shellquote_test.go` verify the fix (all 5 cases including embedded quote pass). Call sites in `upload.go` (lines 119, 148, 159, 163, 188, 191, 196, 201, 212) all use `ShellQuote()`. The main.go line 179 also uses `filetransfer.ShellQuote(resolved.Path)`.
 
-The same vulnerability applies to the inline format string in `main.go:179`:
-```go
-session.Output(fmt.Sprintf("test -d '%s' && echo exists || echo absent", resolved.Path))
-```
-
-**Fix:** Escape embedded single quotes before wrapping. In POSIX shell, a single quote inside a single-quoted string is expressed as `'\''`:
-
-```go
-func shellQuote(s string) string {
-    // Replace each ' with '\'' to close, escape, and reopen the single-quoted string.
-    escaped := strings.ReplaceAll(s, "'", `'\''`)
-    return "'" + escaped + "'"
-}
-```
-
-Also replace the inline format string in `main.go:179` with a call to `shellQuote` from the `filetransfer` package (export it) or duplicate the fix locally.
+**No further action required for CR-01.**
 
 ---
 
-### CR-02: Atomic swap leaves `remoteBase` absent if the second `mv` fails
+### CR-02: Atomic swap rollback — BLOCKER (Regression)
 
-**File:** `internal/filetransfer/upload.go:184-191`
+**File:** `internal/filetransfer/upload.go:181-204`
 
-**Issue:** The three-step swap is:
-1. `mv remoteBase oldDir` — removes the live directory
-2. `mv stagingDir remoteBase` — installs the new version
-3. `rm -rf oldDir` — removes the backup
-
-If step 2 fails (network hiccup, permission error, disk full on remote), the code returns:
-```go
-return fmt.Errorf("renaming staging dir to target: %w", err)
-```
-
-At this point `remoteBase` no longer exists — the old production directory was renamed away in step 1 and nothing replaced it. The running docker-compose stack may still be functional (containers are already running), but any subsequent `docker compose up` or restart will fail because the compose file is gone from the expected location. The caller (`runDeploy`) prints "Deploy failed" and exits, leaving no staged files or the old dir in place.
-
-**Fix:** If step 2 fails, attempt to roll back step 1 before returning:
+**Issue:** The three-step atomic swap includes rollback on step 2 failure:
 
 ```go
-if err := sshExec(client, fmt.Sprintf("mv %s %s", shellQuote(stagingDir), shellQuote(remoteBase))); err != nil {
-    // Attempt rollback: restore the old directory to remoteBase.
-    _ = sshExec(client, fmt.Sprintf("mv %s %s", shellQuote(oldDir), shellQuote(remoteBase)))
-    return fmt.Errorf("renaming staging dir to target (old dir restored if mv succeeded): %w", err)
+if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+    // Rollback: restore remoteBase from backup.
+    _ = sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+    return fmt.Errorf("placing new version at target (backup is at %s): %w", oldDir, err)
 }
 ```
 
-At minimum, the error message should tell the operator where the backup is so they can recover manually:
+The **critical flaw:** the rollback invokes `sudoRun()`. If the step-2 `mv` fails at a point where the sudo password was never collected (e.g., the first unsudo'd `mv stagingDir remoteBase` fails due to permission denied — `stagingDir` is in /tmp, owned by the deploy user, but remoteBase is owned by root), then `sudoPw` is empty. The rollback `sudoRun(fmt.Sprintf("mv %s %s", ...))` will then:
+
+1. Try without sudo first: `mv /opt/app-old-<ts> /opt/app` — fails because remoteBase parent dir is owned by root
+2. Check if `sudoPw == ""` — YES, it is
+3. Interactively prompt for sudo password (up to 3 attempts)
+
+This means the operator sees an interactive sudo prompt **during the error recovery path**, which violates the documented behavior in lines 130-133 ("at most one interactive prompt fires per Upload invocation"). If the operator is running this non-interactively (e.g., in CI/CD or as part of a larger deployment script), the rollback will hang or timeout waiting for input that never comes.
+
+Even worse: if the password prompt times out or the operator does not enter it (because they are not at the terminal), the rollback is silently skipped (the `_` blank assignment ignores the error). The old backup dir remains at `oldDir`, remoteBase is absent, and the error message does not indicate recovery path.
+
+**Second issue:** The error message says "backup is at %s" but does not provide the `sudo mv` command needed to recover manually. Contrast with the earlier warning (lines 165-176), which does provide actionable instructions.
+
+**Fix:**
+
+Option A (Strict): Collect the sudo password **before** any mv operation, not lazily. Move the initial `mkdir -p` step and password collection outside of the `existsBefore` conditional:
+
 ```go
-return fmt.Errorf(
-    "renaming staging dir to target: %w\nOld directory is at %s on remote — restore with: mv %s %s",
-    err, oldDir, oldDir, remoteBase,
+// Before the 3-step swap, ensure we have sudo auth if mkdir needs it:
+if err := sudoRun(fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))); err != nil {
+    // password collection happens here, then all subsequent ops use sudoPw
+}
+// NOW both existsBefore paths can safely use sudoRun in rollback
+```
+
+Option B (Pragmatic): Use the unsudo'd mv for rollback (do NOT call `sudoRun`), and document that rollback is best-effort:
+
+```go
+if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+    // Attempt rollback with unsudo'd mv (may fail silently if root-owned, but no interactive prompt).
+    // Real recovery: operator can manually `sudo mv <oldDir> <remoteBase>` from the error message.
+    _ = sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+    return fmt.Errorf(
+        "placing new version at target (old files are at %s on %s). Recover with:\n"+
+        "  ssh %s 'sudo mv %s %s'\n",
+        oldDir, client.RemoteAddr().String(),
+        client.RemoteAddr().String(), ShellQuote(oldDir), ShellQuote(remoteBase),
+    )
+}
+```
+
+**Current fix is BLOCKER: do not ship.**
+
+---
+
+### WR-01: Backup cleanup failure now non-fatal but lacks recovery instructions
+
+**File:** `internal/filetransfer/upload.go:196-198`
+
+**Issue:** The cleanup of the old backup dir (step 3 of the swap) now prints a warning instead of returning an error (per the summary, "non-fatal"). However, the warning at line 197:
+
+```go
+fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
+```
+
+Does not provide the path or command needed for the operator to clean up manually. The earlier warning (lines 165-176) is much more actionable.
+
+**Fix:** Include a cleanup command in the warning:
+
+```go
+fmt.Fprintf(os.Stderr,
+    "Warning: could not remove backup directory %s: %v\n"+
+    "To clean up manually:\n"+
+    "  ssh %s 'sudo rm -rf %s'\n",
+    oldDir, err,
+    client.RemoteAddr().String(), ShellQuote(oldDir),
 )
 ```
+
+This is a WARNING (not critical), but the operator feedback is now complete.
 
 ---
 
 ## Warnings
 
-### WR-01: File permissions not preserved — executable scripts lose `+x` on remote
+### WR-02: `main.go` line 179 existence check does NOT use ShellQuote
 
-**File:** `internal/filetransfer/upload.go:92`
+**File:** `cmd/docker-deploy/main.go:179`
 
-**Issue:** `sftpClient.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)` sends an SSH `SSH_FXP_OPEN` packet with no `attrs` field. The remote server creates the file with its umask-derived permissions (typically `0644`). The local file's mode is never read. Executable files (`entrypoint.sh`, `healthcheck.sh`, custom scripts) lose their execute bit on the remote. Any docker-compose service that uses a shell script as its entrypoint will fail to start after the first deploy.
-
-**Fix:** Read the local file's mode and apply it after upload using `sftpClient.Chmod`:
+**Issue:** The file reads:
 
 ```go
-localInfo, err := localFile.Stat()
-if err != nil {
-    localFile.Close()
-    return fmt.Errorf("stat local file %s: %w", localPath, err)
-}
-// ... copy contents ...
-remoteFile.Close()
-localFile.Close()
-
-if err := sftpClient.Chmod(remotePath, localInfo.Mode()); err != nil {
-    return fmt.Errorf("setting permissions on %s: %w", remotePath, err)
-}
+out, err := session.Output(fmt.Sprintf("test -d %s && echo exists || echo absent", filetransfer.ShellQuote(resolved.Path)))
 ```
+
+This DOES use `ShellQuote`. ✓ No issue here; the fix was applied correctly.
+
+**(Retracted — code is correct)**
 
 ---
 
-### WR-02: `runDeploy` calls `WalkFiles` twice — TOCTOU race, wrong file count possible
+### WR-03: sudoRun closure error handling does not document the laziness constraint
 
-**File:** `cmd/docker-deploy/main.go:199-206`
+**File:** `internal/filetransfer/upload.go:130-160`
 
-**Issue:** `runDeploy` calls `filetransfer.WalkFiles` at line 199 to obtain a count for the success message, then calls `filetransfer.Upload` at line 206 which internally calls `WalkFiles` again. Between the two calls, files on the local filesystem can change (e.g., a build process creates or deletes files). Consequences:
+**Issue:** The `sudoRun` closure (lines 135-160) implements "lazy sudo" — it tries each command without elevation first, and only collects the password on first failure. The docstring at lines 130-133 claims "at most one interactive prompt fires per Upload invocation", which is true IF all operations are attempted. However, if an operation fails **before the password is ever collected**, subsequent rollback operations that also need sudo will either:
 
-- The "Deploy complete: N files copied" count can differ from the actual number of files uploaded.
-- If the filesystem changes such that `Upload`'s internal walk returns 0 files, `Upload` returns an error (`"no files to upload"`) even though the first walk succeeded.
+1. Hang waiting for a prompt (if running interactively)
+2. Fail silently (if running non-interactively)
 
-**Fix:** Have `Upload` return the count of uploaded files, and remove the standalone `WalkFiles` call from `runDeploy`:
+The docstring does not document this edge case or warn the caller. If the caller (runDeploy) is called from a script or CI/CD pipeline with stdin redirected, the behavior is undefined.
 
-```go
-// In upload.go, change Upload signature to return (int, error)
-// Return len(files) on success.
-
-// In main.go:
-fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes)
-if err != nil {
-    fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
-    return err
-}
-fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s:%s\n", fileCount, resolved.Host.Hostname, resolved.Path)
-```
-
----
-
-### WR-03: `rm -rf oldDir` failure after a successful swap returns an error and misleads the operator
-
-**File:** `internal/filetransfer/upload.go:190-191`
-
-**Issue:** After both `mv` commands succeed (the new deployment is live), `rm -rf oldDir` is run to clean up the backup. If this cleanup fails, the code returns:
-```go
-return fmt.Errorf("removing backup dir: %w", err)
-```
-The caller in `runDeploy` receives this error, prints "Deploy failed:", and returns a non-zero exit code. The deployment itself **succeeded** — the new files are in `remoteBase` and the service can be restarted. The leftover `.old-<timestamp>` directory is harmless disk usage. Treating a cleanup failure as a deployment failure misleads the operator and breaks CI/CD pipelines that gate on exit code.
-
-**Fix:** Demote this to a warning, log it, and return `nil`:
+**Fix:** Document the constraint in the docstring:
 
 ```go
-if err := sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(oldDir))); err != nil {
-    // Cleanup failure is non-fatal — deployment succeeded.
-    fmt.Fprintf(os.Stderr, "Warning: could not remove backup dir %s: %v (deployment succeeded)\n", oldDir, err)
+// sudoRun tries cmd without sudo first; on failure it collects the
+// password interactively (once, with up to 3 attempts) and retries.
+// If called with stdin not connected to a TTY, the interactive prompt
+// will fail, and rollback operations requiring sudo will fail silently.
+// Callers should ensure stdin is available when sudo elevation may be needed.
+sudoRun := func(cmd string) error {
+    ...
 }
 ```
+
+This is a WARNING due to the unclear behavior in non-interactive contexts.
 
 ---
 
 ## Info
 
-### IN-01: `ParseHost` accepts port `0` without error but `0` is not a valid TCP port
+### IN-01: ShellQuote test coverage could include shell metacharacters beyond single quotes
 
-**File:** `internal/config/config.go:80-85`
+**File:** `internal/filetransfer/shellquote_test.go:5-46`
 
-**Issue:** `strconv.Atoi` succeeds for `"0"`, so `ssh://host:0` parses without error and returns `Port: 0`. The callers in `main.go` treat `port == 0` as "use default 22", which silently overrides an explicit `:0` that the user typed. Port `0` is not a valid SSH port.
+**Issue:** The test cases cover empty string, normal path, embedded single quotes, and multiple quotes. However, they do not test other shell metacharacters that are NOT escaped by wrapping in single quotes:
 
-**Fix:** Add a range check after `Atoi`:
+- Newlines: `/opt/foo\nbar` — the newline inside single quotes is literal and will confuse commands like `mkdir -p '/opt/foo\nbar'`
+- Null bytes: not possible in Go strings, but worth documenting
+- Unicode: `/opt/föö` — should work but not explicitly tested
+
+However, given that `remoteBase` is derived from `Resolve()` which validates it via `ParseHost` (SSH URL parsing), and the staging dir uses only alphanumerics + timestamp, the current test coverage is **adequate for the actual call sites**. This is an info item, not a blocker.
+
+**Suggestion:** Add a comment to `ShellQuote` documenting the assumption that inputs are already validated:
 
 ```go
-if port < 1 || port > 65535 {
-    return Host{}, fmt.Errorf("invalid host URL %q: port %d out of range [1, 65535]", rawURL, port)
-}
+// ShellQuote wraps s in single quotes for safe use in shell commands,
+// escaping any embedded single quotes using the '\'' technique.
+// Assumes s contains no newlines or other control characters.
+// All call sites pass values from Resolve() (which validates SSH URLs)
+// or synthetic staging dir names (alphanumerics + timestamp) — T-03-05.
 ```
 
 ---
 
-_Reviewed: 2026-05-14_
+_Reviewed: 2026-05-15_
 _Reviewer: Claude (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: quick_
