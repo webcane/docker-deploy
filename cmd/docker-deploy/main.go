@@ -163,6 +163,15 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		return fmt.Errorf("compose file must be a filename, not a path: %q", resolved.ComposeFile)
 	}
 
+	// 4c. Validate that the remote path is absolute (WR-03).
+	// ShellQuote prevents the shell from interpreting the path as a command, but
+	// it does not prevent filesystem-level traversal if the path is relative
+	// (e.g. "../../../etc"). Requiring a leading '/' ensures the path is anchored
+	// to the filesystem root and cannot escape the intended deploy root.
+	if !strings.HasPrefix(resolved.Path, "/") {
+		return fmt.Errorf("remote path must be absolute (start with /), got: %q", resolved.Path)
+	}
+
 	// 5. Build ssh.DialConfig from the resolved config.
 	port := resolved.Host.Port
 	if port == 0 {
