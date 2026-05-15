@@ -103,7 +103,22 @@ Cross-cutting constraints:
   1. `docker deploy --host ssh://user@host:port` completes a full copy-then-compose cycle without additional flags
   2. `docker compose up -d` output is streamed line-by-line to the local terminal as it executes on the remote
   3. The plugin exits with a non-zero code if file copy fails, if the remote compose command fails, or if SSH connectivity is lost mid-deploy
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+**Wave 1** *(run in parallel)*
+- [ ] 04-01-PLAN.md — Config extension (ComposeFile field, compose_file yaml key, updated Resolve() signature, TDD)
+- [ ] 04-02-PLAN.md — compose package (RunCompose() with PTY/pipe output routing, exit code propagation, TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 04-03-PLAN.md — Wire into main.go (--compose-file flag, Resolve() call update, basename validation, RunCompose() call, human verification)
+
+Cross-cutting constraints:
+- InsecureIgnoreHostKey must not appear anywhere in the codebase
+- Each SSH exec (compose) uses a dedicated client.NewSession() — sessions are NOT reusable
+- Remote command uses explicit `-f <path>/<file>` — no `cd &&` pattern
+- --remove-orphans always included in compose command
 
 ### Phase 5: Pre-flight & Health Polling
 **Goal**: The plugin validates remote readiness before deploying and reports container health after compose up completes
@@ -158,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
-| 4. Core Deploy Loop | 0/? | Not started | - |
+| 4. Core Deploy Loop | 0/3 | Not started | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Skip .env Override Option | 0/? | Not started | - |
