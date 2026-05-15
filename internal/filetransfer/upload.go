@@ -120,12 +120,14 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return uploadErr
 	}
 
-	// Step 8: Ensure the target directory exists.
-	// Attempt 1 — without sudo.
+	// Step 8: Ensure target directory exists and is owned by the connecting user.
+	// Attempt 1 — without sudo (works if user already owns /opt/<project>).
+	sudoPw := ""
 	mkdirOK := sshExec(client, fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))) == nil
 
 	if !mkdirOK {
-		// Attempt 2 — interactive sudo with up to 3 password prompts.
+		// Attempt 2 — interactive sudo: collect password (up to 3 attempts).
+		// Single sh -c pipeline: mkdir + chown + chmod to avoid multiple prompts.
 		sudoOK := false
 		for attempt := 1; attempt <= 3; attempt++ {
 			fmt.Fprintf(os.Stderr, "[sudo] password for remote host: ")
@@ -134,11 +136,13 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			if err != nil {
 				break
 			}
+			pwStr := string(pw)
 			sudoCmd := fmt.Sprintf(
-				"echo %s | sudo -S -p '' sh -c 'mkdir -p %s && chown $(id -un):$(id -gn) %s'",
-				ShellQuote(string(pw)), ShellQuote(remoteBase), ShellQuote(remoteBase),
+				"echo %s | sudo -S -p '' sh -c 'mkdir -p %s && chown $(id -un):$(id -gn) %s && chmod 755 %s'",
+				ShellQuote(pwStr), ShellQuote(remoteBase), ShellQuote(remoteBase), ShellQuote(remoteBase),
 			)
 			if err := sshExec(client, sudoCmd); err == nil {
+				sudoPw = pwStr
 				sudoOK = true
 				break
 			}
@@ -148,8 +152,6 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 
 		if !sudoOK {
-			// Could not create target dir. Leave staged files for manual recovery.
-			// Determine the remote host for the hint message.
 			remoteHost := client.RemoteAddr().String()
 			fmt.Fprintf(os.Stderr,
 				"Warning: could not create target directory %s.\n"+
@@ -174,26 +176,48 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return fmt.Errorf("checking remote target existence: %w", err)
 	}
 
-	// Step 10: Perform atomic swap via SSH exec commands.
-	if exists {
-		// Three-step atomic swap:
-		// 1. mv remoteBase remoteBase.old-<timestamp>
-		// 2. mv stagingDir remoteBase
-		// 3. rm -rf remoteBase.old-<timestamp>
-		oldDir := remoteBase + ".old-" + timestamp
+	// Step 10: Atomic swap via SSH exec.
+	// All mv/rm operations against /opt use sudo when sudoPw was needed for mkdir.
+	// sudoRun builds the sudo-prefixed command if sudoPw is non-empty.
+	sudoRun := func(cmd string) error {
+		if sudoPw == "" {
+			return sshExec(client, cmd)
+		}
+		return sshExec(client, fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(sudoPw), ShellQuote(cmd)))
+	}
 
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
+	if exists {
+		// Four-step atomic swap:
+		// 1. Move staging to /opt space as remoteBase-new-<ts>  (always writable: staging is in /tmp)
+		// 2. Backup existing remoteBase to remoteBase-old-<ts>
+		// 3. Move remoteBase-new-<ts> to remoteBase             (place new)
+		// 4. Remove backup                                       (clean up)
+		newDir := remoteBase + "-new-" + timestamp
+		oldDir := remoteBase + "-old-" + timestamp
+
+		// Step 10.1: move staging into /opt space
+		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(newDir))); err != nil {
+			return fmt.Errorf("moving staging dir into target space: %w", err)
+		}
+		// Step 10.2: backup existing target
+		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
+			// Rollback step 10.1
+			_ = sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(newDir), ShellQuote(stagingDir)))
 			return fmt.Errorf("renaming existing target to backup: %w", err)
 		}
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
-			return fmt.Errorf("renaming staging dir to target: %w", err)
+		// Step 10.3: place new version
+		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(newDir), ShellQuote(remoteBase))); err != nil {
+			// Rollback step 10.2: restore remoteBase from backup
+			_ = sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+			return fmt.Errorf("renaming staging dir to target: backup is at %s: %w", oldDir, err)
 		}
-		if err := sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
-			return fmt.Errorf("removing backup dir: %w", err)
+		// Step 10.4: clean up backup (failure is non-fatal — deployment succeeded)
+		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
 		}
 	} else {
-		// First deploy: just move staging dir to target.
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+		// First deploy: move staging dir directly to target (needs sudo if under /opt).
+		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
