@@ -152,8 +152,12 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		return fmt.Errorf("no host configured: use --host flag or set target.host in deploy.yaml")
 	}
 
-	// 4b. Validate that ComposeFile is a basename (no path separators) to prevent
-	// shell injection via the --compose-file flag (T-04-03-01).
+	// 4b. Validate that ComposeFile contains no path separators (T-04-03-01).
+	// filepath.Base() strips any leading directory components, so if the result
+	// differs from the input the value contains a path separator ('/' on POSIX).
+	// This prevents path-traversal (e.g. "../../etc/passwd") but does NOT strip
+	// shell metacharacters — that protection is provided by the allowlist check
+	// and ShellQuote() inside compose.RunCompose().
 	if filepath.Base(resolved.ComposeFile) != resolved.ComposeFile {
 		return fmt.Errorf("compose file must be a filename, not a path: %q", resolved.ComposeFile)
 	}
