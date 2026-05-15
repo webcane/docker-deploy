@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"unicode"
 
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/term"
@@ -34,15 +35,23 @@ import (
 // A fresh NewSession() is opened per CLAUDE.md Rule 3; the session is closed
 // after Wait() returns.
 //
-// remotePath is wrapped in filetransfer.ShellQuote() to prevent shell
-// injection from paths containing spaces or special characters (T-04-02-01).
-// composeFile must be a validated basename (no slashes) — callers are
-// responsible for filepath.Base() validation before calling RunCompose
-// (T-04-02-02, see Plan 01 SUMMARY threat flags).
+// remotePath and composeFile are both wrapped in filetransfer.ShellQuote() to
+// prevent shell injection from paths or filenames containing spaces or special
+// characters (T-04-02-01). composeFile is additionally validated against an
+// alphanumeric allowlist (letters, digits, '-', '_', '.') before quoting
+// (T-04-02-02) — filepath.Base() at the call site prevents path separators,
+// but does not strip shell-active characters such as ';', '|', '$', or '`'.
 func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string) error {
-	// Construct the remote command. remotePath is shell-quoted; composeFile is a
-	// validated basename and does not need quoting.
-	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath) + "/" + composeFile + " up -d --remove-orphans"
+	// Allowlist validation: reject any character that is not alphanumeric, '-',
+	// '_', or '.'. This guards against injection even before ShellQuote is
+	// applied, providing defence-in-depth (T-04-02-02).
+	if !isValidComposeFilename(composeFile) {
+		return fmt.Errorf("compose file contains invalid characters: %q (only letters, digits, '-', '_', '.' are allowed)", composeFile)
+	}
+
+	// Construct the remote command. Both remotePath and composeFile are
+	// shell-quoted so that neither can inject shell metacharacters.
+	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath+"/"+composeFile) + " up -d --remove-orphans"
 
 	// Open a dedicated session per CLAUDE.md Rule 3 (sessions are NOT reusable).
 	session, err := client.NewSession()
@@ -112,6 +121,21 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		return fmt.Errorf("starting compose session: %w", startErr)
 	}
 	return handleWait(session.Wait())
+}
+
+// isValidComposeFilename returns true if s contains only letters, digits, '-',
+// '_', or '.' and is non-empty. This provides an allowlist guard against shell
+// injection via the compose-file value (T-04-02-02).
+func isValidComposeFilename(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != '_' && r != '.' {
+			return false
+		}
+	}
+	return true
 }
 
 // handleWait converts session.Wait() errors into structured RunCompose errors.
