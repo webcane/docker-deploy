@@ -186,7 +186,14 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 			// Target exists — prompt user for confirmation (default No per D-09, T-03-07).
 			fmt.Fprintf(os.Stderr, "Target %s exists on %s. Replace all contents? [y/N] ", resolved.Path, resolved.Host.Hostname)
 			scanner := bufio.NewScanner(os.Stdin)
-			scanner.Scan()
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("reading confirmation: %w", err)
+				}
+				// EOF on stdin — treat as "No" but inform the user.
+				fmt.Fprintln(os.Stderr, "No input received — deploy cancelled.")
+				return nil
+			}
 			answer := strings.TrimSpace(scanner.Text())
 			if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
 				// User declined or pressed Enter (default No) — cancel silently.
@@ -195,20 +202,15 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 		}
 	}
 
-	// 8. Enumerate files to get the count for the success message.
-	files, err := filetransfer.WalkFiles(cwd, resolved.Excludes)
+	// 8. Upload files via SFTP with atomic staging.
+	// Upload returns the actual count of files transferred (single filesystem walk).
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes)
 	if err != nil {
-		return fmt.Errorf("enumerating files: %w", err)
-	}
-	fileCount := len(files)
-
-	// 9. Upload files via SFTP with atomic staging.
-	if err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes); err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err
 	}
 
-	// 10. Print success summary.
+	// 9. Print success summary.
 	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s:%s\n", fileCount, resolved.Host.Hostname, resolved.Path)
 
 	return nil

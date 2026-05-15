@@ -83,6 +83,9 @@ func ParseHost(rawURL string) (Host, error) {
 		if err != nil {
 			return Host{}, fmt.Errorf("invalid host URL %q: port %q is not a valid integer", rawURL, portStr)
 		}
+		if port < 1 || port > 65535 {
+			return Host{}, fmt.Errorf("invalid host URL %q: port %d is out of range (1-65535)", rawURL, port)
+		}
 	}
 
 	var user string

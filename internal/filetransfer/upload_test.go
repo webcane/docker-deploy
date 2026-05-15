@@ -221,7 +221,7 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := Upload(context.Background(), client, localDir, remoteBase, nil)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := Upload(context.Background(), client, localDir, remoteBase, nil)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}

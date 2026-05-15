@@ -37,14 +37,16 @@ import (
 //
 // Per CLAUDE.md: sessions are NOT reusable — each SSH exec uses a fresh NewSession().
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string) error {
+//
+// Returns the number of files actually transferred on success.
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
-		return fmt.Errorf("enumerating files in %s: %w", localDir, err)
+		return 0, fmt.Errorf("enumerating files in %s: %w", localDir, err)
 	}
 	if len(files) == 0 {
-		return fmt.Errorf("no files to upload: all files excluded from %s", localDir)
+		return 0, fmt.Errorf("no files to upload: all files excluded from %s", localDir)
 	}
 
 	// Step 2: Announce upload count.
@@ -53,7 +55,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// Step 3: Open SFTP session wrapping the existing SSH client.
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
-		return fmt.Errorf("opening SFTP session: %w", err)
+		return 0, fmt.Errorf("opening SFTP session: %w", err)
 	}
 
 	// Step 4: Derive staging directory in the remote /tmp (always writable).
@@ -63,7 +65,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {
 		sftpClient.Close()
-		return fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
+		return 0, fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
 	}
 
 	// Step 6: Upload each file into the staging directory.
@@ -81,6 +83,12 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			remoteDir := path.Dir(remotePath)
 			if err := sftpClient.MkdirAll(remoteDir); err != nil {
 				return fmt.Errorf("creating remote directory %s: %w", remoteDir, err)
+			}
+
+			// Stat local file to capture permissions before opening it.
+			localInfo, err := os.Stat(localPath)
+			if err != nil {
+				return fmt.Errorf("stat local file %s: %w", localPath, err)
 			}
 
 			// Open local file for reading.
@@ -106,6 +114,11 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			remoteFile.Close()
 			localFile.Close()
 
+			// Preserve source file permissions (e.g. executable bit for scripts).
+			if err := sftpClient.Chmod(remotePath, localInfo.Mode().Perm()); err != nil {
+				return fmt.Errorf("setting permissions on remote file %s: %w", remotePath, err)
+			}
+
 			fmt.Fprintf(os.Stdout, "  -> %s\n", relPath)
 		}
 		return nil
@@ -117,14 +130,14 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	if uploadErr != nil {
 		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
 		_ = sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(stagingDir)))
-		return uploadErr
+		return 0, uploadErr
 	}
 
 	// Check whether target already exists BEFORE we create it, so we can choose
 	// the right swap path in step 10.
 	existsBefore, err := remoteExists(client, remoteBase)
 	if err != nil {
-		return fmt.Errorf("checking remote target existence: %w", err)
+		return 0, fmt.Errorf("checking remote target existence: %w", err)
 	}
 
 	// sudoPw holds the sudo password once collected; sudoRun reuses it so at most
@@ -156,7 +169,12 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			}
 			return fmt.Errorf("sudo authentication failed")
 		}
-		return sshExec(client, fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(sudoPw), ShellQuote(cmd)))
+		if err := sshExec(client, fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(sudoPw), ShellQuote(cmd))); err != nil {
+			// Do not surface the raw sshExec error here — it contains the full
+			// command string including the cleartext sudo password.
+			return fmt.Errorf("sudo command failed: remote command returned non-zero exit status")
+		}
+		return nil
 	}
 
 	// Step 8: Ensure target directory exists.
@@ -174,7 +192,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			remoteHost, stagingDir, remoteBase,
 			remoteHost, remoteBase, remoteBase,
 		)
-		return fmt.Errorf("could not create target directory %s", remoteBase)
+		return 0, fmt.Errorf("could not create target directory %s", remoteBase)
 	}
 
 	// Step 9: Atomic swap via SSH exec.
@@ -186,14 +204,19 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		oldDir := remoteBase + "-old-" + timestamp
 
 		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
-			return fmt.Errorf("renaming existing target to backup: %w", err)
+			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
 		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
-			// Rollback: restore remoteBase from backup.
-			if rbErr := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase))); rbErr != nil {
-				return fmt.Errorf("placing new version failed AND rollback failed — target absent (backup: %s, staging: %s): %w", oldDir, stagingDir, err)
-			}
-			return fmt.Errorf("placing new version at target (rolled back from backup %s): %w", oldDir, err)
+			// Rollback: best-effort restore via plain sshExec (no new sudo prompt
+			// during the error path — avoids hanging in CI/CD contexts where stdin
+			// is not a TTY).
+			_ = sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+			return 0, fmt.Errorf(
+				"placing new version failed (rolled back where possible).\n"+
+					"If rollback failed, restore manually:\n"+
+					"  ssh %s 'sudo mv %s %s'\n"+
+					"Original error: %w",
+				client.RemoteAddr().String(), ShellQuote(oldDir), ShellQuote(remoteBase), err)
 		}
 		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
@@ -205,14 +228,14 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		// remoteBase (because the destination exists) instead of renaming it.
 		// Remove the empty placeholder first so that mv performs a clean rename.
 		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
-			return fmt.Errorf("removing target placeholder before first deploy: %w", err)
+			return 0, fmt.Errorf("removing target placeholder before first deploy: %w", err)
 		}
 		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
-			return fmt.Errorf("moving staging dir to target: %w", err)
+			return 0, fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
 
-	return nil
+	return len(files), nil
 }
 
 // remoteExists checks whether a path exists and is a directory on the remote
