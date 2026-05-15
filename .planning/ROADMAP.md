@@ -108,7 +108,7 @@ Cross-cutting constraints:
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 04-01-PLAN.md — Config extension (ComposeFile field, compose_file yaml key, updated Resolve() signature, TDD)
+- [x] 04-01-PLAN.md — Config extension (ComposeFile field, compose_file yaml key, updated Resolve() signature, TDD)
 - [ ] 04-02-PLAN.md — compose package (RunCompose() with PTY/pipe output routing, exit code propagation, TDD)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
-| 4. Core Deploy Loop | 0/3 | Not started | - |
+| 4. Core Deploy Loop | 1/3 | In progress | - |
 | 5. Pre-flight & Health Polling | 0/? | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Skip .env Override Option | 0/? | Not started | - |

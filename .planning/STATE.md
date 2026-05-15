@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: Phase 4 planned — 3 plans in 2 waves ready for execution
-last_updated: "2026-05-15T22:05:00.000Z"
+status: in_progress
+stopped_at: Completed 04-01 — Config.ComposeFile + updated Resolve() signature; main.go broken until Plan 03
+last_updated: "2026-05-15T19:54:11Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 43
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 of 7 (Core Deploy Loop)
-Plan: Not started
-Status: Ready to execute
+Plan: 01 complete, 02 next
+Status: In progress
 Last activity: 2026-05-15
 Resume file: None
 
@@ -78,6 +78,7 @@ Recent decisions affecting current work:
 - 03-04: sudoPw captured as Upload()-local var; sudoRun closure reuses it for all sudo mv/rm ops — single prompt per deploy
 - 03-04: Four-step atomic swap (staging->new, remoteBase->old, new->remoteBase, rm backup) with rollback at step-2 and step-3; backup rm is non-fatal
 - 03-05: Insert rm -rf remoteBase in first-deploy else branch before mv — fixes nesting bug where mkdir-p placeholder caused mv to nest staging inside remoteBase
+- 04-01: Resolve() updated to 8-arg signature; ComposeFile auto-detects compose.yaml then docker-compose.yml; Plan 02 is responsible for filepath.Base() validation of ComposeFile value before remote execution
 
 ### Roadmap Evolution
 
@@ -100,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T00:00:00Z
-Stopped at: Completed 03-04 — all 4 gaps verified, human checkpoint approved, plan complete
+Last session: 2026-05-15T19:54:11Z
+Stopped at: Completed 04-01 — Config.ComposeFile + updated Resolve() signature; plan 02 next
 Resume file: None
