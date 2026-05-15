@@ -190,8 +190,10 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			// Rollback: restore remoteBase from backup.
-			_ = sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
-			return fmt.Errorf("placing new version at target (backup is at %s): %w", oldDir, err)
+			if rbErr := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase))); rbErr != nil {
+				return fmt.Errorf("placing new version failed AND rollback failed — target absent (backup: %s, staging: %s): %w", oldDir, stagingDir, err)
+			}
+			return fmt.Errorf("placing new version at target (rolled back from backup %s): %w", oldDir, err)
 		}
 		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
