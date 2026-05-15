@@ -1,5 +1,5 @@
 ---
-status: complete
+status: resolved
 phase: 03-file-copy
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md]
 started: 2026-05-14T00:00:00Z
@@ -43,7 +43,8 @@ blocked: 0
 ## Gaps
 
 - truth: "Files upload to remote target path directly; staging directory is not present under target"
-  status: failed
+  status: resolved
+  resolved_by: 03-05
   reason: "User reported: /opt/test-deploy contains folder docker-deploy-1778837831/ but not its content"
   severity: major
   test: 1
