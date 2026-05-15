@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -115,13 +116,13 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	if uploadErr != nil {
 		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
-		_ = sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(stagingDir)))
+		_ = sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(stagingDir)))
 		return uploadErr
 	}
 
 	// Step 8: Ensure the target directory exists.
 	// Attempt 1 — without sudo.
-	mkdirOK := sshExec(client, fmt.Sprintf("mkdir -p %s", shellQuote(remoteBase))) == nil
+	mkdirOK := sshExec(client, fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))) == nil
 
 	if !mkdirOK {
 		// Attempt 2 — interactive sudo with up to 3 password prompts.
@@ -135,7 +136,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			}
 			sudoCmd := fmt.Sprintf(
 				"echo %s | sudo -S -p '' sh -c 'mkdir -p %s && chown $(id -un):$(id -gn) %s'",
-				shellQuote(string(pw)), shellQuote(remoteBase), shellQuote(remoteBase),
+				ShellQuote(string(pw)), ShellQuote(remoteBase), ShellQuote(remoteBase),
 			)
 			if err := sshExec(client, sudoCmd); err == nil {
 				sudoOK = true
@@ -181,18 +182,18 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		// 3. rm -rf remoteBase.old-<timestamp>
 		oldDir := remoteBase + ".old-" + timestamp
 
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", shellQuote(remoteBase), shellQuote(oldDir))); err != nil {
+		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
 			return fmt.Errorf("renaming existing target to backup: %w", err)
 		}
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", shellQuote(stagingDir), shellQuote(remoteBase))); err != nil {
+		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return fmt.Errorf("renaming staging dir to target: %w", err)
 		}
-		if err := sshExec(client, fmt.Sprintf("rm -rf %s", shellQuote(oldDir))); err != nil {
+		if err := sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			return fmt.Errorf("removing backup dir: %w", err)
 		}
 	} else {
 		// First deploy: just move staging dir to target.
-		if err := sshExec(client, fmt.Sprintf("mv %s %s", shellQuote(stagingDir), shellQuote(remoteBase))); err != nil {
+		if err := sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
@@ -203,7 +204,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 // remoteExists checks whether a path exists and is a directory on the remote
 // host by running `test -d <path> && echo exists || echo absent` via SSH.
 func remoteExists(client *gossh.Client, remotePath string) (bool, error) {
-	output, err := sshExecOutput(client, fmt.Sprintf("test -d %s && echo exists || echo absent", shellQuote(remotePath)))
+	output, err := sshExecOutput(client, fmt.Sprintf("test -d %s && echo exists || echo absent", ShellQuote(remotePath)))
 	if err != nil {
 		return false, err
 	}
@@ -245,10 +246,11 @@ func sshExecOutput(client *gossh.Client, cmd string) (string, error) {
 	return string(out), nil
 }
 
-// shellQuote wraps a path in single quotes for safe use in shell commands.
+// ShellQuote wraps s in single quotes for safe use in shell commands,
+// escaping any embedded single quotes using the '\'' technique.
 // This handles paths derived from validated config values (remoteBase is from
 // Resolve() which validates via ParseHost; staging dir name uses only
 // alphanumerics + timestamp integer — T-03-05).
-func shellQuote(s string) string {
-	return "'" + s + "'"
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

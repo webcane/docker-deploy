@@ -176,7 +176,7 @@ func runDeploy(host, path string, excludes []string, force bool) error {
 		if err != nil {
 			return fmt.Errorf("creating SSH session for existence check: %w", err)
 		}
-		out, err := session.Output(fmt.Sprintf("test -d '%s' && echo exists || echo absent", resolved.Path))
+		out, err := session.Output(fmt.Sprintf("test -d %s && echo exists || echo absent", filetransfer.ShellQuote(resolved.Path)))
 		session.Close()
 		if err != nil {
 			return fmt.Errorf("checking remote target existence: %w", err)
