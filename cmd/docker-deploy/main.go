@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,16 +201,20 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		if strings.HasPrefix(strings.TrimSpace(string(out)), "exists") {
 			// Target exists — prompt user for confirmation (default No per D-09, T-03-07).
 			fmt.Fprintf(os.Stderr, "Target %s exists on %s. Replace all contents? [y/N] ", resolved.Path, resolved.Host.Hostname)
-			scanner := bufio.NewScanner(os.Stdin)
-			if !scanner.Scan() {
-				if err := scanner.Err(); err != nil {
-					return fmt.Errorf("reading confirmation: %w", err)
-				}
-				// EOF on stdin — treat as "No" but inform the user.
+			// Use bufio.NewReader.ReadString rather than bufio.Scanner to avoid
+			// the 64 KB default token-size limit and to be semantically precise
+			// for a single-line prompt (WR-02).
+			reader := bufio.NewReader(os.Stdin)
+			answer, readErr := reader.ReadString('\n')
+			if readErr != nil && readErr != io.EOF {
+				return fmt.Errorf("reading confirmation: %w", readErr)
+			}
+			if readErr == io.EOF && strings.TrimSpace(answer) == "" {
+				// EOF on stdin with no content — treat as "No" but inform the user.
 				fmt.Fprintln(os.Stderr, "No input received — deploy cancelled.")
 				return nil
 			}
-			answer := strings.TrimSpace(scanner.Text())
+			answer = strings.TrimSpace(answer)
 			if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
 				// User declined or pressed Enter (default No) — cancel silently.
 				return nil
