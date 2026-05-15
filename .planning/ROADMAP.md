@@ -115,6 +115,11 @@ Plans:
 - [ ] 04-03-PLAN.md — Wire into main.go (--compose-file flag, Resolve() call update, basename validation, RunCompose() call, human verification)
 
 Cross-cutting constraints:
+- InsecureIgnoreHostKey must not appear anywhere in the codebase (grep gate in 04-02 and 04-03)
+- RunCompose() uses a dedicated NewSession() per CLAUDE.md — sessions are not reusable
+- compose_file argument is a basename only — no path separators allowed (validated in 04-03)
+
+Cross-cutting constraints:
 - InsecureIgnoreHostKey must not appear anywhere in the codebase
 - Each SSH exec (compose) uses a dedicated client.NewSession() — sessions are NOT reusable
 - Remote command uses explicit `-f <path>/<file>` — no `cd &&` pattern

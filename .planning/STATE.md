@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 03-05 — first-deploy mv nesting bug fixed with regression tests
-last_updated: "2026-05-15T08:00:00.000Z"
+status: ready_to_execute
+stopped_at: Phase 4 planned — 3 plans in 2 waves ready for execution
+last_updated: "2026-05-15T22:05:00.000Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
-  completed_phases: 2
-  total_plans: 7
+  completed_phases: 3
+  total_plans: 10
   completed_plans: 9
-  percent: 29
+  percent: 43
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 07 of 6 (v2 skip env override)
+Phase: 04 of 7 (Core Deploy Loop)
 Plan: Not started
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-05-15
 Resume file: None
 
