@@ -76,7 +76,8 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 
 	// 3. Resolve config with flag > file > default precedence.
 	// composeFile is not resolved for dry-run; validation happens in runDeploy.
-	resolved, err := config.Resolve(host, path, excludes, force, "" /* compose not needed for dry-run */, fileConfig, projectName, cwd)
+	// 0, 0 for health flags — not registered as CLI flags in Phase 5 (deploy.yaml only).
+	resolved, err := config.Resolve(host, path, excludes, force, "" /* compose not needed for dry-run */, 0, 0, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
@@ -143,7 +144,8 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	resolved, err := config.Resolve(host, path, excludes, force, composeFile, fileConfig, projectName, cwd)
+	// 0, 0 for health flags — not registered as CLI flags in Phase 5 (deploy.yaml only).
+	resolved, err := config.Resolve(host, path, excludes, force, composeFile, 0, 0, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}

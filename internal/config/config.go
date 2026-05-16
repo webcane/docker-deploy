@@ -29,11 +29,13 @@ type Host struct {
 // TargetConfig holds the single-target subsection of deploy.yaml.
 // Future phases will add a "targets" (plural) map for named targets.
 type TargetConfig struct {
-	Host        string   `yaml:"host"`
-	Path        string   `yaml:"path"`
-	Exclude     []string `yaml:"exclude"`
-	Force       bool     `yaml:"force"`
-	ComposeFile string   `yaml:"compose_file"`
+	Host           string   `yaml:"host"`
+	Path           string   `yaml:"path"`
+	Exclude        []string `yaml:"exclude"`
+	Force          bool     `yaml:"force"`
+	ComposeFile    string   `yaml:"compose_file"`
+	HealthTimeout  int      `yaml:"health_timeout"`
+	HealthInterval int      `yaml:"health_interval"`
 }
 
 // FileConfig is the top-level structure of deploy.yaml.
@@ -45,12 +47,14 @@ type FileConfig struct {
 
 // Config is the fully resolved runtime configuration.
 type Config struct {
-	Host        Host
-	Path        string
-	DryRun      bool
-	Excludes    []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
-	Force       bool     // flag || file.Target.Force (flag > deploy.yaml > false)
-	ComposeFile string   // resolved compose filename basename (flag > deploy.yaml > auto-detect)
+	Host           Host
+	Path           string
+	DryRun         bool
+	Excludes       []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
+	Force          bool     // flag || file.Target.Force (flag > deploy.yaml > false)
+	ComposeFile    string   // resolved compose filename basename (flag > deploy.yaml > auto-detect)
+	HealthTimeout  int      // seconds to wait for health check; flag > deploy.yaml > 60
+	HealthInterval int      // seconds between health check polls; flag > deploy.yaml > 5
 }
 
 // ParseHost parses an SSH URI of the form ssh://[user@]host[:port].
@@ -161,6 +165,8 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 //   - flagExcludes: values from the repeatable --exclude flag (nil is safe)
 //   - flagForce: value from the --force flag
 //   - flagComposeFile: value from the --compose-file flag (empty string = not set)
+//   - flagHealthTimeout: seconds from a future --health-timeout flag (0 = not set)
+//   - flagHealthInterval: seconds from a future --health-interval flag (0 = not set)
 //   - file: parsed deploy.yaml content (zero value is safe when no file present)
 //   - projectName: basename of the local project directory
 //   - localDir: absolute path to the local project directory (used for auto-detect)
@@ -170,12 +176,20 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 // Excludes: defaultExcludes + file.Target.Exclude + flagExcludes (deduped, order preserved).
 // Force: flagForce || file.Target.Force (flag > deploy.yaml > false).
 // ComposeFile: flagComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
+// HealthTimeout: flagHealthTimeout > file.Target.HealthTimeout > 60.
+// HealthInterval: flagHealthInterval > file.Target.HealthInterval > 5.
+//
+// NOTE: flagHealthTimeout and flagHealthInterval are not registered as CLI flags in
+// Phase 5 (health flags via deploy.yaml only per D-03). Callers pass 0 for both.
+// The parameters exist for future flag registration without a signature change.
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
 // T-04-01-01: ComposeFile is stored as supplied (basename); Plan 02 validates
 // filepath.Base(ComposeFile) == ComposeFile before constructing remote commands.
-func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, flagComposeFile string, file FileConfig, projectName string, localDir string) (Config, error) {
+// T-05-01-01: Zero and negative values for health fields are treated as "not set"
+// (> 0 check gates both flag and file values), so defaults always apply.
+func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, flagComposeFile string, flagHealthTimeout, flagHealthInterval int, file FileConfig, projectName string, localDir string) (Config, error) {
 	var cfg Config
 
 	switch {
@@ -223,6 +237,28 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 		if cfg.ComposeFile == "" {
 			return Config{}, fmt.Errorf("no compose file found; use --compose-file to specify one")
 		}
+	}
+
+	// HealthTimeout resolution: flag > deploy.yaml > default 60.
+	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
+	switch {
+	case flagHealthTimeout > 0:
+		cfg.HealthTimeout = flagHealthTimeout
+	case file.Target.HealthTimeout > 0:
+		cfg.HealthTimeout = file.Target.HealthTimeout
+	default:
+		cfg.HealthTimeout = 60
+	}
+
+	// HealthInterval resolution: flag > deploy.yaml > default 5.
+	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
+	switch {
+	case flagHealthInterval > 0:
+		cfg.HealthInterval = flagHealthInterval
+	case file.Target.HealthInterval > 0:
+		cfg.HealthInterval = file.Target.HealthInterval
+	default:
+		cfg.HealthInterval = 5
 	}
 
 	return cfg, nil

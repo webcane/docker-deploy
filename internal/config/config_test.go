@@ -118,7 +118,7 @@ func TestResolveHostPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Host: tt.fileHost},
 			}
-			cfg, err := Resolve(tt.flagHost, "", nil, false, "compose.yaml", file, "myproject", "")
+			cfg, err := Resolve(tt.flagHost, "", nil, false, "compose.yaml", 0, 0, file, "myproject", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -175,7 +175,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Path: tt.filePath},
 			}
-			cfg, err := Resolve("", tt.flagPath, nil, false, "compose.yaml", file, tt.projectName, "")
+			cfg, err := Resolve("", tt.flagPath, nil, false, "compose.yaml", 0, 0, file, tt.projectName, "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -187,7 +187,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 }
 
 func TestResolveInvalidHostReturnsError(t *testing.T) {
-	_, err := Resolve("http://not-ssh.example.com", "", nil, false, "compose.yaml", FileConfig{}, "proj", "")
+	_, err := Resolve("http://not-ssh.example.com", "", nil, false, "compose.yaml", 0, 0, FileConfig{}, "proj", "")
 	if err == nil {
 		t.Fatal("Resolve() with non-ssh scheme should return error")
 	}
@@ -279,7 +279,7 @@ func TestResolveExcludes(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Exclude: tt.fileExclude},
 			}
-			cfg, err := Resolve("", "", tt.flagExcludes, false, "compose.yaml", file, "proj", "")
+			cfg, err := Resolve("", "", tt.flagExcludes, false, "compose.yaml", 0, 0, file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -335,7 +335,7 @@ func TestResolveForce(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Force: tt.fileForce},
 			}
-			cfg, err := Resolve("", "", nil, tt.flagForce, "compose.yaml", file, "proj", "")
+			cfg, err := Resolve("", "", nil, tt.flagForce, "compose.yaml", 0, 0, file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -359,7 +359,7 @@ func TestResolveComposeFile_FlagWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "compose.yaml"},
 	}
-	cfg, err := Resolve("", "", nil, false, "docker-compose.yml", file, "proj", dir)
+	cfg, err := Resolve("", "", nil, false, "docker-compose.yml", 0, 0, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestResolveComposeFile_FileWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "mycompose.yaml"},
 	}
-	cfg, err := Resolve("", "", nil, false, "", file, "proj", dir)
+	cfg, err := Resolve("", "", nil, false, "", 0, 0, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -395,7 +395,7 @@ func TestResolveComposeFile_AutoDetectComposeYaml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
-	cfg, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	cfg, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -411,7 +411,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating docker-compose.yml: %v", err)
 	}
-	cfg, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	cfg, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 // resolution method.
 func TestResolveComposeFile_NoFileFound(t *testing.T) {
 	dir := t.TempDir()
-	_, err := Resolve("", "", nil, false, "", FileConfig{}, "proj", dir)
+	_, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
 	if err == nil {
 		t.Fatal("Resolve() expected error when no compose file found, got nil")
 	}
@@ -449,7 +449,7 @@ func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
 			Force: true,
 		},
 	}
-	cfg, err := Resolve("", "", []string{"*.tmp"}, false, "", file, "proj", dir)
+	cfg, err := Resolve("", "", []string{"*.tmp"}, false, "", 0, 0, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestResolveHealthConfig(t *testing.T) {
 					HealthInterval: tt.fileHealthInterval,
 				},
 			}
-			cfg, err := Resolve("", "", nil, false, "", file, "proj", dir)
+			cfg, err := Resolve("", "", nil, false, "", tt.flagHealthTimeout, tt.flagHealthInterval, file, "proj", dir)
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
