@@ -474,6 +474,88 @@ func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
 	}
 }
 
+// --- TestResolveHealthConfig tests (TDD: 05-01) ---
+
+// TestResolveHealthConfig verifies that Config.HealthTimeout and
+// Config.HealthInterval follow flag > file > default precedence.
+// Defaults: HealthTimeout=60, HealthInterval=5.
+// Zero-value is treated as "not set" (same as empty-string pattern for other fields).
+func TestResolveHealthConfig(t *testing.T) {
+	dir := t.TempDir()
+	// Create a compose.yaml so Resolve() doesn't fail on missing compose file.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	tests := []struct {
+		name                string
+		flagHealthTimeout   int
+		flagHealthInterval  int
+		fileHealthTimeout   int
+		fileHealthInterval  int
+		wantHealthTimeout   int
+		wantHealthInterval  int
+	}{
+		{
+			name:               "defaults_when_no_overrides",
+			flagHealthTimeout:  0,
+			flagHealthInterval: 0,
+			fileHealthTimeout:  0,
+			fileHealthInterval: 0,
+			wantHealthTimeout:  60,
+			wantHealthInterval: 5,
+		},
+		{
+			name:               "file_overrides_default",
+			flagHealthTimeout:  0,
+			flagHealthInterval: 0,
+			fileHealthTimeout:  30,
+			fileHealthInterval: 10,
+			wantHealthTimeout:  30,
+			wantHealthInterval: 10,
+		},
+		{
+			name:               "flag_overrides_file",
+			flagHealthTimeout:  45,
+			flagHealthInterval: 15,
+			fileHealthTimeout:  30,
+			fileHealthInterval: 10,
+			wantHealthTimeout:  45,
+			wantHealthInterval: 15,
+		},
+		{
+			name:               "zero_file_falls_back_to_default",
+			flagHealthTimeout:  0,
+			flagHealthInterval: 0,
+			fileHealthTimeout:  0,
+			fileHealthInterval: 0,
+			wantHealthTimeout:  60,
+			wantHealthInterval: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := FileConfig{
+				Target: TargetConfig{
+					HealthTimeout:  tt.fileHealthTimeout,
+					HealthInterval: tt.fileHealthInterval,
+				},
+			}
+			cfg, err := Resolve("", "", nil, false, "", file, "proj", dir)
+			if err != nil {
+				t.Fatalf("Resolve() unexpected error: %v", err)
+			}
+			if cfg.HealthTimeout != tt.wantHealthTimeout {
+				t.Errorf("HealthTimeout = %d, want %d", cfg.HealthTimeout, tt.wantHealthTimeout)
+			}
+			if cfg.HealthInterval != tt.wantHealthInterval {
+				t.Errorf("HealthInterval = %d, want %d", cfg.HealthInterval, tt.wantHealthInterval)
+			}
+		})
+	}
+}
+
 // --- LoadFile tests ---
 
 func TestLoadFile(t *testing.T) {
