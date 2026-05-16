@@ -137,7 +137,28 @@ Cross-cutting constraints:
   4. If the target directory is not writable, the plugin attempts to create and chown it (with sudo) before failing
   5. After compose up, the plugin polls container health status and reports healthy / unhealthy / unknown (no HEALTHCHECK defined) for each service
   6. The plugin exits with a non-zero code if any container reaches the unhealthy state
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+**Wave 1**
+- [ ] 05-01-PLAN.md — Config extension (HealthTimeout/HealthInterval fields in Config and TargetConfig, updated Resolve() signature, TDD)
+
+**Wave 2** *(run in parallel — both blocked on Wave 1)*
+- [ ] 05-02-PLAN.md — preflight package (RunPreflightChecks with CHECK-01 through CHECK-07, TDD)
+- [ ] 05-03-PLAN.md — health package (PollHealth with HEALTH-01 through HEALTH-03, TDD)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 05-04-PLAN.md — Wire into main.go (RunPreflightChecks after Dial, PollHealth after RunCompose, human verification)
+
+Cross-cutting constraints:
+- InsecureIgnoreHostKey must not appear anywhere in the codebase
+- Each SSH exec (per check, per poll tick) uses a dedicated client.NewSession() — sessions are NOT reusable
+- ShellQuote() applied to all path and username args in SSH exec commands
+- Pre-flight is silent on pass (D-01); errors and warnings to os.Stderr (D-02)
+- Verbose checklist output (--verbose) deferred to Phase 7 (D-03)
+- CHECK-03 (daemon not running) and CHECK-07 (root user) are warnings only — never block (D-05, D-06)
+- CHECK-04 and CHECK-06 assume passwordless sudo; print actionable fix command on failure (D-07, D-08)
 
 ### Phase 6: Init Wizard
 **Goal**: A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
@@ -179,6 +200,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
 | 4. Core Deploy Loop | 3/3 | Complete | 2026-05-15 |
-| 5. Pre-flight & Health Polling | 0/? | Not started | - |
+| 5. Pre-flight & Health Polling | 0/4 | Not started | - |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Skip .env Override Option | 0/? | Not started | - |
