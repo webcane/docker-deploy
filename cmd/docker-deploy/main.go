@@ -18,6 +18,8 @@ import (
 	"github.com/mniedre/docker-deploy/internal/compose"
 	"github.com/mniedre/docker-deploy/internal/config"
 	filetransfer "github.com/mniedre/docker-deploy/internal/filetransfer"
+	"github.com/mniedre/docker-deploy/internal/health"
+	"github.com/mniedre/docker-deploy/internal/preflight"
 	sshpkg "github.com/mniedre/docker-deploy/internal/ssh"
 )
 
@@ -196,6 +198,12 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 	defer client.Close()
 
+	// 6b. Run pre-flight checks before any file operations.
+	if _, err = preflight.RunPreflightChecks(context.Background(), preflight.NewSSHRunner(client), resolved); err != nil {
+		fmt.Fprintf(os.Stderr, "Pre-flight failed: %v\n", err)
+		return err
+	}
+
 	// 7. Check if the remote target directory already exists.
 	// Use a dedicated SSH session per CLAUDE.md (sessions are NOT reusable).
 	if !resolved.Force {
@@ -245,6 +253,11 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// RunCompose() writes the failure line to os.Stderr on non-zero exit; no
 	// additional wrapping is needed here.
 	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile); err != nil {
+		return err
+	}
+
+	// 9b. Poll container health after compose up completes.
+	if err := health.PollHealth(context.Background(), client, projectName, resolved); err != nil {
 		return err
 	}
 
