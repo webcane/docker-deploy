@@ -57,6 +57,23 @@ type Config struct {
 	HealthInterval int      // seconds between health check polls; flag > deploy.yaml > 5
 }
 
+// isValidUnixUsername reports whether s is a valid Unix username, i.e. it
+// consists only of letters, digits, '.', '_', or '-', and is non-empty.
+// This is enforced on usernames extracted from host URLs to prevent
+// shell-special characters from appearing in operator-facing error messages
+// (e.g. the sudoers suggestion in checkSudo).
+func isValidUnixUsername(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseHost parses an SSH URI of the form ssh://[user@]host[:port].
 //
 // An empty rawURL is valid and returns a zero Host with no error — the caller
@@ -97,6 +114,9 @@ func ParseHost(rawURL string) (Host, error) {
 	var user string
 	if u.User != nil {
 		user = u.User.Username()
+		if user != "" && !isValidUnixUsername(user) {
+			return Host{}, fmt.Errorf("invalid host URL %q: username %q contains disallowed characters (allowed: a-z A-Z 0-9 . _ -)", rawURL, user)
+		}
 	}
 
 	return Host{
