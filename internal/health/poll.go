@@ -18,9 +18,11 @@ import (
 )
 
 // sessionOutput is the narrow interface for a single SSH session used in polls.
-// It wraps the two methods needed from *gossh.Session.
+// The command is baked in at newSession() construction time, so Output takes
+// no argument — preventing callers from accidentally running a different command
+// than the one the session was opened for.
 type sessionOutput interface {
-	Output(cmd string) ([]byte, error)
+	Output() ([]byte, error)
 	Close() error
 }
 
@@ -54,9 +56,8 @@ type sshSessionWrapper struct {
 	cmd     string
 }
 
-func (w *sshSessionWrapper) Output(_ string) ([]byte, error) {
-	out, err := w.session.Output(w.cmd)
-	return out, err
+func (w *sshSessionWrapper) Output() ([]byte, error) {
+	return w.session.Output(w.cmd)
 }
 
 func (w *sshSessionWrapper) Close() error {
@@ -165,7 +166,7 @@ func listContainers(runner sessionOpener, projectName string) ([]string, error) 
 	}
 	defer session.Close()
 
-	out, err := session.Output(cmd)
+	out, err := session.Output()
 	if err != nil {
 		return nil, fmt.Errorf("running docker ps: %w", err)
 	}
@@ -243,7 +244,7 @@ func inspectHealth(runner sessionOpener, containerName string) (string, error) {
 	}
 	defer session.Close()
 
-	out, err := session.Output(cmd)
+	out, err := session.Output()
 	if err != nil {
 		return "", fmt.Errorf("running docker inspect: %w", err)
 	}

@@ -24,7 +24,7 @@ type fakeSession struct {
 	err    error
 }
 
-func (f *fakeSession) Output(_ string) ([]byte, error) {
+func (f *fakeSession) Output() ([]byte, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
