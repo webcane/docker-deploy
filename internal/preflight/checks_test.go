@@ -395,11 +395,13 @@ func TestRunPreflightChecks_ReturnsCheckResults(t *testing.T) {
 // Compile-time interface check
 // ---------------------------------------------------------------------------
 
-// Ensure *gossh.Client satisfies the SSHRunner interface so the real production
-// call site compiles correctly.
+// Ensure NewSSHRunner wraps *gossh.Client into SSHRunner for production use.
+// This is a compile-time guard — if NewSSHRunner changes signature or the
+// adapter no longer satisfies SSHRunner, this file will not compile.
 func TestSSHRunnerInterface_GosshClientSatisfies(t *testing.T) {
-	// This test is a compile-time guard — if *gossh.Client does not implement
-	// SSHRunner, this file will not compile.
-	var _ preflight.SSHRunner = (*gossh.Client)(nil)
+	// NewSSHRunner(*gossh.Client) returns SSHRunner — compile-time check only.
+	// We use a nil pointer cast to avoid dialling a real SSH server.
+	var client *gossh.Client
+	var _ preflight.SSHRunner = preflight.NewSSHRunner(client)
 	_ = fmt.Sprintf // suppress unused import
 }
