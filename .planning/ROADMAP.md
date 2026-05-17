@@ -21,6 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
 - [ ] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon
 - [ ] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
+- [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
 
 ## Phase Details
 
@@ -220,6 +221,14 @@ Cross-cutting constraints:
   7. A feedback and suggestions section links to GitHub Issues with a welcome message for bug reports and feature requests
   8. README.md includes badges for build status, latest release version, and test status
 
+### Phase 10: Add Phase Autosuggestion
+**Goal**: add phase autosuggestion
+**Depends on**: Phase 8
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. TBD
+
 ## Progress
 
 **Execution Order:**
@@ -236,3 +245,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 7. v2 — Leftovers | 0/? | Not started | - |
 | 8. Integration Tests | 0/? | Not started | - |
 | 9. Documentation | 0/? | Not started | - |
+| 10. Add Phase Autosuggestion | 0/? | Not started | - |
