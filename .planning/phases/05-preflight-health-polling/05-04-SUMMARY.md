@@ -50,14 +50,14 @@ completed: 2026-05-17
 
 # Phase 5 Plan 04: Wire Pre-flight and Health Polling Summary
 
-**runDeploy() now runs pre-flight checks (CHECK-01 through CHECK-07) before file copy and health polling after compose up, completing the Phase 5 integration; human verification pending**
+**runDeploy() now runs pre-flight checks (CHECK-01 through CHECK-07) before file copy and health polling after compose up; all 6 Phase 5 ROADMAP success criteria verified against a real SSH host**
 
 ## Performance
 
 - **Duration:** ~10 min
 - **Started:** 2026-05-17T09:00:00Z
 - **Completed:** 2026-05-17T09:10:00Z
-- **Tasks:** 1 (implementation) + 1 (checkpoint: human-verify — pending)
+- **Tasks:** 1 (implementation) + 1 (checkpoint: human-verify — PASSED)
 - **Files modified:** 1
 
 ## Accomplishments
@@ -95,7 +95,7 @@ None. The Resolve() 10-arg signature was already applied in main.go (done as par
 
 ## User Setup Required
 
-Checkpoint verification required against a real SSH host. See checkpoint report in plan output.
+None - human verification passed. All 6 Phase 5 ROADMAP success criteria were verified against a real SSH host.
 
 ## Known Stubs
 
