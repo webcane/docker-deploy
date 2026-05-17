@@ -29,8 +29,8 @@ go.work.sum
 *.env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 
 # build dirs
 bin/
@@ -44,5 +44,9 @@ dist/
 
 #
 docker-deploy
+
+# .claude
+./.claude/settings.local.json
+.claude/worktrees/
 
 
