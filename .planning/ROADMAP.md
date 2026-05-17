@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
 - [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
 - [ ] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon
+- [ ] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
 
 ## Phase Details
 
@@ -204,6 +205,21 @@ Cross-cutting constraints:
   6. All preflight checks (CHECK-01 through CHECK-07) have at least one passing and one failing scenario covered
   7. Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined
 
+### Phase 9: Documentation
+**Goal**: README.md becomes the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
+**Depends on**: Phase 8
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. README.md explains the core value proposition and motivation — why docker-deploy exists as a simpler alternative to complex CI/CD pipelines for developers who just want `scp + compose up`
+  2. README.md includes a use-case section covering three scenarios: sshuser vs root, flags-only usage, and deploy.yaml config-driven usage with working examples
+  3. README.md includes clear installation instructions covering binary download, plugin placement in `~/.docker/cli-plugins/`, and verification with `docker deploy --help`
+  4. A comparison table of concurrent tools (Deployer, Kamal, Ansible, manual SSH scripts) is included with objective tradeoffs on complexity, dependencies, and target audience
+  5. Prerequisite guide(s) cover SSH key setup and adding passwordless sudo to sshuser on the remote
+  6. A troubleshooting section covers the most common failure scenarios (SSH auth failure, unknown host, writable dir, Docker not found, compose v1) with actionable fixes
+  7. A feedback and suggestions section links to GitHub Issues with a welcome message for bug reports and feature requests
+  8. README.md includes badges for build status, latest release version, and test status
+
 ## Progress
 
 **Execution Order:**
@@ -219,3 +235,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Leftovers | 0/? | Not started | - |
 | 8. Integration Tests | 0/? | Not started | - |
+| 9. Documentation | 0/? | Not started | - |
