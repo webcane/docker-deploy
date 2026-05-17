@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 05 of 7 (Pre-flight & Health Polling) — PLANNED
-Plan: 00 of 04 complete
-Status: Phase 5 planned (4 plans in 3 waves); ready to execute
-Last activity: 2026-05-15
+Phase: 05 of 7 (Pre-flight & Health Polling) — IN PROGRESS
+Plan: 04 of 04 complete (implementation task done; awaiting human verification checkpoint)
+Status: Phase 5 wired — pre-flight and health polling integrated into runDeploy(); human verify checkpoint pending
+Last activity: 2026-05-17
 Resume file: None
 
-Progress: [██████░░░░] 57%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ Recent decisions affecting current work:
 - 04-01: Resolve() updated to 8-arg signature; ComposeFile auto-detects compose.yaml then docker-compose.yml; Plan 02 is responsible for filepath.Base() validation of ComposeFile value before remote execution
 - 04-02: RunCompose() uses session.Start() not session.Run(); wg.Wait() before session.Wait() in non-TTY path ensures pipe drain before exit check; composeFile NOT ShellQuote'd (basename validated by callers per T-04-01-01)
 - 04-03: RunCompose() writes its own stderr failure line; runDeploy() returns error without double-printing; basename validation (filepath.Base check) in runDeploy() per T-04-03-01; context.Background() passed to RunCompose (compose up -d is detached)
+- 05-04: preflight.NewSSHRunner(client) used at call site — RunPreflightChecks accepts SSHRunner interface, not *gossh.Client directly; CheckResult slice discarded in Phase 5 (Phase 7 will use for verbose output)
 
 ### Roadmap Evolution
 
@@ -103,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-15T20:30:00Z
-Stopped at: Completed 04-03 — Full deploy loop wired and human-verified (6 tests); Phase 4 complete; Phase 5 next
+Last session: 2026-05-17T09:10:00Z
+Stopped at: Completed 05-04 Task 1 — pre-flight and health polling wired into runDeploy(); awaiting human verification checkpoint for Phase 5 ROADMAP success criteria
 Resume file: None

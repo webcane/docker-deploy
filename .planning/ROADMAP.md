@@ -149,7 +149,7 @@ Plans:
 - [x] 05-03-PLAN.md — health package (PollHealth with HEALTH-01 through HEALTH-03, TDD)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 05-04-PLAN.md — Wire into main.go (RunPreflightChecks after Dial, PollHealth after RunCompose, human verification)
+- [x] 05-04-PLAN.md — Wire into main.go (RunPreflightChecks after Dial, PollHealth after RunCompose, human verification)
 
 Cross-cutting constraints:
 - InsecureIgnoreHostKey must not appear anywhere in the codebase
@@ -200,6 +200,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
 | 4. Core Deploy Loop | 3/3 | Complete | 2026-05-15 |
-| 5. Pre-flight & Health Polling | 3/4 | In Progress | - |
+| 5. Pre-flight & Health Polling | 4/4 | Complete (pending human verify) | 2026-05-17 |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Skip .env Override Option | 0/? | Not started | - |
