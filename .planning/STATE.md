@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_complete
-stopped_at: Phase 5 complete — pre-flight checks and health polling verified against real SSH host
-last_updated: "2026-05-17T06:10:00Z"
+status: phase_shipped
+stopped_at: Phase 5 shipped — pushed directly to master (8d4d32e)
+last_updated: "2026-05-17T14:00:00Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 10
