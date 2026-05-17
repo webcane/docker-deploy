@@ -239,6 +239,15 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 		}
 	}
 
+	// Validate deploy.yaml health values: negative integers are rejected with an
+	// explicit error so the user is not silently surprised by default values.
+	if file.Target.HealthTimeout < 0 {
+		return Config{}, fmt.Errorf("deploy.yaml: health_timeout must be >= 0, got %d", file.Target.HealthTimeout)
+	}
+	if file.Target.HealthInterval < 0 {
+		return Config{}, fmt.Errorf("deploy.yaml: health_interval must be >= 0, got %d", file.Target.HealthInterval)
+	}
+
 	// HealthTimeout resolution: flag > deploy.yaml > default 60.
 	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
 	switch {
