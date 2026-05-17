@@ -59,6 +59,10 @@
 
 ## v2 Requirements
 
+### Configuration Extensions
+
+- **CFG-06**: `--config <path>` flag accepts a relative or absolute path to a config file with any name (e.g. `--config ../shared/deploy.yaml` or `--config staging.yaml`); takes precedence over the default `deploy.yaml` lookup from cwd; enables monorepo and multi-service layouts where config lives outside the project root — Phase 7 candidate
+
 ### Observability
 
 - **OBS-01**: `--detach` / `-d` flag for fire-and-forget mode (exit immediately after `compose up` without streaming logs)
@@ -124,10 +128,12 @@ Updated during roadmap creation.
 | INIT-02 | Phase 6 | Pending |
 | INIT-03 | Phase 6 | Pending |
 | INIT-04 | Phase 6 | Pending |
+| CFG-06 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 27
+- v2 requirements: 1 mapped (CFG-06 → Phase 7)
+- Mapped to phases: 28
 - Unmapped: 0 ✓
 
 ---
