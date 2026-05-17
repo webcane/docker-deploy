@@ -87,6 +87,7 @@ Recent decisions affecting current work:
 
 - Phase 7 added: v2 — Leftovers (expanded default excludes, --skip-env / skip_env setting, --verbose flag)
 - Phase 7 edited: renamed from "Skip .env Override Option" to "Leftovers"; skip_env_override → skip_env; --verbose split into its own Wave 2
+- Phase 8 added: Integration Tests (testcontainers-based suite verifying all requirements against real SSH daemon)
 
 ### Pending Todos
 

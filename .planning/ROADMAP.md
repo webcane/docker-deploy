@@ -19,6 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up — completed 2026-05-17
 - [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
 - [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
+- [ ] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon
 
 ## Phase Details
 
@@ -189,6 +190,20 @@ Cross-cutting constraints:
 **Wave 2 — Verbose flag**
   6. `--verbose` prints each file being transferred, each SSH command executed, and its exit code; without the flag output remains as terse as today
 
+### Phase 8: Integration Tests
+**Goal**: A testcontainers-based test suite automatically verifies all v1 requirements against a real SSH daemon — SSH connectivity, root-user warning, sshuser sudo permissions, preflight checks, file copy atomicity, compose execution, and health polling — so regressions are caught without manual VPS access
+**Depends on**: Phase 7
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `go test ./integration/...` spins up a real SSH daemon container and runs end-to-end against it without any manual setup
+  2. SSH connectivity verification (knownhosts, timeout, auth chain) is covered by at least one test
+  3. Root-user warning (CHECK-07) is triggered and asserted when connecting as root
+  4. Passwordless-sudo permission check (CHECK-04, CHECK-06) passes for a correctly configured sshuser and fails with a clear error for a misconfigured user
+  5. File copy atomicity is verified — a simulated mid-copy failure leaves the target directory in its pre-deploy state
+  6. All preflight checks (CHECK-01 through CHECK-07) have at least one passing and one failing scenario covered
+  7. Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined
+
 ## Progress
 
 **Execution Order:**
@@ -202,4 +217,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Core Deploy Loop | 3/3 | Complete | 2026-05-15 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 6. Init Wizard | 0/? | Not started | - |
-| 7. v2 — Skip .env Override Option | 0/? | Not started | - |
+| 7. v2 — Leftovers | 0/? | Not started | - |
+| 8. Integration Tests | 0/? | Not started | - |
