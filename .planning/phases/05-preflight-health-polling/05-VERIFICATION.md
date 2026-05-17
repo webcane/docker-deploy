@@ -1,16 +1,17 @@
 ---
 phase: 05-preflight-health-polling
 verified: 2026-05-17T12:30:00Z
-status: human_needed
-score: 9/10 must-haves verified
+status: passed
+score: 10/10 must-haves verified
 overrides_applied: 0
 human_verification:
   - test: "Confirm pre-flight errors surface before any file copy on a real SSH host"
-    expected: "Removing/renaming docker on remote causes 'Pre-flight failed: preflight: docker not installed on remote host' before any SFTP upload begins"
-    why_human: "05-UAT.md was committed at 08:21 and only covers Plan 01 (config); Plans 02/03/04 commits landed at 08:43-09:02. No UAT record covers pre-flight check or health poll behavior against a real host. 05-04-SUMMARY claims human verification passed but no corresponding 05-UAT test record exists for these behaviors."
+    result: passed
+    evidence: "05-HUMAN-UAT.md SC-1 and SC-2 — docker not installed and compose v2 missing both blocked deploy before file copy on real SSH host"
   - test: "Confirm health polling reports pass/fail after compose up on a real SSH host"
-    expected: "Deploy with a service that has a passing HEALTHCHECK prints 'Health check passed: all containers healthy'. Deploy with a service whose HEALTHCHECK always fails prints the unhealthy message and exits non-zero."
-    why_human: "Same gap as above — the UAT does not cover HEALTH-01, HEALTH-02, HEALTH-03 behaviors against a live container."
+    result: passed
+    evidence: "05-HUMAN-UAT.md SC-5 and SC-6 — healthy container printed pass message; unhealthy container exited non-zero on real SSH host"
+human_verified_at: 2026-05-17T06:10:00Z
 ---
 
 # Phase 5: Pre-flight & Health Polling Verification Report
