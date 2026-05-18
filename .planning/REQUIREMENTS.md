@@ -19,6 +19,7 @@
 - [x] **DEPLOY-04**: `docker compose up -d` is executed on the remote via SSH after file copy
 - [x] **DEPLOY-05**: Plugin exits with non-zero code if any step (pre-flight, copy, compose) fails
 - [x] **DEPLOY-06**: Deploy output (compose up result) is streamed back to the local terminal
+- [ ] **DEPLOY-07**: File copy MUST support a structured auth fallback sequence: (1) direct copy, (2) copy via passwordless sudo, (3) copy via interactive sudo password prompt with warning; fail only when all paths exhausted (bad/no password, timeout)
 
 ### File Management (FILES)
 
@@ -40,7 +41,7 @@
 - [ ] **CHECK-02**: Verify `docker compose` v2 plugin is installed (not docker-compose v1, which is EOL)
 - [ ] **CHECK-03**: Verify Docker daemon is running on remote
 - [ ] **CHECK-04**: Check if SSH user is in the `docker` group; if not, attempt to create group and add user (requires sudo)
-- [ ] **CHECK-05**: Check if user has sudo access on remote
+- [ ] **CHECK-05**: Check if user has passwordless sudo access on remote; emit a **warning** (not a blocking error) if not configured — deploy proceeds via fallback auth
 - [ ] **CHECK-06**: Verify target directory is writable; if not, attempt `sudo mkdir -p` and `sudo chown` to fix
 - [ ] **CHECK-07**: Warn (but do not block) if SSH user is root — deploying as root is dangerous
 
