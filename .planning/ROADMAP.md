@@ -239,7 +239,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Plugin Scaffolding | 2/2 | Complete | 2026-05-13 |
 | 2. SSH Transport & Config | 3/3 | Complete | 2026-05-14 |
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
-| 4. Core Deploy Loop | 3/3 | Complete | 2026-05-15 |
+| 4. Core Deploy Loop | 4/4 | Complete | 2026-05-18 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Leftovers | 0/? | Not started | - |
