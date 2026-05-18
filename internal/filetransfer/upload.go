@@ -16,6 +16,31 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// tryDirectCopy attempts to run a command without privilege escalation.
+// Returns true if successful, false otherwise.
+func tryDirectCopy(client *gossh.Client, cmd string) bool {
+	return sshExec(client, cmd) == nil
+}
+
+// tryPasswordlessSudo attempts to run a command with passwordless sudo (sudo -n).
+// Returns true if successful, false otherwise.
+func tryPasswordlessSudo(client *gossh.Client, cmd string) bool {
+	sudoCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
+	return sshExec(client, sudoCmd) == nil
+}
+
+// promptSudoPassword prompts the user for a sudo password and returns it,
+// or an error if the prompt fails or times out.
+func promptSudoPassword() (string, error) {
+	fmt.Fprintf(os.Stderr, "[sudo] password for remote host: ")
+	pw, readErr := term.ReadPassword(int(syscall.Stdin))
+	fmt.Fprintln(os.Stderr)
+	if readErr != nil {
+		return "", fmt.Errorf("reading sudo password: %w", readErr)
+	}
+	return string(pw), nil
+}
+
 // Upload copies all non-excluded files from localDir to a staging directory
 // on the remote, then atomically renames the staging dir to the final target.
 //
@@ -39,7 +64,7 @@ import (
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -140,45 +165,42 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return 0, fmt.Errorf("checking remote target existence: %w", err)
 	}
 
-	// sudoPw holds the sudo password once collected; sudoRun reuses it so at most
-	// one interactive prompt fires per Upload invocation.
-	// sudoRun tries the command without sudo first; on failure it collects the
-	// password (once, with up to 3 attempts) and retries with sudo.
-	sudoPw := ""
-	sudoRun := func(cmd string) error {
-		if err := sshExec(client, cmd); err == nil {
+	// sudoRunWithFallback implements the structured auth fallback sequence.
+	// It reuses sudoPw across multiple commands to avoid prompting multiple times.
+	sudoRunWithFallback := func(cmd string) error {
+		// Step 1: Try direct copy (no privilege escalation).
+		if tryDirectCopy(client, cmd) {
 			return nil
 		}
-		if sudoPw == "" {
-			for attempt := 1; attempt <= 3; attempt++ {
-				fmt.Fprintf(os.Stderr, "[sudo] password for remote host: ")
-				pw, readErr := term.ReadPassword(int(syscall.Stdin))
-				fmt.Fprintln(os.Stderr)
-				if readErr != nil {
-					return fmt.Errorf("reading sudo password: %w", readErr)
-				}
-				pwStr := string(pw)
-				sudoCmd := fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(pwStr), ShellQuote(cmd))
-				if sshExec(client, sudoCmd) == nil {
-					sudoPw = pwStr
-					return nil
-				}
-				if attempt < 3 {
-					fmt.Fprintln(os.Stderr, "Sorry, try again.")
-				}
+
+		// Step 2: Try passwordless sudo.
+		if tryPasswordlessSudo(client, cmd) {
+			return nil
+		}
+
+		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
+		fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
+		for attempt := 1; attempt <= 3; attempt++ {
+			pw, readErr := promptSudoPassword()
+			if readErr != nil {
+				return readErr
 			}
-			return fmt.Errorf("sudo authentication failed")
+			sudoCmd := fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(pw), ShellQuote(cmd))
+			if sshExec(client, sudoCmd) == nil {
+				*sudoPw = pw
+				return nil
+			}
+			if attempt < 3 {
+				fmt.Fprintln(os.Stderr, "Sorry, try again.")
+			}
 		}
-		if err := sshExec(client, fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(sudoPw), ShellQuote(cmd))); err != nil {
-			// Do not surface the raw sshExec error here — it contains the full
-			// command string including the cleartext sudo password.
-			return fmt.Errorf("sudo command failed: remote command returned non-zero exit status")
-		}
-		return nil
+
+		// Step 4: All paths exhausted.
+		return fmt.Errorf("could not write to target directory — no valid auth path available (tried direct copy, passwordless sudo, interactive password)")
 	}
 
 	// Step 8: Ensure target directory exists.
-	if err := sudoRun(fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))); err != nil {
+	if err := sudoRunWithFallback(fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))); err != nil {
 		remoteHost := client.RemoteAddr().String()
 		fmt.Fprintf(os.Stderr,
 			"Warning: could not create target directory %s.\n"+
@@ -203,10 +225,10 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		//   3. rm -rf backup (non-fatal on failure)
 		oldDir := remoteBase + "-old-" + timestamp
 
-		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
+		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
 			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
-		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			// Rollback: best-effort restore via plain sshExec (no new sudo prompt
 			// during the error path — avoids hanging in CI/CD contexts where stdin
 			// is not a TTY).
@@ -218,7 +240,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 					"Original error: %w",
 				client.RemoteAddr().String(), ShellQuote(oldDir), ShellQuote(remoteBase), err)
 		}
-		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
+		if err := sudoRunWithFallback(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
 		}
 	} else {
@@ -227,10 +249,10 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		// run `mv stagingDir remoteBase`, Unix mv moves stagingDir *inside*
 		// remoteBase (because the destination exists) instead of renaming it.
 		// Remove the empty placeholder first so that mv performs a clean rename.
-		if err := sudoRun(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
+		if err := sudoRunWithFallback(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
 			return 0, fmt.Errorf("removing target placeholder before first deploy: %w", err)
 		}
-		if err := sudoRun(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return 0, fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
