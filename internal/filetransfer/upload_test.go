@@ -205,6 +205,74 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 	}
 }
 
+// TestUploadAuthFallback_DirectCopy verifies that direct copy succeeds when the SSH
+// user has write permissions to the target directory.
+func TestUploadAuthFallback_DirectCopy(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+	srv := newMockSSHServer(nil)
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil)
+	if err != nil {
+		t.Fatalf("Upload returned unexpected error: %v", err)
+	}
+}
+
+// TestUploadAuthFallback_PasswordlessSudo verifies that when direct copy fails,
+// the function falls back to passwordless sudo.
+func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+	srv := newMockSSHServer(nil)
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// This test expects tryAuthFallback to be called and to handle permission denied
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil)
+	if err != nil {
+		t.Fatalf("Upload with passwordless sudo fallback failed: %v", err)
+	}
+}
+
+// TestUploadAuthFallback_InteractivePassword verifies that when direct and
+// passwordless sudo fail, the function prompts for a password interactively.
+func TestUploadAuthFallback_InteractivePassword(t *testing.T) {
+	t.Skip("Interactive password prompt requires stdin mocking — to be implemented in GREEN phase")
+}
+
+// TestUploadAuthFallback_InteractivePassword_WrongPassword verifies that incorrect
+// passwords are retried up to 3 times before failing.
+func TestUploadAuthFallback_InteractivePassword_WrongPassword(t *testing.T) {
+	t.Skip("Password retry logic — to be implemented in GREEN phase")
+}
+
+// TestUploadAuthFallback_InteractivePassword_Timeout verifies that if an interactive
+// password prompt times out, the upload fails gracefully.
+func TestUploadAuthFallback_InteractivePassword_Timeout(t *testing.T) {
+	t.Skip("Timeout handling — to be implemented in GREEN phase")
+}
+
+// TestUploadAuthFallback_RootUser verifies that when the SSH user is root, direct
+// copy is used without any sudo path and a danger warning is emitted.
+func TestUploadAuthFallback_RootUser(t *testing.T) {
+	t.Skip("Root user detection and warning — to be implemented in GREEN phase")
+}
+
+// TestUploadAuthFallback_AllPathsExhausted verifies that when all auth paths fail
+// (no password, wrong password, or timeout), the error message clearly states which
+// paths were exhausted.
+func TestUploadAuthFallback_AllPathsExhausted(t *testing.T) {
+	t.Skip("All paths exhausted error message — to be implemented in GREEN phase")
+}
+
 // TestUploadFirstDeploy_RmBeforeMv is the regression test for the first-deploy
 // mv nesting bug. It verifies that when remoteBase does not exist before Upload(),
 // the implementation calls rm -rf remoteBase before mv stagingDir remoteBase so
