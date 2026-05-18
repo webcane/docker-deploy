@@ -243,7 +243,11 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 8. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
-	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes)
+	// sudoPw is populated during interactive auth fallback and reused across operations.
+	var sudoPw *string
+	sudoPw = new(string)
+	*sudoPw = ""
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err
