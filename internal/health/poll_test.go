@@ -203,6 +203,27 @@ func TestPollHealth_Mixed(t *testing.T) {
 	}
 }
 
+// TestPollHealth_InspectError_ContinuesAndTimesOut: repeated inspect errors never mark container
+// done, so health check times out. This documents the old behavior when the docker inspect
+// template returned exit 1 for containers with no HEALTHCHECK (nil .State.Health). The fix
+// ({{if .State.Health}}...{{else}}none{{end}}) prevents this path for no-healthcheck containers.
+func TestPollHealth_InspectError_ContinuesAndTimesOut(t *testing.T) {
+	inspectErr := &fakeSession{err: errors.New("Process exited with status 1")}
+	responses := []*fakeSession{fakeSessionOut("stuck-container\n")}
+	for i := 0; i < 20; i++ {
+		responses = append(responses, inspectErr)
+	}
+	fc := newFakeClient(responses...)
+
+	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(1, 0))
+	if err == nil {
+		t.Fatal("expected non-nil error: inspect errors should not mark container done → timeout")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Errorf("expected timeout error, got: %v", err)
+	}
+}
+
 // TestPollHealth_ContextCancel: ctx cancelled mid-poll → non-nil error containing "context".
 func TestPollHealth_ContextCancel(t *testing.T) {
 	// docker ps → one container that keeps returning "starting"

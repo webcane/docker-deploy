@@ -237,7 +237,7 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 // Returns the trimmed status string or an error.
 // T-05-03-02: containerName from docker ps is wrapped in ShellQuote() before use.
 func inspectHealth(runner sessionOpener, containerName string) (string, error) {
-	cmd := "docker inspect --format '{{.State.Health.Status}}' " + filetransfer.ShellQuote(containerName)
+	cmd := "docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' " + filetransfer.ShellQuote(containerName)
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return "", fmt.Errorf("creating session for docker inspect: %w", err)
