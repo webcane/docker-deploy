@@ -228,16 +228,21 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
 		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
-			// Rollback: best-effort restore via plain sshExec (no new sudo prompt
-			// during the error path — avoids hanging in CI/CD contexts where stdin
-			// is not a TTY).
-			_ = sshExec(client, fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+			// Rollback: best-effort restore using the same sudoRunWithFallback closure
+			// so the mv succeeds even when /opt/… requires elevated privileges.
+			rollbackErr := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+			if rollbackErr != nil {
+				return 0, fmt.Errorf(
+					"placing new version failed and rollback also failed (%v).\n"+
+						"Restore manually:\n"+
+						"  ssh %s 'sudo mv %s %s'\n"+
+						"Original error: %w",
+					rollbackErr, client.RemoteAddr().String(), ShellQuote(oldDir), ShellQuote(remoteBase), err)
+			}
 			return 0, fmt.Errorf(
-				"placing new version failed (rolled back where possible).\n"+
-					"If rollback failed, restore manually:\n"+
-					"  ssh %s 'sudo mv %s %s'\n"+
+				"placing new version failed (rolled back successfully).\n"+
 					"Original error: %w",
-				client.RemoteAddr().String(), ShellQuote(oldDir), ShellQuote(remoteBase), err)
+				err)
 		}
 		if err := sudoRunWithFallback(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
