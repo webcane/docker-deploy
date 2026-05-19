@@ -290,5 +290,14 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 		cfg.HealthInterval = 5
 	}
 
+	// Validate that the remote path is absolute (WR-03).
+	// ShellQuote prevents the shell from interpreting the path as a command, but
+	// it does not prevent filesystem-level traversal if the path is relative
+	// (e.g. "../../../etc"). Requiring a leading '/' ensures the path is anchored
+	// to the filesystem root and cannot escape the intended deploy root.
+	if cfg.Path != "" && !filepath.IsAbs(cfg.Path) {
+		return Config{}, fmt.Errorf("remote path must be absolute (start with /), got: %q", cfg.Path)
+	}
+
 	return cfg, nil
 }
