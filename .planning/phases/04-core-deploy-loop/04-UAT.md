@@ -8,7 +8,10 @@ updated: 2026-05-16T00:05:00Z
 
 ## Current Test
 
-[testing paused — 3 items blocked by SSH dial bug]
+number: 2
+name: Full Deploy — Streaming Output
+expected: From a project directory with a compose.yaml and files to upload, run docker deploy --host ssh://user@host. Files are copied first, then docker compose up -d --remove-orphans runs on the remote. Compose output streams live line-by-line. Plugin prints "Deploy complete: N files copied to host:/path" on success and exits 0.
+awaiting: user response (RETRY - preflight fix applied)
 
 ## Tests
 
