@@ -85,7 +85,9 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	defer sftpClient.Close()
 
 	// Step 4: Derive staging directory in the remote /tmp (always writable).
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	// Use nanosecond precision to avoid collisions in concurrent deployments
+	// to the same remote in the same second (IN-03).
+	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
 	stagingDir := "/tmp/docker-deploy-" + timestamp
 
 	// Step 5: Create staging directory.
