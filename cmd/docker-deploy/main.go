@@ -60,7 +60,7 @@ func main() {
 		return cmd
 	}, metadata.Metadata{
 		SchemaVersion:    "0.1.0",
-		Vendor:           "mniedre",
+		Vendor:           "webcane",
 		Version:          version,
 		ShortDescription: "Deploy a docker-compose project to a remote VPS",
 	})
