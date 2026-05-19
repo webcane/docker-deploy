@@ -50,10 +50,10 @@ func (m *mockComposeServer) getSessionCount() int {
 	return int(atomic.LoadInt32(&m.sessionCount))
 }
 
-// startMockComposeSSHServer starts an in-process SSH server and returns a
-// connected *gossh.Client. Exec sessions are handled by recording the command
-// and returning the configured exit code.
-func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) *gossh.Client {
+// startMockComposeSSHServer starts an in-process SSH server and returns both
+// a connected *gossh.Client and a closer function to shut down the server.
+// The test should defer closeServer() immediately after calling this function.
+func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) (*gossh.Client, func()) {
 	t.Helper()
 
 	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -79,7 +79,6 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) *gossh.Clie
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	t.Cleanup(func() { ln.Close() }) //nolint:errcheck
 
 	go func() {
 		for {
@@ -110,8 +109,13 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) *gossh.Clie
 	if err != nil {
 		t.Fatalf("dial mock SSH server: %v", err)
 	}
-	t.Cleanup(func() { client.Close() }) //nolint:errcheck
-	return client
+
+	closer := func() {
+		client.Close()      //nolint:errcheck
+		ln.Close()          //nolint:errcheck
+	}
+
+	return client, closer
 }
 
 func handleComposeConn(conn net.Conn, cfg *gossh.ServerConfig, srv *mockComposeServer) {
@@ -178,7 +182,8 @@ func handleComposeSession(ch gossh.Channel, requests <-chan *gossh.Request, srv 
 // correct SSH exec command for the given remotePath and composeFile.
 func TestRunCompose_CommandConstruction(t *testing.T) {
 	srv := newMockComposeServer(0)
-	client := startMockComposeSSHServer(t, srv)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
 
 	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
 	if err != nil {
@@ -200,7 +205,8 @@ func TestRunCompose_CommandConstruction(t *testing.T) {
 // TestRunCompose_ExitCodeZero verifies that a zero exit code results in nil error.
 func TestRunCompose_ExitCodeZero(t *testing.T) {
 	srv := newMockComposeServer(0)
-	client := startMockComposeSSHServer(t, srv)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
 
 	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
 	if err != nil {
@@ -212,7 +218,8 @@ func TestRunCompose_ExitCodeZero(t *testing.T) {
 // a non-nil error containing "docker compose exited with code 1".
 func TestRunCompose_ExitCodeNonZero(t *testing.T) {
 	srv := newMockComposeServer(1)
-	client := startMockComposeSSHServer(t, srv)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
 
 	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
 	if err == nil {
@@ -227,7 +234,8 @@ func TestRunCompose_ExitCodeNonZero(t *testing.T) {
 // properly single-quoted in the exec command.
 func TestRunCompose_ShellQuoteRemotePath(t *testing.T) {
 	srv := newMockComposeServer(0)
-	client := startMockComposeSSHServer(t, srv)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
 
 	err := RunCompose(context.Background(), client, "/opt/my app", "compose.yaml")
 	if err != nil {
@@ -249,7 +257,8 @@ func TestRunCompose_ShellQuoteRemotePath(t *testing.T) {
 // each open a new SSH session (session counter increments to 2).
 func TestRunCompose_NewSessionPerCall(t *testing.T) {
 	srv := newMockComposeServer(0)
-	client := startMockComposeSSHServer(t, srv)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
 
 	if err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml"); err != nil {
 		t.Fatalf("first RunCompose: %v", err)

@@ -36,12 +36,13 @@ import (
 // A fresh NewSession() is opened per CLAUDE.md Rule 3; the session is closed
 // after Wait() returns.
 //
-// remotePath and composeFile are both wrapped in filetransfer.ShellQuote() to
-// prevent shell injection from paths or filenames containing spaces or special
-// characters (T-04-02-01). composeFile is additionally validated against an
-// alphanumeric allowlist (letters, digits, '-', '_', '.') before quoting
-// (T-04-02-02) — filepath.Base() at the call site prevents path separators,
-// but does not strip shell-active characters such as ';', '|', '$', or '`'.
+// The combined path (remotePath + "/" + composeFile) is wrapped in
+// filetransfer.ShellQuote() as a single token to prevent shell injection from
+// either path component (T-04-02-01, CR-01). composeFile is additionally
+// validated against an alphanumeric allowlist (letters, digits, '-', '_', '.')
+// before quoting (T-04-02-02) — filepath.Base() at the call site prevents path
+// separators, but does not strip shell-active characters like ';', '|', '$',
+// or '`'.
 func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string) error {
 	// Allowlist validation: reject any character that is not alphanumeric, '-',
 	// '_', or '.'. This guards against injection even before ShellQuote is
@@ -50,9 +51,11 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		return fmt.Errorf("compose file contains invalid characters: %q (only letters, digits, '-', '_', '.' are allowed)", composeFile)
 	}
 
-	// Construct the remote command. Both remotePath and composeFile are
-	// shell-quoted so that neither can inject shell metacharacters.
-	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath) + "/" + filetransfer.ShellQuote(composeFile) + " up -d --remove-orphans"
+	// Construct the remote command. The combined path (remotePath + "/" + composeFile)
+	// is shell-quoted as a single token so that neither remotePath nor composeFile
+	// can inject shell metacharacters (CR-01, T-04-02-01).
+	combinedPath := remotePath + "/" + composeFile
+	cmd := "docker compose -f " + filetransfer.ShellQuote(combinedPath) + " up -d --remove-orphans"
 
 	// Open a dedicated session per CLAUDE.md Rule 3 (sessions are NOT reusable).
 	session, err := client.NewSession()
@@ -62,7 +65,6 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 	// Derive a child context so the cancellation watcher goroutine below can be
 	// stopped cleanly when RunCompose returns normally (WR-02).
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	// Watch for context cancellation and close the SSH session so that
 	// session.Wait() and io.Copy unblock promptly (e.g. on Ctrl-C).
 	// Use WaitGroup to ensure the goroutine exits before RunCompose returns (WR-02).
@@ -73,7 +75,12 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		<-ctx.Done()
 		session.Close() //nolint:errcheck
 	}()
-	defer wg.Wait()
+	// Defer cleanup in the correct order: cancel context first, then wait for goroutine.
+	// This prevents deadlock where wg.Wait() blocks before ctx.Done() is signaled.
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
 	// The deferred close below handles the normal (non-cancelled) exit path.
 	// When the context is cancelled the goroutine above closes the session first;
 	// the subsequent defer call is a no-op (double-close is safe for gossh).
