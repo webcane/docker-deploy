@@ -137,7 +137,7 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 			// T-05-03-04: this select branch always fires at HealthTimeout.
 			for _, c := range containers {
 				if !done[c] {
-					fmt.Fprintf(os.Stderr, "Health check timed out after %ds: container %s is still starting\n", cfg.HealthTimeout, c)
+					fmt.Fprintf(os.Stderr, "Health check timed out after %ds: container %s is not yet running\n", cfg.HealthTimeout, c)
 				}
 			}
 			return fmt.Errorf("health: timed out waiting for containers to become healthy")
@@ -205,22 +205,15 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 		}
 
 		switch status {
-		case "healthy":
+		case "running":
 			done[container] = true
 
-		case "unhealthy":
-			fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
-			return false, fmt.Errorf("health: container %s is unhealthy", container)
-
-		case "", "none":
-			// No HEALTHCHECK defined — warn and treat as pass.
-			// D-13: containers with no healthcheck do not block.
-			fmt.Fprintf(os.Stderr, "Warning: container %s has no HEALTHCHECK defined\n", container)
-			done[container] = true
+		case "exited", "dead":
+			fmt.Fprintf(os.Stderr, "Health check failed: container %s stopped (state: %s)\n", container, status)
+			return false, fmt.Errorf("health: container %s stopped unexpectedly (state: %s)", container, status)
 
 		default:
-			// "starting" or any unexpected value → continue polling.
-			// T-05-03-03: unexpected status defaults to continue (safe default).
+			// "created", "restarting", "paused", "removing", or unexpected → continue polling.
 		}
 	}
 
@@ -233,11 +226,11 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 	return true, nil
 }
 
-// inspectHealth runs docker inspect to get the health status of a single container.
-// Returns the trimmed status string or an error.
+// inspectHealth runs docker inspect to get the running state of a single container.
+// Returns the trimmed .State.Status string ("running", "exited", "dead", etc.) or an error.
 // T-05-03-02: containerName from docker ps is wrapped in ShellQuote() before use.
 func inspectHealth(runner sessionOpener, containerName string) (string, error) {
-	cmd := "docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' " + filetransfer.ShellQuote(containerName)
+	cmd := "docker inspect --format '{{.State.Status}}' " + filetransfer.ShellQuote(containerName)
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return "", fmt.Errorf("creating session for docker inspect: %w", err)

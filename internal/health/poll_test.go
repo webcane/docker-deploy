@@ -83,93 +83,72 @@ func TestPollHealth_NoContainers(t *testing.T) {
 	}
 }
 
-// TestPollHealth_AllHealthy: two containers both return "healthy" on first poll.
-func TestPollHealth_AllHealthy(t *testing.T) {
-	// Sequence: docker ps → two containers; inspect c1 → healthy; inspect c2 → healthy
+// TestPollHealth_AllRunning: two containers both return "running" on first poll.
+func TestPollHealth_AllRunning(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("container-one\ncontainer-two\n"),
-		fakeSessionOut("healthy"),
-		fakeSessionOut("healthy"),
+		fakeSessionOut("running"),
+		fakeSessionOut("running"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
 	if err != nil {
-		t.Fatalf("expected nil error when all containers healthy, got: %v", err)
+		t.Fatalf("expected nil error when all containers running, got: %v", err)
 	}
 }
 
-// TestPollHealth_UnhealthyImmediate: one container returns "unhealthy" on first poll → non-nil error.
-func TestPollHealth_UnhealthyImmediate(t *testing.T) {
-	// Sequence: docker ps → one container; inspect → unhealthy
+// TestPollHealth_ExitedImmediate: one container returns "exited" on first poll → non-nil error.
+func TestPollHealth_ExitedImmediate(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("bad-container\n"),
-		fakeSessionOut("unhealthy"),
+		fakeSessionOut("exited"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
 	if err == nil {
-		t.Fatal("expected non-nil error for unhealthy container, got nil")
+		t.Fatal("expected non-nil error for exited container, got nil")
 	}
-	if !strings.Contains(err.Error(), "unhealthy") {
-		t.Errorf("expected error to mention 'unhealthy', got: %v", err)
+	if !strings.Contains(err.Error(), "stopped") {
+		t.Errorf("expected error to mention 'stopped', got: %v", err)
 	}
 }
 
-// TestPollHealth_NoHealthcheck_EmptyStatus: container returns "" for health → warning, returns nil.
-func TestPollHealth_NoHealthcheck_EmptyStatus(t *testing.T) {
+// TestPollHealth_DeadImmediate: one container returns "dead" → non-nil error.
+func TestPollHealth_DeadImmediate(t *testing.T) {
 	fc := newFakeClient(
-		fakeSessionOut("no-hc-container\n"),
-		fakeSessionOut(""),
+		fakeSessionOut("bad-container\n"),
+		fakeSessionOut("dead"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
-	if err != nil {
-		t.Fatalf("expected nil error for no-healthcheck container (empty status), got: %v", err)
+	if err == nil {
+		t.Fatal("expected non-nil error for dead container, got nil")
+	}
+	if !strings.Contains(err.Error(), "stopped") {
+		t.Errorf("expected error to mention 'stopped', got: %v", err)
 	}
 }
 
-// TestPollHealth_NoHealthcheck_NoneStatus: container returns "none" → warning, returns nil.
-func TestPollHealth_NoHealthcheck_NoneStatus(t *testing.T) {
-	fc := newFakeClient(
-		fakeSessionOut("no-hc-container\n"),
-		fakeSessionOut("none"),
-	)
-
-	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
-	if err != nil {
-		t.Fatalf("expected nil error for no-healthcheck container (none status), got: %v", err)
-	}
-}
-
-// TestPollHealth_StartingThenHealthy: container "starting" twice, then "healthy" on third poll.
-func TestPollHealth_StartingThenHealthy(t *testing.T) {
-	// docker ps → one container
-	// poll 1: starting
-	// poll 2: starting
-	// poll 3: healthy
+// TestPollHealth_CreatingThenRunning: container in "created" state twice, then "running".
+func TestPollHealth_CreatingThenRunning(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("slow-container\n"),
-		fakeSessionOut("starting"),
-		fakeSessionOut("starting"),
-		fakeSessionOut("healthy"),
+		fakeSessionOut("created"),
+		fakeSessionOut("created"),
+		fakeSessionOut("running"),
 	)
 
-	// HealthInterval=0 → 1ms effective; HealthTimeout=30s gives plenty of time
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(30, 0))
 	if err != nil {
-		t.Fatalf("expected nil error after container becomes healthy, got: %v", err)
+		t.Fatalf("expected nil error after container reaches running, got: %v", err)
 	}
 }
 
-// TestPollHealth_Timeout: container still "starting" when timeout expires → non-nil error.
+// TestPollHealth_Timeout: container stays in "created" state until timeout expires → non-nil error.
 func TestPollHealth_Timeout(t *testing.T) {
-	// docker ps → one container that always returns "starting"
-	// HealthTimeout=1 and HealthInterval=0 (1ms) so timeout fires quickly.
-	responses := []*fakeSession{
-		fakeSessionOut("timeout-container\n"),
-	}
+	responses := []*fakeSession{fakeSessionOut("timeout-container\n")}
 	for i := 0; i < 50; i++ {
-		responses = append(responses, fakeSessionOut("starting"))
+		responses = append(responses, fakeSessionOut("created"))
 	}
 	fc := newFakeClient(responses...)
 
@@ -183,30 +162,29 @@ func TestPollHealth_Timeout(t *testing.T) {
 	if !strings.Contains(err.Error(), "timed out") {
 		t.Errorf("expected error to mention 'timed out', got: %v", err)
 	}
-	// Should complete within 3 seconds (1s timeout + generous buffer)
 	if elapsed > 3*time.Second {
 		t.Errorf("timeout test took too long: %v", elapsed)
 	}
 }
 
-// TestPollHealth_Mixed: one healthy, one no-healthcheck → returns nil.
+// TestPollHealth_Mixed: one running, one restarting then running → returns nil.
 func TestPollHealth_Mixed(t *testing.T) {
 	fc := newFakeClient(
-		fakeSessionOut("healthy-container\nno-hc-container\n"),
-		fakeSessionOut("healthy"),
-		fakeSessionOut("none"),
+		fakeSessionOut("fast-container\nslow-container\n"),
+		fakeSessionOut("running"),
+		fakeSessionOut("restarting"),
+		// second poll: fast already done; slow now running
+		fakeSessionOut("running"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
 	if err != nil {
-		t.Fatalf("expected nil for mixed healthy + no-healthcheck, got: %v", err)
+		t.Fatalf("expected nil for mixed running + restarting→running, got: %v", err)
 	}
 }
 
 // TestPollHealth_InspectError_ContinuesAndTimesOut: repeated inspect errors never mark container
-// done, so health check times out. This documents the old behavior when the docker inspect
-// template returned exit 1 for containers with no HEALTHCHECK (nil .State.Health). The fix
-// ({{if .State.Health}}...{{else}}none{{end}}) prevents this path for no-healthcheck containers.
+// done, so health check times out. Inspect errors are treated as transient — keep polling.
 func TestPollHealth_InspectError_ContinuesAndTimesOut(t *testing.T) {
 	inspectErr := &fakeSession{err: errors.New("Process exited with status 1")}
 	responses := []*fakeSession{fakeSessionOut("stuck-container\n")}
