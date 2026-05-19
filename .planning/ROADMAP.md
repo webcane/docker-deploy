@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote — completed 2026-05-14
 - [x] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct — completed 2026-05-15
 - [x] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up — completed 2026-05-17
-- [ ] **Phase 6: Init Wizard** - `--init` creates target directory and writes deploy.yaml via root SSH
+- [ ] **Phase 6: Init Wizard (Draft)** - `--init` creates target directory and writes deploy.yaml via root SSH
 - [ ] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag
 - [ ] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon
 - [ ] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
@@ -163,7 +163,7 @@ Cross-cutting constraints:
 - CHECK-03 (daemon not running) and CHECK-07 (root user) are warnings only — never block (D-05, D-06)
 - CHECK-04 and CHECK-06 assume passwordless sudo; print actionable fix command on failure (D-07, D-08)
 
-### Phase 6: Init Wizard
+### Phase 6: Init Wizard (Draft)
 **Goal**: A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
 **Mode:** mvp
 **Depends on**: Phase 5

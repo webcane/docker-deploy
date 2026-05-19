@@ -51,13 +51,6 @@
 - [ ] **HEALTH-02**: Report final health result: pass (healthy) / fail (unhealthy) / unknown (no healthcheck)
 - [ ] **HEALTH-03**: Exit with non-zero code if any container reaches `unhealthy` state
 
-### Init Wizard (INIT)
-
-- [ ] **INIT-01**: `--init` flag triggers setup wizard using root SSH credentials
-- [ ] **INIT-02**: Wizard detects on first deploy if target directory doesn't exist or isn't writable, and offers to run init
-- [ ] **INIT-03**: Wizard creates target directory (`/opt/<project>`) and sets correct ownership (`chown`) for the deploy user
-- [ ] **INIT-04**: Wizard writes `deploy.yaml` with host, user, and path after successful setup
-
 ## v2 Requirements
 
 ### Configuration Extensions
@@ -73,6 +66,13 @@
 
 - **MULTI-01**: Named deploy targets in deploy.yaml (e.g., staging, prod) selectable via `--env`
 - **MULTI-02**: `docker deploy --env prod` deploys to named target config
+
+### Init Wizard (INIT)
+
+- [ ] **INIT-01**: `--init` flag triggers setup wizard using root SSH credentials
+- [ ] **INIT-02**: Wizard detects on first deploy if target directory doesn't exist or isn't writable, and offers to run init
+- [ ] **INIT-03**: Wizard creates target directory (`/opt/<project>`) and sets correct ownership (`chown`) for the deploy user
+- [ ] **INIT-04**: Wizard writes `deploy.yaml` with host, user, and path after successful setup
 
 ### Init Wizard Extended
 
