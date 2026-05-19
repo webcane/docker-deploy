@@ -25,6 +25,11 @@ import (
 
 var version = "dev"
 
+// sshDialTimeout is the maximum time to wait for an SSH connection to establish.
+// This timeout covers the TCP dial phase; SSH protocol negotiation and authentication
+// may take additional time (IN-01).
+const sshDialTimeout = 10 * time.Second
+
 func main() {
 	plugin.Run(func(dockerCli command.Cli) *cobra.Command {
 		var host string
@@ -99,7 +104,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 		User:     resolved.Host.User,
 		Hostname: resolved.Host.Hostname,
 		Port:     port,
-		Timeout:  10 * time.Second,
+		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
 		Stdout:   os.Stderr,
 	}
@@ -176,7 +181,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		User:     resolved.Host.User,
 		Hostname: resolved.Host.Hostname,
 		Port:     port,
-		Timeout:  10 * time.Second,
+		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
 		Stdout:   os.Stderr,
 	}
