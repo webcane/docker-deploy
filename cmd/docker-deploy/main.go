@@ -25,6 +25,11 @@ import (
 
 var version = "dev"
 
+// sshDialTimeout is the maximum time to wait for an SSH connection to establish.
+// This timeout covers the TCP dial phase; SSH protocol negotiation and authentication
+// may take additional time (IN-01).
+const sshDialTimeout = 10 * time.Second
+
 func main() {
 	plugin.Run(func(dockerCli command.Cli) *cobra.Command {
 		var host string
@@ -62,6 +67,9 @@ func main() {
 }
 
 // runDryRun implements the --dry-run flow: Resolve() -> Dial() -> print summary or error.
+// The composeFile parameter is accepted for API symmetry with runDeploy but is not
+// used during dry-run, since dry-run only verifies SSH connectivity and config resolution
+// (IN-02).
 func runDryRun(host, path string, excludes []string, force bool, composeFile string) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
@@ -77,13 +85,12 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	// composeFile is not resolved for dry-run; validation happens in runDeploy.
+	// A sentinel composeFile value is passed to skip auto-detection for dry-run.
 	// 0, 0 for health flags — not registered as CLI flags in Phase 5 (deploy.yaml only).
 	resolved, err := config.Resolve(host, path, excludes, force, "docker-compose.yml" /* sentinel: skips auto-detect; value is unused in dry-run */, 0, 0, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
-	_ = composeFile // dry-run does not execute compose
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
@@ -99,7 +106,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 		User:     resolved.Host.User,
 		Hostname: resolved.Host.Hostname,
 		Port:     port,
-		Timeout:  10 * time.Second,
+		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
 		Stdout:   os.Stderr,
 	}
@@ -167,15 +174,6 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		return fmt.Errorf("compose file must be a filename, not a path: %q", resolved.ComposeFile)
 	}
 
-	// 4c. Validate that the remote path is absolute (WR-03).
-	// ShellQuote prevents the shell from interpreting the path as a command, but
-	// it does not prevent filesystem-level traversal if the path is relative
-	// (e.g. "../../../etc"). Requiring a leading '/' ensures the path is anchored
-	// to the filesystem root and cannot escape the intended deploy root.
-	if !strings.HasPrefix(resolved.Path, "/") {
-		return fmt.Errorf("remote path must be absolute (start with /), got: %q", resolved.Path)
-	}
-
 	// 5. Build ssh.DialConfig from the resolved config.
 	port := resolved.Host.Port
 	if port == 0 {
@@ -185,7 +183,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		User:     resolved.Host.User,
 		Hostname: resolved.Host.Hostname,
 		Port:     port,
-		Timeout:  10 * time.Second,
+		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
 		Stdout:   os.Stderr,
 	}

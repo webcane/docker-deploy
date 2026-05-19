@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"syscall"
 	"unicode"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -51,7 +52,7 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 
 	// Construct the remote command. Both remotePath and composeFile are
 	// shell-quoted so that neither can inject shell metacharacters.
-	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath+"/"+composeFile) + " up -d --remove-orphans"
+	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath) + "/" + filetransfer.ShellQuote(composeFile) + " up -d --remove-orphans"
 
 	// Open a dedicated session per CLAUDE.md Rule 3 (sessions are NOT reusable).
 	session, err := client.NewSession()
@@ -59,23 +60,31 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		return fmt.Errorf("opening compose session: %w", err)
 	}
 	// Derive a child context so the cancellation watcher goroutine below can be
-	// stopped cleanly when RunCompose returns normally (WR-01).
+	// stopped cleanly when RunCompose returns normally (WR-02).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Watch for context cancellation and close the SSH session so that
 	// session.Wait() and io.Copy unblock promptly (e.g. on Ctrl-C).
+	// Use WaitGroup to ensure the goroutine exits before RunCompose returns (WR-02).
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		<-ctx.Done()
 		session.Close() //nolint:errcheck
 	}()
+	defer wg.Wait()
 	// The deferred close below handles the normal (non-cancelled) exit path.
 	// When the context is cancelled the goroutine above closes the session first;
 	// the subsequent defer call is a no-op (double-close is safe for gossh).
-	// io.EOF is expected after session.Wait() drains the remote process; any
-	// other error is unexpected and logged to stderr for diagnosis (WR-04).
+	// io.EOF and syscall.EPIPE are expected errors when closing after the remote
+	// process has exited or when the connection is broken; suppress them to avoid
+	// noisy output in concurrent deployments (WR-04).
 	defer func() {
-		if closeErr := session.Close(); closeErr != nil && !errors.Is(closeErr, io.EOF) {
-			fmt.Fprintf(os.Stderr, "warning: session close: %v\n", closeErr)
+		if closeErr := session.Close(); closeErr != nil {
+			if !errors.Is(closeErr, io.EOF) && !errors.Is(closeErr, syscall.EPIPE) {
+				fmt.Fprintf(os.Stderr, "warning: session close: %v\n", closeErr)
+			}
 		}
 	}()
 
