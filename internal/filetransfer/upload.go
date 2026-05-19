@@ -82,14 +82,16 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	if err != nil {
 		return 0, fmt.Errorf("opening SFTP session: %w", err)
 	}
+	defer sftpClient.Close()
 
 	// Step 4: Derive staging directory in the remote /tmp (always writable).
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	// Use nanosecond precision to avoid collisions in concurrent deployments
+	// to the same remote in the same second (IN-03).
+	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
 	stagingDir := "/tmp/docker-deploy-" + timestamp
 
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {
-		sftpClient.Close()
 		return 0, fmt.Errorf("creating staging directory %s: %w", stagingDir, err)
 	}
 
@@ -148,9 +150,6 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 		return nil
 	}()
-
-	// Step 7: Close SFTP session before running SSH mv/rename commands.
-	sftpClient.Close()
 
 	if uploadErr != nil {
 		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
