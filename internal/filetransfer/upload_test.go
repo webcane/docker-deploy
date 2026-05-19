@@ -220,7 +220,10 @@ func TestUploadAuthFallback_DirectCopy(t *testing.T) {
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw)
+	var warnedOnce *bool
+	warnedOnce = new(bool)
+	*warnedOnce = false
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -242,7 +245,10 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw)
+	var warnedOnce *bool
+	warnedOnce = new(bool)
+	*warnedOnce = false
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce)
 	if err != nil {
 		t.Fatalf("Upload with passwordless sudo fallback failed: %v", err)
 	}
@@ -298,7 +304,10 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw)
+	var warnedOnce *bool
+	warnedOnce = new(bool)
+	*warnedOnce = false
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -352,7 +361,10 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw)
+	var warnedOnce *bool
+	warnedOnce = new(bool)
+	*warnedOnce = false
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}

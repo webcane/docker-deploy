@@ -64,7 +64,7 @@ func promptSudoPassword() (string, error) {
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string, warnedOnce *bool) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -178,7 +178,10 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 
 		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
-		fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
+		if !*warnedOnce {
+			fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
+			*warnedOnce = true
+		}
 		for attempt := 1; attempt <= 3; attempt++ {
 			pw, readErr := promptSudoPassword()
 			if readErr != nil {

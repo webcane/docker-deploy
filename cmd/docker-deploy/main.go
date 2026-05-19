@@ -242,10 +242,14 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// 8. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
 	// sudoPw is populated during interactive auth fallback and reused across operations.
+	// warnedOnce tracks whether the passwordless sudo warning has been printed in this deploy.
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
-	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw)
+	var warnedOnce *bool
+	warnedOnce = new(bool)
+	*warnedOnce = false
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw, warnedOnce)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err
