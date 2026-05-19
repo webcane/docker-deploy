@@ -51,7 +51,7 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 
 	// Construct the remote command. Both remotePath and composeFile are
 	// shell-quoted so that neither can inject shell metacharacters.
-	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath+"/"+composeFile) + " up -d --remove-orphans"
+	cmd := "docker compose -f " + filetransfer.ShellQuote(remotePath) + "/" + filetransfer.ShellQuote(composeFile) + " up -d --remove-orphans"
 
 	// Open a dedicated session per CLAUDE.md Rule 3 (sessions are NOT reusable).
 	session, err := client.NewSession()
