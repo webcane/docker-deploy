@@ -18,8 +18,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/mniedre/docker-deploy/internal/config"
-	"github.com/mniedre/docker-deploy/internal/filetransfer"
+	"github.com/webcane/docker-deploy/internal/config"
+	"github.com/webcane/docker-deploy/internal/filetransfer"
 )
 
 // Session is the subset of *gossh.Session methods used by preflight checks.

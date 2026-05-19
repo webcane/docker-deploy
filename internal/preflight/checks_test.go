@@ -10,8 +10,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/mniedre/docker-deploy/internal/config"
-	"github.com/mniedre/docker-deploy/internal/preflight"
+	"github.com/webcane/docker-deploy/internal/config"
+	"github.com/webcane/docker-deploy/internal/preflight"
 )
 
 // ---------------------------------------------------------------------------

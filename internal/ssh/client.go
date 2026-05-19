@@ -13,7 +13,7 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	sshconfig "github.com/mniedre/docker-deploy/internal/sshconfig"
+	sshconfig "github.com/webcane/docker-deploy/internal/sshconfig"
 )
 
 // DialConfig holds the parameters for opening an SSH connection.

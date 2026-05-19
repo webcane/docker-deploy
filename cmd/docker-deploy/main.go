@@ -15,12 +15,12 @@ import (
 	"github.com/docker/cli/cli/command"
 	"github.com/spf13/cobra"
 
-	"github.com/mniedre/docker-deploy/internal/compose"
-	"github.com/mniedre/docker-deploy/internal/config"
-	filetransfer "github.com/mniedre/docker-deploy/internal/filetransfer"
-	"github.com/mniedre/docker-deploy/internal/health"
-	"github.com/mniedre/docker-deploy/internal/preflight"
-	sshpkg "github.com/mniedre/docker-deploy/internal/ssh"
+	"github.com/webcane/docker-deploy/internal/compose"
+	"github.com/webcane/docker-deploy/internal/config"
+	filetransfer "github.com/webcane/docker-deploy/internal/filetransfer"
+	"github.com/webcane/docker-deploy/internal/health"
+	"github.com/webcane/docker-deploy/internal/preflight"
+	sshpkg "github.com/webcane/docker-deploy/internal/ssh"
 )
 
 var version = "dev"

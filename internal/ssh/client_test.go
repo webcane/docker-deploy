@@ -18,7 +18,7 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	internalssh "github.com/mniedre/docker-deploy/internal/ssh"
+	internalssh "github.com/webcane/docker-deploy/internal/ssh"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )

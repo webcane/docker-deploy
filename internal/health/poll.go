@@ -13,8 +13,8 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/mniedre/docker-deploy/internal/config"
-	"github.com/mniedre/docker-deploy/internal/filetransfer"
+	"github.com/webcane/docker-deploy/internal/config"
+	"github.com/webcane/docker-deploy/internal/filetransfer"
 )
 
 // sessionOutput is the narrow interface for a single SSH session used in polls.

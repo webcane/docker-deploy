@@ -14,7 +14,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 
-	"github.com/mniedre/docker-deploy/internal/filetransfer"
+	"github.com/webcane/docker-deploy/internal/filetransfer"
 )
 
 // RunCompose executes "docker compose -f <remotePath>/<composeFile> up -d

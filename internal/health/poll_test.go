@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mniedre/docker-deploy/internal/config"
+	"github.com/webcane/docker-deploy/internal/config"
 )
 
 // fakeSession simulates an SSH session's Output() call.
