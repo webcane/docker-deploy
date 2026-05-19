@@ -206,20 +206,28 @@ Cross-cutting constraints:
   6. All preflight checks (CHECK-01 through CHECK-07) have at least one passing and one failing scenario covered
   7. Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined
 
-### Phase 9: Documentation
-**Goal**: README.md becomes the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
+### Phase 9: Distribution & Documentation
+**Goal**: docker-deploy is installable via three progressively convenient methods (manual binary, install script, Homebrew tap) and README.md is the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
 **Depends on**: Phase 8
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
-  1. README.md explains the core value proposition and motivation — why docker-deploy exists as a simpler alternative to complex CI/CD pipelines for developers who just want `scp + compose up`
-  2. README.md includes a use-case section covering three scenarios: sshuser vs root, flags-only usage, and deploy.yaml config-driven usage with working examples
-  3. README.md includes clear installation instructions covering binary download, plugin placement in `~/.docker/cli-plugins/`, and verification with `docker deploy --help`
-  4. A comparison table of concurrent tools (Deployer, Kamal, Ansible, manual SSH scripts) is included with objective tradeoffs on complexity, dependencies, and target audience
-  5. Prerequisite guide(s) cover SSH key setup and adding passwordless sudo to sshuser on the remote
-  6. A troubleshooting section covers the most common failure scenarios (SSH auth failure, unknown host, writable dir, Docker not found, compose v1) with actionable fixes
-  7. A feedback and suggestions section links to GitHub Issues with a welcome message for bug reports and feature requests
-  8. README.md includes badges for build status, latest release version, and test status
+
+**Distribution:**
+  1. GoReleaser produces signed binaries for darwin/linux × amd64/arm64 and attaches them to GitHub Releases automatically on tag push
+  2. `install.sh` detects OS and architecture, downloads the correct binary from GitHub Releases, places it in `~/.docker/cli-plugins/docker-deploy`, and sets the executable bit — a single `curl | sh` invocation completes a working install
+  3. A Homebrew tap (`homebrew-docker-deploy`) hosts a formula that installs the correct binary from GitHub Releases; `brew install <tap>/docker-deploy` produces a working plugin
+  4. All three install methods are verified to produce a working `docker deploy --help` after install
+
+**Documentation:**
+  5. README.md explains the core value proposition and motivation — why docker-deploy exists as a simpler alternative to complex CI/CD pipelines for developers who just want `scp + compose up`
+  6. README.md install section covers all three methods (manual binary, install script, Homebrew) with copy-paste commands for each
+  7. README.md includes a use-case section covering three scenarios: sshuser vs root, flags-only usage, and deploy.yaml config-driven usage with working examples
+  8. A comparison table of concurrent tools (Deployer, Kamal, Ansible, manual SSH scripts) is included with objective tradeoffs on complexity, dependencies, and target audience
+  9. Prerequisite guide(s) cover SSH key setup and adding passwordless sudo to sshuser on the remote
+  10. A troubleshooting section covers the most common failure scenarios (SSH auth failure, unknown host, writable dir, Docker not found, compose v1) with actionable fixes
+  11. A feedback and suggestions section links to GitHub Issues with a welcome message for bug reports and feature requests
+  12. README.md includes badges for build status, latest release version, and test status
 
 ### Phase 10: Add Phase Autosuggestion
 **Goal**: add phase autosuggestion
