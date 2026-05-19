@@ -59,15 +59,20 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		return fmt.Errorf("opening compose session: %w", err)
 	}
 	// Derive a child context so the cancellation watcher goroutine below can be
-	// stopped cleanly when RunCompose returns normally (WR-01).
+	// stopped cleanly when RunCompose returns normally (WR-02).
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Watch for context cancellation and close the SSH session so that
 	// session.Wait() and io.Copy unblock promptly (e.g. on Ctrl-C).
+	// Use WaitGroup to ensure the goroutine exits before RunCompose returns (WR-02).
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		<-ctx.Done()
 		session.Close() //nolint:errcheck
 	}()
+	defer wg.Wait()
 	// The deferred close below handles the normal (non-cancelled) exit path.
 	// When the context is cancelled the goroutine above closes the session first;
 	// the subsequent defer call is a no-op (double-close is safe for gossh).
