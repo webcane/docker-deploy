@@ -106,6 +106,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260519-c216 | Fix hanging goroutines in RunCompose test — refactor mock server, fix defer ordering, fix command quoting | 2026-05-19 | 833cf07 | [260519-c216-fix-hanging-goroutines](./quick/260519-c216-fix-hanging-goroutines/) |
 | 260519-oax | Deduplicate 'passwordless sudo not configured' warning — show once by default, configurable via --verbose flag or config | 2026-05-19 | 40dc518 | [260519-oax-deduplicate-passwordless-sudo-not-config](./quick/260519-oax-deduplicate-passwordless-sudo-not-config/) |
+| 260519-q01 | Verify docker-compose detached mode (-d flag) — confirmed already implemented in Phase 4, all tests passing | 2026-05-19 | 2150b80 | [260519-q01-docker-compose-detached-mode](./quick/260519-q01-docker-compose-detached-mode/) |
 
 ## Deferred Items
 
@@ -118,4 +119,4 @@ None yet.
 Last session: 2026-05-17T09:10:00Z
 Stopped at: Completed 05-04 — human verification passed; Phase 5 fully complete; all 6 Phase 5 ROADMAP success criteria verified
 Resume file: None
-Last activity: 2026-05-19 - Completed quick task 260519-c216: Fix hanging goroutines in RunCompose test
+Last activity: 2026-05-19 - Completed quick task 260519-q01: Verify docker-compose detached mode (-d flag) already implemented
