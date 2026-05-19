@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"syscall"
 	"unicode"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -76,11 +77,14 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 	// The deferred close below handles the normal (non-cancelled) exit path.
 	// When the context is cancelled the goroutine above closes the session first;
 	// the subsequent defer call is a no-op (double-close is safe for gossh).
-	// io.EOF is expected after session.Wait() drains the remote process; any
-	// other error is unexpected and logged to stderr for diagnosis (WR-04).
+	// io.EOF and syscall.EPIPE are expected errors when closing after the remote
+	// process has exited or when the connection is broken; suppress them to avoid
+	// noisy output in concurrent deployments (WR-04).
 	defer func() {
-		if closeErr := session.Close(); closeErr != nil && !errors.Is(closeErr, io.EOF) {
-			fmt.Fprintf(os.Stderr, "warning: session close: %v\n", closeErr)
+		if closeErr := session.Close(); closeErr != nil {
+			if !errors.Is(closeErr, io.EOF) && !errors.Is(closeErr, syscall.EPIPE) {
+				fmt.Fprintf(os.Stderr, "warning: session close: %v\n", closeErr)
+			}
 		}
 	}()
 
