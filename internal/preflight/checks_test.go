@@ -210,25 +210,31 @@ func TestCheck04_UserNotInDockerGroup_SudoUsermodSuccess(t *testing.T) {
 }
 
 func TestCheck04_UserNotInDockerGroup_SudoUsermodFails(t *testing.T) {
+	// User not in docker group → returns warning (not error), allows deploy to proceed
 	client := newClient(
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
 		fakeCmd{match: "test -w", output: nil, exitCode: 0},
 		fakeCmd{match: "id -nG", output: []byte("sudo adm")}, // no "docker"
-		fakeCmd{match: "sudo -n true", output: nil, exitCode: 0},
-		fakeCmd{match: "sudo usermod", output: nil, exitCode: 1},
 	)
-	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
-	if err == nil {
-		t.Fatal("expected error when sudo usermod fails, got nil")
+	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
+	if err != nil {
+		t.Fatalf("expected nil error (warning only), got %v", err)
 	}
-	if !strings.Contains(err.Error(), "user not in docker group") {
-		t.Errorf("error %q does not contain 'user not in docker group'", err.Error())
+	// Find the docker-group check result
+	var dockerGroupResult *preflight.CheckResult
+	for i := range results {
+		if results[i].Name == "docker-group" {
+			dockerGroupResult = &results[i]
+			break
+		}
 	}
-	// Error message must include the fix command
-	if !strings.Contains(err.Error(), "sudo usermod -aG docker") {
-		t.Errorf("error %q does not include fix command", err.Error())
+	if dockerGroupResult == nil {
+		t.Fatal("docker-group check result not found")
+	}
+	if dockerGroupResult.Status != "warn" {
+		t.Errorf("expected status 'warn', got %q", dockerGroupResult.Status)
 	}
 }
 
@@ -237,6 +243,7 @@ func TestCheck04_UserNotInDockerGroup_SudoUsermodFails(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
+	// No passwordless sudo available → returns warning, allows deploy to proceed with password prompts
 	client := newClient(
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
@@ -244,13 +251,25 @@ func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
 		fakeCmd{match: "test -w", exitCode: 1},            // dir not writable → needs sudo
 		fakeCmd{match: "mkdir -p", exitCode: 1},           // mkdir fails → needs sudo
 		fakeCmd{match: "sudo -n true", exitCode: 1},        // no passwordless sudo
+		fakeCmd{match: "id -nG", output: []byte("docker")}, // user in docker group
 	)
-	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
-	if err == nil {
-		t.Fatal("expected error when sudo not available, got nil")
+	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
+	if err != nil {
+		t.Fatalf("expected nil error (warning only), got %v", err)
 	}
-	if !strings.Contains(err.Error(), "no passwordless sudo") {
-		t.Errorf("error %q does not contain 'no passwordless sudo'", err.Error())
+	// Find the target-dir check result
+	var targetDirResult *preflight.CheckResult
+	for i := range results {
+		if results[i].Name == "target-dir" {
+			targetDirResult = &results[i]
+			break
+		}
+	}
+	if targetDirResult == nil {
+		t.Fatal("target-dir check result not found")
+	}
+	if targetDirResult.Status != "warn" {
+		t.Errorf("expected status 'warn', got %q", targetDirResult.Status)
 	}
 }
 

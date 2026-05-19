@@ -201,26 +201,26 @@ func checkRootUser(cfg config.Config) CheckResult {
 	}
 }
 
-// checkSudo verifies that passwordless sudo is available via `sudo -n true`.
-// Returns nil on success; error if sudo requires a password or is unavailable.
-// Only called when an auto-fix actually needs sudo (CHECK-04, CHECK-06).
+// checkSudo verifies that sudo is available (either passwordless or with interactive prompt).
+// Returns nil on success; error only if sudo is not available at all.
+// Only called when an auto-fix needs sudo (CHECK-04, CHECK-06).
 func checkSudo(client SSHRunner, cfg config.Config) error {
-	if err := runCmd(client, "sudo -n true"); err != nil {
-		return fmt.Errorf(
-			"preflight: no passwordless sudo available for user %s; "+
-				"fix: add '%s ALL=(ALL) NOPASSWD: ALL' to /etc/sudoers.d/%s on the remote host",
-			cfg.Host.User, cfg.Host.User, cfg.Host.User,
-		)
+	// Try passwordless sudo first
+	if err := runCmd(client, "sudo -n true"); err == nil {
+		return nil // passwordless sudo available
 	}
+	// Passwordless unavailable, but sudo itself may be available — that's fine.
+	// The actual deploy will prompt for password via the auth fallback sequence.
 	return nil
 }
 
 // checkTargetDir ensures cfg.Path exists and is writable. It tries:
 //  1. test -w <path>        — pass immediately if writable
 //  2. mkdir -p <path>       — pass if succeeds without sudo
-//  3. CHECK-05 + sudo mkdir -p + sudo chown — escalate on EACCES
+//  3. Warn if directory not writable (auto-fix deferred to deploy phase)
 //
 // Returns the CheckResult and any blocking error.
+// Note: sudo auto-fixes are deferred to Upload() which handles interactive password prompts.
 func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 	path := filetransfer.ShellQuote(cfg.Path)
 
@@ -242,46 +242,21 @@ func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 		}, nil
 	}
 
-	// mkdir failed — need sudo. Check sudo access first (CHECK-05).
-	if sudoErr := checkSudo(client, cfg); sudoErr != nil {
-		return CheckResult{
-			Name:    "target-dir",
-			Status:  "fail",
-			Message: sudoErr.Error(),
-		}, sudoErr
-	}
-
-	// sudo mkdir -p
-	if err := runCmd(client, "sudo mkdir -p "+path); err != nil {
-		msg := fmt.Sprintf(
-			"preflight: target directory %s is not writable and could not be created; "+
-				"fix: sudo mkdir -p %s && sudo chown %s %s",
-			cfg.Path, cfg.Path, cfg.Host.User, cfg.Path,
-		)
-		return CheckResult{Name: "target-dir", Status: "fail", Message: msg}, fmt.Errorf("%s", msg)
-	}
-
-	// sudo chown
-	user := filetransfer.ShellQuote(cfg.Host.User)
-	if err := runCmd(client, "sudo chown "+user+" "+path); err != nil {
-		msg := fmt.Sprintf(
-			"preflight: target directory %s is not writable and could not be created; "+
-				"fix: sudo mkdir -p %s && sudo chown %s %s",
-			cfg.Path, cfg.Path, cfg.Host.User, cfg.Path,
-		)
-		return CheckResult{Name: "target-dir", Status: "fail", Message: msg}, fmt.Errorf("%s", msg)
-	}
-
+	// Directory not writable without sudo. Warn the user but don't fail.
+	// Upload() will handle sudo escalation with interactive password prompts if needed.
+	fmt.Fprintf(os.Stderr,
+		"Warning: %s may require sudo to write to; will attempt password auth during deploy if needed\n",
+		cfg.Path,
+	)
 	return CheckResult{
 		Name:    "target-dir",
-		Status:  "pass",
-		Message: cfg.Path + " created via sudo",
+		Status:  "warn",
+		Message: cfg.Path + " requires sudo to write (will prompt during deploy if needed)",
 	}, nil
 }
 
 // checkDockerGroup checks if cfg.Host.User is in the docker group via `id -nG`.
-// If not, it attempts auto-fix via `sudo usermod -aG docker <user>`.
-// CHECK-05 (checkSudo) is called before any sudo attempt.
+// If not, warns the user. Auto-fix via sudo is not attempted (requires TTY for password).
 //
 // Returns the CheckResult and any blocking error.
 func checkDockerGroup(client SSHRunner, cfg config.Config) (CheckResult, error) {
@@ -305,29 +280,17 @@ func checkDockerGroup(client SSHRunner, cfg config.Config) (CheckResult, error) 
 		}
 	}
 
-	// User not in docker group — attempt auto-fix via sudo (CHECK-05 first).
-	if sudoErr := checkSudo(client, cfg); sudoErr != nil {
-		return CheckResult{
-			Name:    "docker-group",
-			Status:  "fail",
-			Message: sudoErr.Error(),
-		}, sudoErr
-	}
-
-	user := filetransfer.ShellQuote(cfg.Host.User)
-	if err := runCmd(client, "sudo usermod -aG docker "+user); err != nil {
-		msg := fmt.Sprintf(
-			"preflight: user not in docker group (%s); "+
-				"fix: sudo usermod -aG docker %s (run as root or a user with NOPASSWD sudo)",
-			cfg.Host.User, cfg.Host.User,
-		)
-		return CheckResult{Name: "docker-group", Status: "fail", Message: msg}, fmt.Errorf("%s", msg)
-	}
-
+	// User not in docker group — warn but don't fail.
+	// The docker compose up may still work depending on the setup,
+	// or user can run: sudo usermod -aG docker <user> (then newgrp docker)
+	fmt.Fprintf(os.Stderr,
+		"Warning: user %s is not in the docker group; compose may require sudo\n",
+		cfg.Host.User,
+	)
 	return CheckResult{
 		Name:    "docker-group",
-		Status:  "pass",
-		Message: "user added to docker group via sudo usermod",
+		Status:  "warn",
+		Message: "user not in docker group (compose may require sudo)",
 	}, nil
 }
 
