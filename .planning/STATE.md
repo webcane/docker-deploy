@@ -100,6 +100,12 @@ None yet.
 
 None yet.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260519-oax | Deduplicate 'passwordless sudo not configured' warning — show once by default, configurable via --verbose flag or config | 2026-05-19 | 40dc518 | [260519-oax-deduplicate-passwordless-sudo-not-config](./quick/260519-oax-deduplicate-passwordless-sudo-not-config/) |
+
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
@@ -111,3 +117,4 @@ None yet.
 Last session: 2026-05-17T09:10:00Z
 Stopped at: Completed 05-04 — human verification passed; Phase 5 fully complete; all 6 Phase 5 ROADMAP success criteria verified
 Resume file: None
+Last activity: 2026-05-19 - Completed quick task 260519-oax: Deduplicate 'passwordless sudo not configured' warning
