@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: phase_execution
 stopped_at: null
-last_updated: "2026-05-18T00:00:00Z"
-last_activity: 2026-05-18
+last_updated: "2026-05-19T00:00:00Z"
+last_activity: 2026-05-19
 progress:
   total_phases: 10
   completed_phases: 5
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 04 of 10 (Core Deploy Loop) — COMPLETE
+Phase: 04 of 10 (Core Deploy Loop) — SHIPPED (v0.2.0)
 Plan: 04 of 04 complete
 Status: Phase 4 complete — auth fallback sequence (direct copy → passwordless sudo → interactive password) implemented and verified; all 15 must-haves across all 4 plans satisfied
 Last activity: 2026-05-18
