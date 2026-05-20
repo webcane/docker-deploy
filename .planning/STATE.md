@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_execution
+status: phase_complete
 stopped_at: null
 last_updated: "2026-05-20T00:00:00Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 10
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 17
-  completed_plans: 15
-  percent: 71
+  completed_plans: 17
+  percent: 78
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 7 — v2 Leftovers (planned, ready to execute)
+**Current focus:** Phase 8 — Integration Tests (next up)
 
 ## Current Position
 
-Phase: 07 of 10 (v2 — Leftovers) — PLANNED (ready to execute)
-Plan: 00 of 02 complete
-Status: Phase 7 planned — 2 plans in 2 waves: Wave 1 (config foundation: FlagOpts refactor, expanded excludes, SkipEnv/Verbose fields), Wave 2 (wire-up: flags, Upload verbose, RunCompose verbose, warning rollup, preflight checklist rendering)
+Phase: 08 of 10 (Integration Tests) — NOT STARTED
+Plan: 00 of TBD complete
+Status: Phase 7 complete — --skip-env, --verbose, expanded defaultExcludes shipped. Bug fix: remote .env preserved across atomic swap. Advancing to Phase 8.
 Last activity: 2026-05-18
 Resume file: None
 
