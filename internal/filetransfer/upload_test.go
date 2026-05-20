@@ -343,6 +343,117 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 	}
 }
 
+// TestUploadVerbose_PerFileStderr verifies that when verbose=true, per-file lines
+// are written to stderr (not suppressed). When verbose=false, per-file lines are suppressed.
+// This test uses a captured stderr to detect the "  -> " lines.
+func TestUploadVerbose_PerFileStderr(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	t.Run("verbose_true_perfile_to_stderr", func(t *testing.T) {
+		srv := newMockSSHServer(nil)
+		client := startMockSSHServer(t, srv)
+
+		localDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Redirect stderr to capture output.
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		var sudoPw *string = new(string)
+		var warnedOnce *bool = new(bool)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
+
+		w.Close()
+		os.Stderr = oldStderr
+
+		var buf strings.Builder
+		io.Copy(&buf, r) //nolint:errcheck
+		captured := buf.String()
+
+		if err != nil {
+			t.Fatalf("Upload(verbose=true) returned error: %v", err)
+		}
+		if !strings.Contains(captured, "  -> compose.yaml") {
+			t.Errorf("verbose=true: expected '  -> compose.yaml' in stderr; got: %q", captured)
+		}
+	})
+
+	t.Run("verbose_false_no_perfile_lines", func(t *testing.T) {
+		srv := newMockSSHServer(nil)
+		client := startMockSSHServer(t, srv)
+
+		localDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Redirect stderr to capture output.
+		oldStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+
+		var sudoPw *string = new(string)
+		var warnedOnce *bool = new(bool)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+
+		w.Close()
+		os.Stderr = oldStderr
+
+		var buf strings.Builder
+		io.Copy(&buf, r) //nolint:errcheck
+		captured := buf.String()
+
+		if err != nil {
+			t.Fatalf("Upload(verbose=false) returned error: %v", err)
+		}
+		if strings.Contains(captured, "  -> ") {
+			t.Errorf("verbose=false: unexpected '  -> ' per-file line in stderr; got: %q", captured)
+		}
+	})
+}
+
+// TestUploadVerbose_SSHCommandLogging verifies that when verbose=true, SSH exec
+// commands are logged to stderr in "[ssh] <cmd>" format with "  → exit N" exit codes.
+func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+	srv := newMockSSHServer(nil)
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	var sudoPw *string = new(string)
+	var warnedOnce *bool = new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
+
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("Upload returned error: %v", err)
+	}
+	if !strings.Contains(captured, "[ssh] ") {
+		t.Errorf("verbose=true: expected '[ssh] ' SSH command lines in stderr; got: %q", captured)
+	}
+	if !strings.Contains(captured, "exit 0") {
+		t.Errorf("verbose=true: expected 'exit 0' exit code lines in stderr; got: %q", captured)
+	}
+}
+
 // TestUploadRepeatDeploy_ThreeStepSwapUnchanged verifies that the repeat-deploy
 // path (remoteBase already exists) uses the three-step atomic swap and does NOT
 // add an extra rm -rf on remoteBase itself.
