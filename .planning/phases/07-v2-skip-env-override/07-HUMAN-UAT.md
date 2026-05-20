@@ -1,0 +1,32 @@
+---
+status: partial
+phase: 07-v2-skip-env-override
+source: [07-VERIFICATION.md]
+started: 2026-05-20T00:00:00Z
+updated: 2026-05-20T00:00:00Z
+---
+
+## Current Test
+
+[awaiting human testing]
+
+## Tests
+
+### 1. Verbose output end-to-end
+expected: With `--verbose`, all four output categories appear in stderr: per-file `  ->` lines, `[ssh] cmd` lines, `  → exit N` lines, and `[PASS]/[WARN]` preflight lines. Without `--verbose`, none of these appear and a single rollup `WARN: there are some warnings...` is printed only if warnings occurred.
+result: [pending]
+
+### 2. Skip-env remote state
+expected: After deploying with `--skip-env`, the remote `.env` is untouched (its content from before the deploy is preserved). The warning `WARNING: .env not uploaded — remote .env left unchanged` appears in stderr (inline with `--verbose`, as part of the rollup without).
+result: [pending]
+
+## Summary
+
+total: 2
+passed: 0
+issues: 0
+pending: 2
+skipped: 0
+blocked: 0
+
+## Gaps
