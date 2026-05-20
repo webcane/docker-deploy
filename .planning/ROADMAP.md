@@ -178,7 +178,7 @@ Cross-cutting constraints:
 ### Phase 7: v2 — Leftovers
 **Goal**: Ship a wave of small v2 quality-of-life improvements: expand the built-in exclude list to cover common dev-tooling directories, add a `--skip-env` flag so operators can preserve remote secrets across deploys, and add a `--verbose` flag for detailed deploy output
 **Depends on**: Phase 6
-**Plans**: TBD
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -191,6 +191,14 @@ Cross-cutting constraints:
 
 **Wave 2 — Verbose flag**
   6. `--verbose` prints each file being transferred, each SSH command executed, and its exit code; without the flag output remains as terse as today
+
+Plans:
+
+**Wave 1** *(run independently)*
+- [ ] 07-01-PLAN.md — Config foundation (FlagOpts struct, Resolve() refactor, expanded defaultExcludes, SkipEnv/Verbose fields, config tests)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 07-02-PLAN.md — Wire-up (--skip-env/--verbose flags, FlagOpts call sites, Upload() verbose, warning rollup, preflight checklist, human verification)
 
 ### Phase 8: Integration Tests
 **Goal**: A testcontainers-based test suite automatically verifies all v1 requirements against a real SSH daemon — SSH connectivity, root-user warning, sshuser sudo permissions, preflight checks, file copy atomicity, compose execution, and health polling — so regressions are caught without manual VPS access
