@@ -33,6 +33,11 @@ import (
 //   - Exit N → writes "Deploy failed: docker compose exited with code N" to
 //     os.Stderr and returns a non-nil error with the same message.
 //
+// Verbose logging (per D-01, Phase 7 Plan 02):
+//   - When verbose=true: logs "[ssh] <cmd>" to os.Stderr before session.Start(),
+//     and "  → exit 0" or "  → exit N" after Wait() returns.
+//   - When verbose=false: no additional output.
+//
 // A fresh NewSession() is opened per CLAUDE.md Rule 3; the session is closed
 // after Wait() returns.
 //
@@ -43,7 +48,7 @@ import (
 // before quoting (T-04-02-02) — filepath.Base() at the call site prevents path
 // separators, but does not strip shell-active characters like ';', '|', '$',
 // or '`'.
-func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string) error {
+func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string, verbose bool) error {
 	// Allowlist validation: reject any character that is not alphanumeric, '-',
 	// '_', or '.'. This guards against injection even before ShellQuote is
 	// applied, providing defence-in-depth (T-04-02-02).
@@ -133,6 +138,9 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		}
 		// Start the command BEFORE launching goroutines. If Start fails, no
 		// goroutines have been spawned, so there is nothing to leak (CR-02).
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+		}
 		if startErr := session.Start(cmd); startErr != nil {
 			return fmt.Errorf("starting compose session: %w", startErr)
 		}
@@ -150,14 +158,35 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		// Wait for both drains to complete before calling session.Wait() to
 		// ensure all output is flushed (prevents truncated log lines in CI).
 		wg.Wait()
-		return handleWait(session.Wait())
+		waitErr := handleWait(session.Wait())
+		if verbose && waitErr == nil {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		} else if verbose && waitErr != nil {
+			var exitErr *gossh.ExitError
+			if errors.As(waitErr, &exitErr) {
+				fmt.Fprintf(os.Stderr, "  → exit %d\n", exitErr.ExitStatus())
+			}
+		}
+		return waitErr
 	}
 
 	// PTY path: start and wait inline (PTY drains synchronously).
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+	}
 	if startErr := session.Start(cmd); startErr != nil {
 		return fmt.Errorf("starting compose session: %w", startErr)
 	}
-	return handleWait(session.Wait())
+	waitErr := handleWait(session.Wait())
+	if verbose && waitErr == nil {
+		fmt.Fprintf(os.Stderr, "  → exit 0\n")
+	} else if verbose && waitErr != nil {
+		var exitErr *gossh.ExitError
+		if errors.As(waitErr, &exitErr) {
+			fmt.Fprintf(os.Stderr, "  → exit %d\n", exitErr.ExitStatus())
+		}
+	}
+	return waitErr
 }
 
 // isValidComposeFilename returns true if s contains only letters, digits, '-',

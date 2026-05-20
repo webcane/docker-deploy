@@ -263,7 +263,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	var warnedOnce *bool
 	warnedOnce = new(bool)
 	*warnedOnce = false
-	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw, warnedOnce)
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw, warnedOnce, resolved.Verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err
@@ -272,7 +272,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// 9. Execute docker compose up on the remote host, streaming output locally.
 	// RunCompose() writes the failure line to os.Stderr on non-zero exit; no
 	// additional wrapping is needed here.
-	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile); err != nil {
+	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile, resolved.Verbose); err != nil {
 		return err
 	}
 
