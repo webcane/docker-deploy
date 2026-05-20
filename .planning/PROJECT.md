@@ -64,8 +64,10 @@ The problem this solves: docker remote context requires project files on the rem
 | Flags-first, deploy.yaml for persistence | Flags for quick starts, config for repeat deploys — mirrors docker-compose UX | ✓ Validated Phase 2 |
 | Manual `Resolve(flags, file, defaults)` — no Viper | Viper has flag-override ordering bugs; manual precedence is explicit and testable | ✓ Validated Phase 2 |
 | golang.org/x/crypto/ssh + knownhosts (no InsecureIgnoreHostKey) | Tool copies .env files; MITM is catastrophic | ✓ Validated Phase 2 |
-| Copy .env as-is | User responsibility; simplest behavior; warning can be added in v2 | — Pending |
-| Smart file defaults + user override | Opinionated but flexible — avoids copying entire project tree inadvertently | — Pending |
+| --skip-env flag + skip_env config | Preserve remote .env across deploy; backup/restore around atomic swap | ✓ Validated Phase 7 |
+| Backup/restore remote .env (not skip entirely) | The atomic swap replaces the whole dir; backup before swap + restore after ensures remote .env is truly preserved | ✓ Validated Phase 7 |
+| Warning rollup without --verbose | All non-blocking warnings suppressed; single rollup at end; --verbose prints each inline | ✓ Validated Phase 7 |
+| Smart file defaults + user override | Opinionated but flexible — avoids copying entire project tree inadvertently | ✓ Validated Phase 3 |
 | Go | Single binary distribution, no deps on VPS or dev machine beyond the binary | ✓ Validated Phase 1 |
 
 ## Evolution
@@ -86,4 +88,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-14 after Phase 2 completion*
+*Last updated: 2026-05-20 after Phase 7 completion*
