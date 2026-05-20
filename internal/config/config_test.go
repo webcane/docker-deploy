@@ -118,7 +118,7 @@ func TestResolveHostPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Host: tt.fileHost},
 			}
-			cfg, err := Resolve(tt.flagHost, "", nil, false, "compose.yaml", 0, 0, file, "myproject", "")
+			cfg, err := Resolve(FlagOpts{Host: tt.flagHost, ComposeFile: "compose.yaml"}, file, "myproject", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -175,7 +175,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Path: tt.filePath},
 			}
-			cfg, err := Resolve("", tt.flagPath, nil, false, "compose.yaml", 0, 0, file, tt.projectName, "")
+			cfg, err := Resolve(FlagOpts{Path: tt.flagPath, ComposeFile: "compose.yaml"}, file, tt.projectName, "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -187,7 +187,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 }
 
 func TestResolveInvalidHostReturnsError(t *testing.T) {
-	_, err := Resolve("http://not-ssh.example.com", "", nil, false, "compose.yaml", 0, 0, FileConfig{}, "proj", "")
+	_, err := Resolve(FlagOpts{Host: "http://not-ssh.example.com", ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
 	if err == nil {
 		t.Fatal("Resolve() with non-ssh scheme should return error")
 	}
@@ -197,11 +197,13 @@ func TestResolveInvalidHostReturnsError(t *testing.T) {
 // defaultExcludes + file.Target.Exclude + flagExcludes merge model with
 // deduplication (insertion-order preserved, later duplicates dropped).
 func TestResolveExcludes(t *testing.T) {
-	// builtInPatterns is the expected set of 6 built-in defaults.
+	// builtInPatterns is the expected set of 16 built-in defaults (original 6 + 10 new).
 	// We do not access the unexported defaultExcludes var directly;
 	// instead we verify through Resolve() output.
 	builtInPatterns := []string{
 		".git/", "node_modules/", "vendor/", "*.log", ".DS_Store", "__pycache__/",
+		".claude/", ".github/", ".planning/", ".idea/", ".vscode/",
+		"*.swp", "*.swo", "coverage/", "dist/", ".terraform/",
 	}
 
 	containsAll := func(t *testing.T, got []string, want []string) {
@@ -239,28 +241,28 @@ func TestResolveExcludes(t *testing.T) {
 			name:         "defaults_when_no_input",
 			fileExclude:  nil,
 			flagExcludes: nil,
-			wantLen:      6,
+			wantLen:      16,
 			wantContains: builtInPatterns,
 		},
 		{
 			name:         "file_extends_defaults",
 			fileExclude:  []string{"*.tmp"},
 			flagExcludes: nil,
-			wantLen:      7,
+			wantLen:      17,
 			wantContains: append(append([]string{}, builtInPatterns...), "*.tmp"),
 		},
 		{
 			name:         "flag_extends_file_and_defaults",
 			fileExclude:  []string{"*.tmp"},
 			flagExcludes: []string{"logs/"},
-			wantLen:      8,
+			wantLen:      18,
 			wantContains: append(append([]string{}, builtInPatterns...), "*.tmp", "logs/"),
 		},
 		{
 			name:         "flag_deduplicates",
 			fileExclude:  nil,
 			flagExcludes: []string{".git/"}, // already in defaults
-			wantLen:      6,
+			wantLen:      16,
 			wantContains: builtInPatterns,
 			wantDedupOf:  ".git/",
 		},
@@ -268,7 +270,7 @@ func TestResolveExcludes(t *testing.T) {
 			name:         "file_deduplicates",
 			fileExclude:  []string{".git/"}, // already in defaults
 			flagExcludes: nil,
-			wantLen:      6,
+			wantLen:      16,
 			wantContains: builtInPatterns,
 			wantDedupOf:  ".git/",
 		},
@@ -279,7 +281,7 @@ func TestResolveExcludes(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Exclude: tt.fileExclude},
 			}
-			cfg, err := Resolve("", "", tt.flagExcludes, false, "compose.yaml", 0, 0, file, "proj", "")
+			cfg, err := Resolve(FlagOpts{Excludes: tt.flagExcludes, ComposeFile: "compose.yaml"}, file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -293,6 +295,139 @@ func TestResolveExcludes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestResolveSkipEnv verifies that SkipEnv (from flag or file) appends ".env"
+// to cfg.Excludes exactly once, and that ".env" is not present when SkipEnv is false.
+func TestResolveSkipEnv(t *testing.T) {
+	countOf := func(got []string, target string) int {
+		n := 0
+		for _, g := range got {
+			if g == target {
+				n++
+			}
+		}
+		return n
+	}
+
+	t.Run("flag_skip_env_appends_dot_env", func(t *testing.T) {
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if c := countOf(cfg.Excludes, ".env"); c != 1 {
+			t.Errorf(".env appears %d times in Excludes, want exactly 1; got %v", c, cfg.Excludes)
+		}
+		if !cfg.SkipEnv {
+			t.Errorf("cfg.SkipEnv = false, want true")
+		}
+	})
+
+	t.Run("file_skip_env_appends_dot_env", func(t *testing.T) {
+		file := FileConfig{Target: TargetConfig{SkipEnv: true}}
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if c := countOf(cfg.Excludes, ".env"); c != 1 {
+			t.Errorf(".env appears %d times in Excludes, want exactly 1; got %v", c, cfg.Excludes)
+		}
+		if !cfg.SkipEnv {
+			t.Errorf("cfg.SkipEnv = false, want true")
+		}
+	})
+
+	t.Run("flag_overrides_file_skip_env_false", func(t *testing.T) {
+		// Flag SkipEnv=true overrides file SkipEnv=false — .env must be present.
+		file := FileConfig{Target: TargetConfig{SkipEnv: false}}
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, file, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if c := countOf(cfg.Excludes, ".env"); c != 1 {
+			t.Errorf(".env appears %d times in Excludes, want exactly 1; got %v", c, cfg.Excludes)
+		}
+		if !cfg.SkipEnv {
+			t.Errorf("cfg.SkipEnv = false, want true")
+		}
+	})
+
+	t.Run("skip_env_deduplicates_if_already_in_flag_excludes", func(t *testing.T) {
+		// User also listed ".env" in --exclude; SkipEnv should not add it again.
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, Excludes: []string{".env"}, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if c := countOf(cfg.Excludes, ".env"); c != 1 {
+			t.Errorf(".env appears %d times in Excludes, want exactly 1; got %v", c, cfg.Excludes)
+		}
+	})
+
+	t.Run("no_skip_env_dot_env_absent", func(t *testing.T) {
+		// Neither flag nor file enables SkipEnv — .env must not appear.
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if c := countOf(cfg.Excludes, ".env"); c != 0 {
+			t.Errorf(".env appears %d times in Excludes, want 0; got %v", c, cfg.Excludes)
+		}
+		if cfg.SkipEnv {
+			t.Errorf("cfg.SkipEnv = true, want false")
+		}
+	})
+}
+
+// TestResolveVerbose verifies that cfg.Verbose reflects opts.Verbose.
+func TestResolveVerbose(t *testing.T) {
+	t.Run("verbose_true", func(t *testing.T) {
+		cfg, err := Resolve(FlagOpts{Verbose: true, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if !cfg.Verbose {
+			t.Errorf("cfg.Verbose = false, want true")
+		}
+	})
+
+	t.Run("verbose_false_default", func(t *testing.T) {
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		if err != nil {
+			t.Fatalf("Resolve() unexpected error: %v", err)
+		}
+		if cfg.Verbose {
+			t.Errorf("cfg.Verbose = true, want false")
+		}
+	})
+}
+
+// TestResolveExpandedDefaults verifies that all 10 new dev-tooling entries
+// from defaultExcludes are present in cfg.Excludes when no user excludes are provided.
+func TestResolveExpandedDefaults(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+
+	newDefaults := []string{
+		".claude/", ".github/", ".planning/", ".idea/", ".vscode/",
+		"*.swp", "*.swo", "coverage/", "dist/", ".terraform/",
+	}
+
+	excludeSet := make(map[string]struct{}, len(cfg.Excludes))
+	for _, e := range cfg.Excludes {
+		excludeSet[e] = struct{}{}
+	}
+	for _, want := range newDefaults {
+		if _, ok := excludeSet[want]; !ok {
+			t.Errorf("defaultExcludes missing %q; got %v", want, cfg.Excludes)
+		}
 	}
 }
 
@@ -335,7 +470,7 @@ func TestResolveForce(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Force: tt.fileForce},
 			}
-			cfg, err := Resolve("", "", nil, tt.flagForce, "compose.yaml", 0, 0, file, "proj", "")
+			cfg, err := Resolve(FlagOpts{Force: tt.flagForce, ComposeFile: "compose.yaml"}, file, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -359,7 +494,7 @@ func TestResolveComposeFile_FlagWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "compose.yaml"},
 	}
-	cfg, err := Resolve("", "", nil, false, "docker-compose.yml", 0, 0, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{ComposeFile: "docker-compose.yml"}, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -379,7 +514,7 @@ func TestResolveComposeFile_FileWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "mycompose.yaml"},
 	}
-	cfg, err := Resolve("", "", nil, false, "", 0, 0, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -395,7 +530,7 @@ func TestResolveComposeFile_AutoDetectComposeYaml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
-	cfg, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -411,7 +546,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating docker-compose.yml: %v", err)
 	}
-	cfg, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -425,7 +560,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 // resolution method.
 func TestResolveComposeFile_NoFileFound(t *testing.T) {
 	dir := t.TempDir()
-	_, err := Resolve("", "", nil, false, "", 0, 0, FileConfig{}, "proj", dir)
+	_, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
 	if err == nil {
 		t.Fatal("Resolve() expected error when no compose file found, got nil")
 	}
@@ -449,7 +584,7 @@ func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
 			Force: true,
 		},
 	}
-	cfg, err := Resolve("", "", []string{"*.tmp"}, false, "", 0, 0, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{Excludes: []string{"*.tmp"}}, file, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -488,13 +623,13 @@ func TestResolveHealthConfig(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                string
-		flagHealthTimeout   int
-		flagHealthInterval  int
-		fileHealthTimeout   int
-		fileHealthInterval  int
-		wantHealthTimeout   int
-		wantHealthInterval  int
+		name               string
+		flagHealthTimeout  int
+		flagHealthInterval int
+		fileHealthTimeout  int
+		fileHealthInterval int
+		wantHealthTimeout  int
+		wantHealthInterval int
 	}{
 		{
 			name:               "defaults_when_no_overrides",
@@ -542,7 +677,7 @@ func TestResolveHealthConfig(t *testing.T) {
 					HealthInterval: tt.fileHealthInterval,
 				},
 			}
-			cfg, err := Resolve("", "", nil, false, "", tt.flagHealthTimeout, tt.flagHealthInterval, file, "proj", dir)
+			cfg, err := Resolve(FlagOpts{HealthTimeout: tt.flagHealthTimeout, HealthInterval: tt.flagHealthInterval}, file, "proj", dir)
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}

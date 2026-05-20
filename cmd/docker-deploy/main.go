@@ -86,8 +86,15 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 
 	// 3. Resolve config with flag > file > default precedence.
 	// A sentinel composeFile value is passed to skip auto-detection for dry-run.
-	// 0, 0 for health flags — not registered as CLI flags in Phase 5 (deploy.yaml only).
-	resolved, err := config.Resolve(host, path, excludes, force, "docker-compose.yml" /* sentinel: skips auto-detect; value is unused in dry-run */, 0, 0, fileConfig, projectName, cwd)
+	// HealthTimeout/HealthInterval are 0 — not registered as CLI flags (deploy.yaml only, Phase 5).
+	// SkipEnv and Verbose flags are wired in Phase 7 Plan 02; zero values used here.
+	resolved, err := config.Resolve(config.FlagOpts{
+		Host:        host,
+		Path:        path,
+		Excludes:    excludes,
+		Force:       force,
+		ComposeFile: "docker-compose.yml", // sentinel: skips auto-detect; value is unused in dry-run
+	}, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}
@@ -153,8 +160,15 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 
 	// 3. Resolve config with flag > file > default precedence.
-	// 0, 0 for health flags — not registered as CLI flags in Phase 5 (deploy.yaml only).
-	resolved, err := config.Resolve(host, path, excludes, force, composeFile, 0, 0, fileConfig, projectName, cwd)
+	// HealthTimeout/HealthInterval are 0 — not registered as CLI flags (deploy.yaml only, Phase 5).
+	// SkipEnv and Verbose flags are wired in Phase 7 Plan 02; zero values used here.
+	resolved, err := config.Resolve(config.FlagOpts{
+		Host:        host,
+		Path:        path,
+		Excludes:    excludes,
+		Force:       force,
+		ComposeFile: composeFile,
+	}, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
 	}

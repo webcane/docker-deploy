@@ -17,6 +17,8 @@ import (
 // they cannot remove these entries.
 var defaultExcludes = []string{
 	".git/", "node_modules/", "vendor/", "*.log", ".DS_Store", "__pycache__/",
+	".claude/", ".github/", ".planning/", ".idea/", ".vscode/",
+	"*.swp", "*.swo", "coverage/", "dist/", ".terraform/",
 }
 
 // Host holds a parsed SSH host specification.
@@ -36,6 +38,7 @@ type TargetConfig struct {
 	ComposeFile    string   `yaml:"compose_file"`
 	HealthTimeout  int      `yaml:"health_timeout"`
 	HealthInterval int      `yaml:"health_interval"`
+	SkipEnv        bool     `yaml:"skip_env"`
 }
 
 // FileConfig is the top-level structure of deploy.yaml.
@@ -55,6 +58,23 @@ type Config struct {
 	ComposeFile    string   // resolved compose filename basename (flag > deploy.yaml > auto-detect)
 	HealthTimeout  int      // seconds to wait for health check; flag > deploy.yaml > 60
 	HealthInterval int      // seconds between health check polls; flag > deploy.yaml > 5
+	SkipEnv        bool     // opts.SkipEnv || file.Target.SkipEnv; appends .env to Excludes when true
+	Verbose        bool     // opts.Verbose; enables detailed output lines
+}
+
+// FlagOpts holds all CLI-flag values passed to Resolve().
+// It replaces the previous positional-params signature, making it easier to
+// add new flags without breaking callers.
+type FlagOpts struct {
+	Host           string
+	Path           string
+	Excludes       []string
+	Force          bool
+	ComposeFile    string
+	HealthTimeout  int
+	HealthInterval int
+	SkipEnv        bool
+	Verbose        bool
 }
 
 // isValidUnixUsername reports whether s is a valid Unix username, i.e. it
@@ -151,7 +171,8 @@ func LoadFile(dir string) (FileConfig, error) {
 // defaults, then appending file-level excludes, then flag-level excludes.
 // Deduplication is by string equality, preserving insertion order; later
 // duplicates are dropped.
-func mergeExcludes(fileExcludes, flagExcludes []string) []string {
+// When skipEnv is true, ".env" is appended to the result (deduplicated).
+func mergeExcludes(fileExcludes, flagExcludes []string, skipEnv bool) []string {
 	seen := make(map[string]struct{}, len(defaultExcludes)+len(fileExcludes)+len(flagExcludes))
 	result := make([]string, 0, len(defaultExcludes)+len(fileExcludes)+len(flagExcludes))
 
@@ -173,6 +194,12 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 			result = append(result, e)
 		}
 	}
+	if skipEnv {
+		if _, ok := seen[".env"]; !ok {
+			seen[".env"] = struct{}{}
+			result = append(result, ".env")
+		}
+	}
 	return result
 }
 
@@ -180,28 +207,24 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 // produce a fully resolved Config.
 //
 // Parameters:
-//   - flagHost: value from the --host flag (empty string = not set)
-//   - flagPath: value from the --path flag (empty string = not set)
-//   - flagExcludes: values from the repeatable --exclude flag (nil is safe)
-//   - flagForce: value from the --force flag
-//   - flagComposeFile: value from the --compose-file flag (empty string = not set)
-//   - flagHealthTimeout: seconds from a future --health-timeout flag (0 = not set)
-//   - flagHealthInterval: seconds from a future --health-interval flag (0 = not set)
+//   - opts: FlagOpts struct containing all CLI-flag values; zero values mean "not set"
 //   - file: parsed deploy.yaml content (zero value is safe when no file present)
 //   - projectName: basename of the local project directory
 //   - localDir: absolute path to the local project directory (used for auto-detect)
 //
-// Host precedence: flagHost > file.Target.Host > zero value (caller validates).
-// Path precedence: flagPath > file.Target.Path > "/opt/" + projectName.
-// Excludes: defaultExcludes + file.Target.Exclude + flagExcludes (deduped, order preserved).
-// Force: flagForce || file.Target.Force (flag > deploy.yaml > false).
-// ComposeFile: flagComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
-// HealthTimeout: flagHealthTimeout > file.Target.HealthTimeout > 60.
-// HealthInterval: flagHealthInterval > file.Target.HealthInterval > 5.
+// Host precedence: opts.Host > file.Target.Host > zero value (caller validates).
+// Path precedence: opts.Path > file.Target.Path > "/opt/" + projectName.
+// Excludes: defaultExcludes + file.Target.Exclude + opts.Excludes (deduped, order preserved).
+// Force: opts.Force || file.Target.Force (flag > deploy.yaml > false).
+// ComposeFile: opts.ComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
+// HealthTimeout: opts.HealthTimeout > file.Target.HealthTimeout > 60.
+// HealthInterval: opts.HealthInterval > file.Target.HealthInterval > 5.
+// SkipEnv: opts.SkipEnv || file.Target.SkipEnv; when true, ".env" is appended to Excludes.
+// Verbose: opts.Verbose; enables detailed output lines to stderr.
 //
-// NOTE: flagHealthTimeout and flagHealthInterval are not registered as CLI flags in
+// NOTE: opts.HealthTimeout and opts.HealthInterval are not registered as CLI flags in
 // Phase 5 (health flags via deploy.yaml only per D-03). Callers pass 0 for both.
-// The parameters exist for future flag registration without a signature change.
+// The fields exist for future flag registration without a signature change.
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
@@ -209,12 +232,12 @@ func mergeExcludes(fileExcludes, flagExcludes []string) []string {
 // filepath.Base(ComposeFile) == ComposeFile before constructing remote commands.
 // T-05-01-01: Zero and negative values for health fields are treated as "not set"
 // (> 0 check gates both flag and file values), so defaults always apply.
-func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, flagComposeFile string, flagHealthTimeout, flagHealthInterval int, file FileConfig, projectName string, localDir string) (Config, error) {
+func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string) (Config, error) {
 	var cfg Config
 
 	switch {
-	case flagHost != "":
-		h, err := ParseHost(flagHost)
+	case opts.Host != "":
+		h, err := ParseHost(opts.Host)
 		if err != nil {
 			return Config{}, fmt.Errorf("--host flag: %w", err)
 		}
@@ -229,21 +252,23 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 	// else: zero Host — caller must validate before dialing
 
 	switch {
-	case flagPath != "":
-		cfg.Path = flagPath
+	case opts.Path != "":
+		cfg.Path = opts.Path
 	case file.Target.Path != "":
 		cfg.Path = file.Target.Path
 	default:
 		cfg.Path = "/opt/" + projectName
 	}
 
-	cfg.Excludes = mergeExcludes(file.Target.Exclude, flagExcludes)
-	cfg.Force = flagForce || file.Target.Force
+	cfg.SkipEnv = opts.SkipEnv || file.Target.SkipEnv
+	cfg.Verbose = opts.Verbose
+	cfg.Excludes = mergeExcludes(file.Target.Exclude, opts.Excludes, cfg.SkipEnv)
+	cfg.Force = opts.Force || file.Target.Force
 
 	// ComposeFile resolution: flag > deploy.yaml > auto-detect (D-07, D-08, D-09).
 	switch {
-	case flagComposeFile != "":
-		cfg.ComposeFile = flagComposeFile
+	case opts.ComposeFile != "":
+		cfg.ComposeFile = opts.ComposeFile
 	case file.Target.ComposeFile != "":
 		cfg.ComposeFile = file.Target.ComposeFile
 	default:
@@ -271,8 +296,8 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 	// HealthTimeout resolution: flag > deploy.yaml > default 60.
 	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
 	switch {
-	case flagHealthTimeout > 0:
-		cfg.HealthTimeout = flagHealthTimeout
+	case opts.HealthTimeout > 0:
+		cfg.HealthTimeout = opts.HealthTimeout
 	case file.Target.HealthTimeout > 0:
 		cfg.HealthTimeout = file.Target.HealthTimeout
 	default:
@@ -282,8 +307,8 @@ func Resolve(flagHost, flagPath string, flagExcludes []string, flagForce bool, f
 	// HealthInterval resolution: flag > deploy.yaml > default 5.
 	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
 	switch {
-	case flagHealthInterval > 0:
-		cfg.HealthInterval = flagHealthInterval
+	case opts.HealthInterval > 0:
+		cfg.HealthInterval = opts.HealthInterval
 	case file.Target.HealthInterval > 0:
 		cfg.HealthInterval = file.Target.HealthInterval
 	default:
