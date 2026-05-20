@@ -25,11 +25,14 @@ type mockSSHServer struct {
 
 	// existingDirs is the set of paths that `test -d` reports as "exists".
 	existingDirs map[string]bool
+	// existingFiles is the set of paths that `test -f` reports as "exists".
+	existingFiles map[string]bool
 }
 
 func newMockSSHServer(existingDirs []string) *mockSSHServer {
 	m := &mockSSHServer{
-		existingDirs: make(map[string]bool),
+		existingDirs:  make(map[string]bool),
+		existingFiles: make(map[string]bool),
 	}
 	for _, d := range existingDirs {
 		m.existingDirs[d] = true
@@ -163,6 +166,22 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 				matched := false
 				for dir := range srv.existingDirs {
 					if strings.Contains(cmd, ShellQuote(dir)) {
+						matched = true
+						break
+					}
+				}
+				output := "absent\n"
+				if matched {
+					output = "exists\n"
+				}
+				ch.Write([]byte(output)) //nolint:errcheck
+			}
+
+			// Handle `test -f` by writing "exists" or "absent" to stdout.
+			if strings.Contains(cmd, "test -f") {
+				matched := false
+				for file := range srv.existingFiles {
+					if strings.Contains(cmd, ShellQuote(file)) {
 						matched = true
 						break
 					}
@@ -523,4 +542,124 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 			t.Errorf("repeat-deploy must NOT rm -rf %s directly; found: %q", remoteBase, cmd)
 		}
 	}
+}
+
+// TestUploadSkipEnvPreservesRemoteEnv verifies that when .env appears in the excludes
+// list and the remote target already has a .env file, Upload() backs it up before the
+// atomic swap and restores it afterward — so the remote .env survives even though it
+// was not part of the upload (e.g. via --skip-env).
+func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+	remoteEnv := remoteBase + "/.env"
+
+	t.Run("dot_env_excluded_and_exists_is_preserved", func(t *testing.T) {
+		// Repeat deploy: remoteBase and remoteBase/.env both exist.
+		srv := newMockSSHServer([]string{remoteBase})
+		srv.existingFiles[remoteEnv] = true
+		client := startMockSSHServer(t, srv)
+
+		localDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		var sudoPw *string = new(string)
+		var warnedOnce *bool = new(bool)
+		excludes := []string{".env"}
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
+		if err != nil {
+			t.Fatalf("Upload returned unexpected error: %v", err)
+		}
+
+		cmds := srv.getCommands()
+		t.Logf("commands executed: %v", cmds)
+
+		// Expect a backup: cp remoteEnv → /tmp/docker-deploy-env-<ts>
+		hasCpToTmp := false
+		// Expect a restore: cp /tmp/docker-deploy-env-<ts> → remoteEnv
+		hasCpFromTmp := false
+		// Expect cleanup: rm -f /tmp/docker-deploy-env-<ts>
+		hasRmEnvBackup := false
+
+		for _, cmd := range cmds {
+			if !strings.Contains(cmd, "/tmp/docker-deploy-env-") {
+				continue
+			}
+			if strings.Contains(cmd, "rm -f") {
+				hasRmEnvBackup = true
+				continue
+			}
+			if strings.Contains(cmd, "cp") && strings.Contains(cmd, ShellQuote(remoteEnv)) {
+				// Backup: source is remoteEnv (appears first); restore: dest is remoteEnv (appears last).
+				envIdx := strings.Index(cmd, ShellQuote(remoteEnv))
+				tmpIdx := strings.Index(cmd, "/tmp/docker-deploy-env-")
+				if envIdx < tmpIdx {
+					hasCpToTmp = true // backup direction
+				} else {
+					hasCpFromTmp = true // restore direction
+				}
+			}
+		}
+
+		if !hasCpToTmp {
+			t.Errorf("expected cp %s → /tmp/docker-deploy-env-* (backup); commands: %v", remoteEnv, cmds)
+		}
+		if !hasCpFromTmp {
+			t.Errorf("expected cp /tmp/docker-deploy-env-* → %s (restore); commands: %v", remoteEnv, cmds)
+		}
+		if !hasRmEnvBackup {
+			t.Errorf("expected rm -f /tmp/docker-deploy-env-* (backup cleanup); commands: %v", cmds)
+		}
+	})
+
+	t.Run("dot_env_not_excluded_no_backup", func(t *testing.T) {
+		// When .env is not in excludes, no backup or restore should occur.
+		srv := newMockSSHServer([]string{remoteBase})
+		srv.existingFiles[remoteEnv] = true
+		client := startMockSSHServer(t, srv)
+
+		localDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		var sudoPw *string = new(string)
+		var warnedOnce *bool = new(bool)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+		if err != nil {
+			t.Fatalf("Upload returned unexpected error: %v", err)
+		}
+
+		for _, cmd := range srv.getCommands() {
+			if strings.Contains(cmd, "/tmp/docker-deploy-env-") {
+				t.Errorf("expected no .env backup commands when .env not in excludes; found: %q", cmd)
+			}
+		}
+	})
+
+	t.Run("dot_env_excluded_but_not_on_remote_no_backup", func(t *testing.T) {
+		// When .env is excluded but doesn't exist on the remote, no backup or restore.
+		srv := newMockSSHServer([]string{remoteBase})
+		// existingFiles is empty — remote .env does NOT exist
+		client := startMockSSHServer(t, srv)
+
+		localDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		var sudoPw *string = new(string)
+		var warnedOnce *bool = new(bool)
+		excludes := []string{".env"}
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
+		if err != nil {
+			t.Fatalf("Upload returned unexpected error: %v", err)
+		}
+
+		for _, cmd := range srv.getCommands() {
+			if strings.Contains(cmd, "/tmp/docker-deploy-env-") {
+				t.Errorf("expected no .env backup when remote .env absent; found: %q", cmd)
+			}
+		}
+	})
 }

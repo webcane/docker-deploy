@@ -207,6 +207,28 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		return 0, fmt.Errorf("checking remote target existence: %w", err)
 	}
 
+	// If .env is excluded from upload and the remote target already has a .env file,
+	// back it up before the atomic swap. The swap replaces the entire directory, which
+	// would silently delete the remote .env even though the operator excluded it
+	// intentionally (e.g. via --skip-env). The backup is restored after the swap.
+	envBackupPath := ""
+	if existsBefore {
+		for _, exc := range excludes {
+			if exc == ".env" {
+				envPath := path.Join(remoteBase, ".env")
+				out, checkErr := sshExecOutput(client, fmt.Sprintf("test -f %s && echo exists || echo absent", ShellQuote(envPath)))
+				if checkErr == nil && strings.HasPrefix(strings.TrimSpace(out), "exists") {
+					envBackupPath = "/tmp/docker-deploy-env-" + timestamp
+					if cpErr := sshExec(client, fmt.Sprintf("cp %s %s", ShellQuote(envPath), ShellQuote(envBackupPath))); cpErr != nil {
+						fmt.Fprintf(os.Stderr, "WARNING: could not backup remote .env: %v; .env will not be preserved after deploy\n", cpErr)
+						envBackupPath = ""
+					}
+				}
+				break
+			}
+		}
+	}
+
 	// sudoRunWithFallback implements the structured auth fallback sequence.
 	// It reuses sudoPw across multiple commands to avoid prompting multiple times.
 	// The verbose param is captured from the outer Upload() scope.
@@ -300,12 +322,20 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		oldDir := remoteBase + "-old-" + timestamp
 
 		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
+			if envBackupPath != "" {
+				_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
+			}
 			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
 		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			// Rollback: best-effort restore using the same sudoRunWithFallback closure
 			// so the mv succeeds even when /opt/… requires elevated privileges.
 			rollbackErr := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+			// Clean up .env backup on all error paths — the original remoteBase is
+			// being restored, so its .env is already present.
+			if envBackupPath != "" {
+				_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
+			}
 			if rollbackErr != nil {
 				return 0, fmt.Errorf(
 					"placing new version failed and rollback also failed (%v).\n"+
@@ -334,6 +364,17 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return 0, fmt.Errorf("moving staging dir to target: %w", err)
 		}
+	}
+
+	// Restore backed-up .env into the new remoteBase now that the swap is complete.
+	// sudoRunWithFallback is used for the copy because remoteBase may require elevated
+	// permissions (the same path that handled the mv/rm steps above).
+	if envBackupPath != "" {
+		envDest := path.Join(remoteBase, ".env")
+		if restoreErr := sudoRunWithFallback(fmt.Sprintf("cp %s %s", ShellQuote(envBackupPath), ShellQuote(envDest))); restoreErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: deploy succeeded but could not restore remote .env: %v\n", restoreErr)
+		}
+		_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
 	}
 
 	return len(files), nil
