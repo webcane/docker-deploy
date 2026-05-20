@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -185,7 +186,7 @@ func TestRunCompose_CommandConstruction(t *testing.T) {
 	client, closeServer := startMockComposeSSHServer(t, srv)
 	defer closeServer()
 
-	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
+	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false)
 	if err != nil {
 		t.Fatalf("RunCompose returned unexpected error: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestRunCompose_ExitCodeZero(t *testing.T) {
 	client, closeServer := startMockComposeSSHServer(t, srv)
 	defer closeServer()
 
-	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
+	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false)
 	if err != nil {
 		t.Errorf("RunCompose returned non-nil error for exit 0: %v", err)
 	}
@@ -221,7 +222,7 @@ func TestRunCompose_ExitCodeNonZero(t *testing.T) {
 	client, closeServer := startMockComposeSSHServer(t, srv)
 	defer closeServer()
 
-	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml")
+	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false)
 	if err == nil {
 		t.Fatal("RunCompose returned nil error for exit 1; want non-nil")
 	}
@@ -237,7 +238,7 @@ func TestRunCompose_ShellQuoteRemotePath(t *testing.T) {
 	client, closeServer := startMockComposeSSHServer(t, srv)
 	defer closeServer()
 
-	err := RunCompose(context.Background(), client, "/opt/my app", "compose.yaml")
+	err := RunCompose(context.Background(), client, "/opt/my app", "compose.yaml", false)
 	if err != nil {
 		t.Fatalf("RunCompose returned unexpected error: %v", err)
 	}
@@ -260,14 +261,75 @@ func TestRunCompose_NewSessionPerCall(t *testing.T) {
 	client, closeServer := startMockComposeSSHServer(t, srv)
 	defer closeServer()
 
-	if err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml"); err != nil {
+	if err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false); err != nil {
 		t.Fatalf("first RunCompose: %v", err)
 	}
-	if err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml"); err != nil {
+	if err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false); err != nil {
 		t.Fatalf("second RunCompose: %v", err)
 	}
 
 	if got := srv.getSessionCount(); got != 2 {
 		t.Errorf("session count = %d; want 2", got)
+	}
+}
+
+// TestRunCompose_VerboseSSHCommandLogging verifies that when verbose=true, the
+// compose SSH command is logged to stderr as "[ssh] <cmd>" before execution, and
+// "  → exit 0" is logged after successful completion.
+func TestRunCompose_VerboseSSHCommandLogging(t *testing.T) {
+	srv := newMockComposeServer(0)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
+
+	// Redirect stderr to capture output.
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", true)
+
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("RunCompose(verbose=true) returned error: %v", err)
+	}
+	if !strings.Contains(captured, "[ssh] docker compose") {
+		t.Errorf("verbose=true: expected '[ssh] docker compose' in stderr; got: %q", captured)
+	}
+	if !strings.Contains(captured, "exit 0") {
+		t.Errorf("verbose=true: expected 'exit 0' in stderr after success; got: %q", captured)
+	}
+}
+
+// TestRunCompose_VerboseNoSSHLoggingWhenFalse verifies that when verbose=false,
+// no "[ssh] " or "→ exit" lines appear in stderr output.
+func TestRunCompose_VerboseNoSSHLoggingWhenFalse(t *testing.T) {
+	srv := newMockComposeServer(0)
+	client, closeServer := startMockComposeSSHServer(t, srv)
+	defer closeServer()
+
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false)
+
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("RunCompose(verbose=false) returned error: %v", err)
+	}
+	if strings.Contains(captured, "[ssh] ") {
+		t.Errorf("verbose=false: unexpected '[ssh] ' line in stderr; got: %q", captured)
 	}
 }

@@ -2,6 +2,7 @@ package filetransfer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,11 +42,42 @@ func promptSudoPassword() (string, error) {
 	return string(pw), nil
 }
 
+// sshExecVerbose wraps sshExec and logs the command and its exit code to stderr
+// when verbose=true. The command string is logged before execution as "[ssh] <cmd>",
+// and the exit code is logged after as "  → exit 0" or "  → exit N".
+func sshExecVerbose(client *gossh.Client, cmd string, verbose bool) error {
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+	}
+	err := sshExec(client, cmd)
+	if verbose {
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		} else {
+			var exitErr *gossh.ExitError
+			if errors.As(err, &exitErr) {
+				fmt.Fprintf(os.Stderr, "  → exit %d\n", exitErr.ExitStatus())
+			} else {
+				fmt.Fprintf(os.Stderr, "  → exit ?\n")
+			}
+		}
+	}
+	return err
+}
+
 // Upload copies all non-excluded files from localDir to a staging directory
 // on the remote, then atomically renames the staging dir to the final target.
 //
 // remoteBase is the target directory path on the remote (e.g. "/opt/myapp").
 // excludes is the list of exclude patterns (from Config.Excludes).
+// verbose controls per-file output and SSH command logging:
+//   - When verbose=true: per-file lines "  -> relative/path" are written to
+//     os.Stderr; each SSH command (mkdir, mv, rm) and its exit code are logged
+//     to os.Stderr before/after execution; warnedOnce is never set to true so
+//     every sudo warning prints.
+//   - When verbose=false: per-file lines are suppressed; SSH command lines are
+//     suppressed; warnedOnce behavior is unchanged (first warning prints, rest
+//     are suppressed).
 //
 // Atomic swap strategy:
 //  1. Create staging dir: /tmp/docker-deploy-<unixTimestamp> (always writable on remote)
@@ -57,14 +89,14 @@ func promptSudoPassword() (string, error) {
 //
 // If WalkFiles returns 0 files, Upload returns an error.
 //
-// Progress: prints "Uploading N files..." before starting, then "  -> relative/path"
-// per file to os.Stdout.
+// Progress: prints "Uploading N files..." before starting to os.Stdout.
+// Per-file lines go to os.Stderr only when verbose=true.
 //
 // Per CLAUDE.md: sessions are NOT reusable — each SSH exec uses a fresh NewSession().
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string, warnedOnce *bool) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string, warnedOnce *bool, verbose bool) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -146,50 +178,90 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 				return fmt.Errorf("setting permissions on remote file %s: %w", remotePath, err)
 			}
 
-			fmt.Fprintf(os.Stdout, "  -> %s\n", relPath)
+			// Per-file line: written to stderr only when verbose=true (D-01, D-03).
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  -> %s\n", relPath)
+			}
 		}
 		return nil
 	}()
 
 	if uploadErr != nil {
 		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
+		// Silent best-effort cleanup: discard error.
 		_ = sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(stagingDir)))
 		return 0, uploadErr
 	}
 
 	// Check whether target already exists BEFORE we create it, so we can choose
 	// the right swap path in step 10.
+	// Log the remoteExists check when verbose.
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] test -d %s\n", ShellQuote(remoteBase))
+	}
 	existsBefore, err := remoteExists(client, remoteBase)
+	if verbose && err == nil {
+		fmt.Fprintf(os.Stderr, "  → exit 0\n")
+	}
 	if err != nil {
 		return 0, fmt.Errorf("checking remote target existence: %w", err)
 	}
 
 	// sudoRunWithFallback implements the structured auth fallback sequence.
 	// It reuses sudoPw across multiple commands to avoid prompting multiple times.
+	// The verbose param is captured from the outer Upload() scope.
 	sudoRunWithFallback := func(cmd string) error {
 		// Step 1: Try direct copy (no privilege escalation).
-		if tryDirectCopy(client, cmd) {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+		}
+		ok := tryDirectCopy(client, cmd)
+		if verbose && ok {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		}
+		if ok {
 			return nil
 		}
 
 		// Step 2: Try passwordless sudo.
-		if tryPasswordlessSudo(client, cmd) {
+		sudoCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[ssh] %s\n", sudoCmd)
+		}
+		ok = tryPasswordlessSudo(client, cmd)
+		if verbose && ok {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		}
+		if ok {
 			return nil
 		}
 
 		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
-		if !*warnedOnce {
+		// When verbose=true: the warnedOnce guard is bypassed — every warning prints
+		// and *warnedOnce is never set to true (D-01).
+		// When verbose=false: existing behavior — first warning prints, rest suppressed.
+		if verbose || !*warnedOnce {
 			fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
-			*warnedOnce = true
+			if !verbose {
+				*warnedOnce = true
+			}
 		}
 		for attempt := 1; attempt <= 3; attempt++ {
 			pw, readErr := promptSudoPassword()
 			if readErr != nil {
 				return readErr
 			}
+			// Redact the interactive sudo command in verbose output — it contains
+			// the literal password (T-07-02-05).
+			if verbose {
+				fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted)\n")
+			}
 			sudoCmd := fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(pw), ShellQuote(cmd))
 			if sshExec(client, sudoCmd) == nil {
 				*sudoPw = pw
+				if verbose {
+					fmt.Fprintf(os.Stderr, "  → exit 0\n")
+				}
 				return nil
 			}
 			if attempt < 3 {
