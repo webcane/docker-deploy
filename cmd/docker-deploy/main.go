@@ -32,32 +32,7 @@ const sshDialTimeout = 10 * time.Second
 
 func main() {
 	plugin.Run(func(dockerCli command.Cli) *cobra.Command {
-		var host string
-		var path string
-		var dryRun bool
-		var excludes []string
-		var force bool
-		var composeFile string
-
-		cmd := &cobra.Command{
-			Use:   "deploy",
-			Short: "Deploy a docker-compose project to a remote VPS",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				if dryRun {
-					return runDryRun(host, path, excludes, force, composeFile)
-				}
-				return runDeploy(host, path, excludes, force, composeFile)
-			},
-		}
-
-		cmd.Flags().StringVar(&host, "host", "", "Remote host in ssh://user@host:port format (overrides deploy.yaml)")
-		cmd.Flags().StringVar(&path, "path", "", "Remote target directory (overrides deploy.yaml and default /opt/<project>)")
-		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Verify SSH connectivity and print resolved config; do not deploy")
-		cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "Exclude pattern (repeatable); extends built-in defaults")
-		cmd.Flags().BoolVar(&force, "force", false, "Skip replace-confirmation on repeat deploy")
-		cmd.Flags().StringVar(&composeFile, "compose-file", "", "Compose file name in project root (default: auto-detect compose.yaml or docker-compose.yml)")
-
-		return cmd
+		return buildDeployCmd()
 	}, metadata.Metadata{
 		SchemaVersion:    "0.1.0",
 		Vendor:           "webcane",
@@ -66,11 +41,46 @@ func main() {
 	})
 }
 
+// buildDeployCmd constructs the deploy cobra.Command with all flags registered.
+// Extracted from main() to allow testing flag registration without starting the plugin.
+func buildDeployCmd() *cobra.Command {
+	var host string
+	var path string
+	var dryRun bool
+	var excludes []string
+	var force bool
+	var composeFile string
+	var skipEnv bool
+	var verbose bool
+
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploy a docker-compose project to a remote VPS",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun {
+				return runDryRun(host, path, excludes, force, composeFile, skipEnv, verbose)
+			}
+			return runDeploy(host, path, excludes, force, composeFile, skipEnv, verbose)
+		},
+	}
+
+	cmd.Flags().StringVar(&host, "host", "", "Remote host in ssh://user@host:port format (overrides deploy.yaml)")
+	cmd.Flags().StringVar(&path, "path", "", "Remote target directory (overrides deploy.yaml and default /opt/<project>)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Verify SSH connectivity and print resolved config; do not deploy")
+	cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "Exclude pattern (repeatable); extends built-in defaults")
+	cmd.Flags().BoolVar(&force, "force", false, "Skip replace-confirmation on repeat deploy")
+	cmd.Flags().StringVar(&composeFile, "compose-file", "", "Compose file name in project root (default: auto-detect compose.yaml or docker-compose.yml)")
+	cmd.Flags().BoolVar(&skipEnv, "skip-env", false, "Exclude .env from upload, leaving remote .env unchanged")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Print per-file transfer lines, SSH commands, and pre-flight checklist to stderr")
+
+	return cmd
+}
+
 // runDryRun implements the --dry-run flow: Resolve() -> Dial() -> print summary or error.
 // The composeFile parameter is accepted for API symmetry with runDeploy but is not
 // used during dry-run, since dry-run only verifies SSH connectivity and config resolution
 // (IN-02).
-func runDryRun(host, path string, excludes []string, force bool, composeFile string) error {
+func runDryRun(host, path string, excludes []string, force bool, composeFile string, skipEnv bool, verbose bool) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -87,13 +97,14 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 	// 3. Resolve config with flag > file > default precedence.
 	// A sentinel composeFile value is passed to skip auto-detection for dry-run.
 	// HealthTimeout/HealthInterval are 0 — not registered as CLI flags (deploy.yaml only, Phase 5).
-	// SkipEnv and Verbose flags are wired in Phase 7 Plan 02; zero values used here.
 	resolved, err := config.Resolve(config.FlagOpts{
 		Host:        host,
 		Path:        path,
 		Excludes:    excludes,
 		Force:       force,
 		ComposeFile: "docker-compose.yml", // sentinel: skips auto-detect; value is unused in dry-run
+		SkipEnv:     skipEnv,
+		Verbose:     verbose,
 	}, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
@@ -145,7 +156,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 
 // runDeploy implements the full deploy flow:
 // Resolve() -> Dial() -> exists-check -> prompt-or-skip -> Upload() -> RunCompose() -> success.
-func runDeploy(host, path string, excludes []string, force bool, composeFile string) error {
+func runDeploy(host, path string, excludes []string, force bool, composeFile string, skipEnv bool, verbose bool) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -161,13 +172,14 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 3. Resolve config with flag > file > default precedence.
 	// HealthTimeout/HealthInterval are 0 — not registered as CLI flags (deploy.yaml only, Phase 5).
-	// SkipEnv and Verbose flags are wired in Phase 7 Plan 02; zero values used here.
 	resolved, err := config.Resolve(config.FlagOpts{
 		Host:        host,
 		Path:        path,
 		Excludes:    excludes,
 		Force:       force,
 		ComposeFile: composeFile,
+		SkipEnv:     skipEnv,
+		Verbose:     verbose,
 	}, fileConfig, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
@@ -210,10 +222,44 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 	defer client.Close()
 
-	// 6b. Run pre-flight checks before any file operations.
-	if _, err = preflight.RunPreflightChecks(context.Background(), preflight.NewSSHRunner(client), resolved); err != nil {
+	// 6a. Initialize the warning collector (D-02, T-07-02-02).
+	// Non-blocking warnings are accumulated here. At the end of runDeploy():
+	//   - If verbose=true: each warning is printed inline as it occurs.
+	//   - If verbose=false and len(warnings)>0: single rollup message is printed.
+	var warnings []string
+
+	// 6b. Skip-env warning (D-09, T-07-02-01).
+	// When SkipEnv is true, .env is already excluded via cfg.Excludes (config.Resolve).
+	// Emit the warning inline when verbose, or collect for rollup when not verbose.
+	if resolved.SkipEnv {
+		msg := "WARNING: .env not uploaded — remote .env left unchanged"
+		if resolved.Verbose {
+			fmt.Fprintln(os.Stderr, msg)
+		} else {
+			warnings = append(warnings, msg)
+		}
+	}
+
+	// 6c. Run pre-flight checks before any file operations.
+	results, err := preflight.RunPreflightChecks(context.Background(), preflight.NewSSHRunner(client), resolved)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Pre-flight failed: %v\n", err)
 		return err
+	}
+
+	// 6d. Render pre-flight checklist and collect pre-flight warnings.
+	if resolved.Verbose {
+		// Verbose: print full checklist to stderr (D-01, Phase 5 deferral fulfilled).
+		for _, r := range results {
+			fmt.Fprintf(os.Stderr, "  [%s] %s: %s\n", strings.ToUpper(r.Status), r.Name, r.Message)
+		}
+	} else {
+		// Non-verbose: collect warn-status results for rollup (D-02).
+		for _, r := range results {
+			if r.Status == "warn" {
+				warnings = append(warnings, fmt.Sprintf("pre-flight: %s: %s", r.Name, r.Message))
+			}
+		}
 	}
 
 	// 7. Check if the remote target directory already exists.
@@ -281,7 +327,14 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		return err
 	}
 
-	// 10. Print success summary after compose completes successfully.
+	// 10. Warning rollup (D-02, T-07-02-02).
+	// Print the single rollup line when any non-blocking warnings occurred and verbose is off.
+	// With verbose=true, each warning was printed inline above — no rollup needed.
+	if len(warnings) > 0 && !resolved.Verbose {
+		fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment. For more details use --verbose flag")
+	}
+
+	// 11. Print success summary after compose completes successfully.
 	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s:%s\n", fileCount, resolved.Host.Hostname, resolved.Path)
 
 	return nil
