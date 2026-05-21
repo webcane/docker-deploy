@@ -37,4 +37,6 @@ jobs:
           go-version-file: go.mod
 
       - name: Run integration tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: make test-integration

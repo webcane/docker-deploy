@@ -13,4 +13,5 @@ test:
 
 test-integration:
 	$(eval DOCKER_HOST ?= $(shell docker context inspect --format '{{(index .Endpoints "docker").Host}}' 2>/dev/null))
-	DOCKER_HOST=$(DOCKER_HOST) go test -tags integration -timeout 15m ./integration/...
+	DOCKER_HOST=$(DOCKER_HOST) TESTCONTAINERS_RYUK_DISABLED=true \
+	  go test -tags integration -timeout 15m ./integration/...
