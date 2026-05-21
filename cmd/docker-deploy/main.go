@@ -302,7 +302,8 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// 8. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
 	// sudoPw is populated during interactive auth fallback and reused across operations.
-	// warnedOnce tracks whether the passwordless sudo warning has been printed in this deploy.
+	// warnedOnce is set to true by Upload when passwordless sudo was unavailable;
+	// in non-verbose mode Upload suppresses the inline print so we add it to the rollup here.
 	var sudoPw *string
 	sudoPw = new(string)
 	*sudoPw = ""
@@ -313,6 +314,9 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err
+	}
+	if *warnedOnce {
+		warnings = append(warnings, "WARNING: passwordless sudo not configured; you may be prompted for a password")
 	}
 
 	// 9. Execute docker compose up on the remote host, streaming output locally.
@@ -328,10 +332,14 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 
 	// 10. Warning rollup (D-02, T-07-02-02).
-	// Print the single rollup line when any non-blocking warnings occurred and verbose is off.
-	// With verbose=true, each warning was printed inline above — no rollup needed.
-	if len(warnings) > 0 && !resolved.Verbose {
-		fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment. For more details use --verbose flag")
+	// Always print when warnings occurred. In non-verbose mode adds the --verbose hint
+	// since details were suppressed; in verbose mode details were already printed inline.
+	if len(warnings) > 0 {
+		if resolved.Verbose {
+			fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment.")
+		} else {
+			fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment. For more details use --verbose flag")
+		}
 	}
 
 	// 11. Print success summary after compose completes successfully.

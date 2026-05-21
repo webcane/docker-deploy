@@ -245,13 +245,13 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 
 		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
-		// When verbose=true: the warnedOnce guard is bypassed — every warning prints
-		// and *warnedOnce is never set to true (D-01).
-		// When verbose=false: existing behavior — first warning prints, rest suppressed.
-		if verbose || !*warnedOnce {
-			fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
-			if !verbose {
-				*warnedOnce = true
+		// Print once regardless of verbose. In verbose mode the line goes inline;
+		// in non-verbose mode it is suppressed here and surfaced via the rollup in
+		// main.go (D-01, D-02).
+		if !*warnedOnce {
+			*warnedOnce = true
+			if verbose {
+				fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
 			}
 		}
 		for attempt := 1; attempt <= 3; attempt++ {
