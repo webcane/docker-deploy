@@ -22,6 +22,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -176,7 +177,7 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 	signers := make(map[string]gossh.Signer, len(users))
 	for _, user := range users {
 		keyPath := fmt.Sprintf("/etc/ssh/test_keys/%s_rsa", user)
-		exitCode, reader, err := container.Exec(ctx, []string{"cat", keyPath})
+		exitCode, reader, err := container.Exec(ctx, []string{"cat", keyPath}, tcexec.Multiplexed())
 		if err != nil {
 			container.Terminate(ctx) //nolint:errcheck
 			return nil, fmt.Errorf("exec cat %s: %w", keyPath, err)

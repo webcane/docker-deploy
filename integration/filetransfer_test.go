@@ -72,6 +72,11 @@ func TestUpload_AtomicCancel(t *testing.T) {
 
 	remoteBase := "/opt/testapp-atomic"
 
+	// Register cleanup before any t.Skip — ensures remote dir is always removed.
+	t.Cleanup(func() {
+		sshExecHelper(t, client, "rm -rf /opt/testapp-atomic")
+	})
+
 	// Pre-seed sentinel file.
 	sshExecHelper(t, client, "mkdir -p /opt/testapp-atomic && echo original > /opt/testapp-atomic/sentinel-before-deploy.txt")
 
@@ -79,6 +84,7 @@ func TestUpload_AtomicCancel(t *testing.T) {
 	localDir := buildLargeLocalDir(t, 100, 1024)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // ensure cancel is always called even on t.Skip or early return
 	// Cancel after 100ms to fire mid-transfer.
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -106,9 +112,6 @@ func TestUpload_AtomicCancel(t *testing.T) {
 		t.Errorf("staging dir not cleaned up after cancel; found: %q", out2)
 	}
 
-	t.Cleanup(func() {
-		sshExecHelper(t, client, "rm -rf /opt/testapp-atomic")
-	})
 }
 
 // TestUpload_SkipEnv verifies D-04: a pre-seeded .env on the remote is unchanged
