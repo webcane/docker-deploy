@@ -61,6 +61,7 @@
 
 - **OBS-01**: `--detach` / `-d` flag for fire-and-forget mode (exit immediately after `compose up` without streaming logs)
 - **OBS-02**: Warn when compose.yaml has no HEALTHCHECK instruction defined
+- **OBS-03**: In `--verbose` mode, list remote files currently on the target host and local files about to be uploaded before the replace-confirmation prompt, so the operator sees a before/after diff before confirming
 
 ### Multi-Target
 
