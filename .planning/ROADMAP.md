@@ -190,16 +190,38 @@ Plans:
 ### Phase 8: Integration Tests
 **Goal**: A testcontainers-based test suite automatically verifies all v1 requirements against a real SSH daemon — SSH connectivity, root-user warning, sshuser sudo permissions, preflight checks, file copy atomicity, compose execution, and health polling — so regressions are caught without manual VPS access
 **Depends on**: Phase 7
-**Plans**: TBD
+**Plans**: 6 plans
 
 **Success Criteria** (what must be TRUE):
-  1. `go test ./integration/...` spins up a real SSH daemon container and runs end-to-end against it without any manual setup
+  1. `go test -tags integration -timeout 5m ./integration/...` spins up a real SSH daemon container and runs end-to-end against it without any manual setup
   2. SSH connectivity verification (knownhosts, timeout, auth chain) is covered by at least one test
   3. Root-user warning (CHECK-07) is triggered and asserted when connecting as root
   4. Passwordless-sudo permission check (CHECK-04, CHECK-06) passes for a correctly configured sshuser and fails with a clear error for a misconfigured user
   5. File copy atomicity is verified — a simulated mid-copy failure leaves the target directory in its pre-deploy state
   6. All preflight checks (CHECK-01 through CHECK-07) have at least one passing and one failing scenario covered
   7. Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined
+
+Plans:
+
+**Wave 1** *(run in parallel)*
+- [ ] 08-01-PLAN.md — Container infrastructure (Dockerfile.sshd DinD+SSH with 4 users, helpers_test.go with TestMain + shared helpers)
+- [ ] 08-02-PLAN.md — CI/Makefile (make test-integration target, GitHub Actions integration job after unit-test)
+
+**Wave 2** *(blocked on Wave 1 completion — run in parallel)*
+- [ ] 08-03-PLAN.md — SSH connectivity tests (integration/dial_test.go: TestDial_Timeout, TOFU rejection, TOFU acceptance, Success using sshA)
+- [ ] 08-04-PLAN.md — Preflight check tests (integration/preflight_test.go: CHECK-01 through CHECK-07 pass+fail, CHECK-07 root warning SC-3, sshuser/nosudouser SC-4)
+- [ ] 08-05-PLAN.md — File copy atomicity tests (integration/filetransfer_test.go: TestUpload_HappyPath, AtomicCancel SC-5, SkipEnv)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 08-06-PLAN.md — Compose + health E2E tests (integration/compose_test.go: healthy nginx SC-7, unhealthy HEALTH-03, no-containers; testdata compose files)
+
+Cross-cutting constraints:
+- //go:build integration on line 1 of every file in integration/ (per D-06)
+- package integration_test (external test package) across all files (per D-06)
+- TestMain starts ALL containers once; tests must not leave dirty state (per D-07)
+- Internal package APIs called directly — no exec.Command subprocess invocation (per D-08)
+- No InsecureIgnoreHostKey anywhere including test helpers (CLAUDE.md Rule 1)
+- One NewSession() per SSH command in test helpers (CLAUDE.md Rule 3)
 
 ### Phase 9: Distribution & Documentation
 **Goal**: docker-deploy is installable via three progressively convenient methods (manual binary, install script, Homebrew tap) and README.md is the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
@@ -245,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Core Deploy Loop | 4/4 | Complete | 2026-05-18 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
-| 8. Integration Tests | 0/? | Not started | - |
+| 8. Integration Tests | 0/6 | Not started | - |
 | 9. Documentation | 0/? | Not started | - |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 
