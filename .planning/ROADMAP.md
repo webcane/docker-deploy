@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Core Deploy Loop | 4/4 | Complete | 2026-05-18 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 6. Init Wizard | 0/? | Not started | - |
-| 7. v2 — Leftovers | 0/? | Not started | - |
+| 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 0/? | Not started | - |
 | 9. Documentation | 0/? | Not started | - |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
