@@ -76,6 +76,17 @@ func buildDeployCmd() *cobra.Command {
 	return cmd
 }
 
+// formatHostTarget formats the host+path portion of the deploy complete message.
+// When port is 0 or 22 (the default SSH port), the colon separator is omitted to
+// avoid the confusing "host:/path" appearance (host:port with empty port).
+// Custom ports are rendered as "host:PORT/path".
+func formatHostTarget(hostname string, port int, path string) string {
+	if port == 0 || port == 22 {
+		return hostname + path
+	}
+	return fmt.Sprintf("%s:%d%s", hostname, port, path)
+}
+
 // runDryRun implements the --dry-run flow: Resolve() -> Dial() -> print summary or error.
 // The composeFile parameter is accepted for API symmetry with runDeploy but is not
 // used during dry-run, since dry-run only verifies SSH connectivity and config resolution
@@ -343,7 +354,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 
 	// 11. Print success summary after compose completes successfully.
-	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s:%s\n", fileCount, resolved.Host.Hostname, resolved.Path)
+	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s\n", fileCount, formatHostTarget(resolved.Host.Hostname, port, resolved.Path))
 
 	return nil
 }
