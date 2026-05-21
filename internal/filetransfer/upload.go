@@ -2,7 +2,6 @@ package filetransfer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,29 +39,6 @@ func promptSudoPassword() (string, error) {
 		return "", fmt.Errorf("reading sudo password: %w", readErr)
 	}
 	return string(pw), nil
-}
-
-// sshExecVerbose wraps sshExec and logs the command and its exit code to stderr
-// when verbose=true. The command string is logged before execution as "[ssh] <cmd>",
-// and the exit code is logged after as "  → exit 0" or "  → exit N".
-func sshExecVerbose(client *gossh.Client, cmd string, verbose bool) error {
-	if verbose {
-		fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
-	}
-	err := sshExec(client, cmd)
-	if verbose {
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "  → exit 0\n")
-		} else {
-			var exitErr *gossh.ExitError
-			if errors.As(err, &exitErr) {
-				fmt.Fprintf(os.Stderr, "  → exit %d\n", exitErr.ExitStatus())
-			} else {
-				fmt.Fprintf(os.Stderr, "  → exit ?\n")
-			}
-		}
-	}
-	return err
 }
 
 // Upload copies all non-excluded files from localDir to a staging directory
@@ -201,7 +177,11 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 	existsBefore, err := remoteExists(client, remoteBase)
 	if verbose && err == nil {
-		fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		if existsBefore {
+			fmt.Fprintf(os.Stderr, "  → exists\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "  → absent\n")
+		}
 	}
 	if err != nil {
 		return 0, fmt.Errorf("checking remote target existence: %w", err)
