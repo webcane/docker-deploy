@@ -1,0 +1,106 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install prerequisites
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    procps \
+    sudo \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Docker Engine CE from Docker's official apt repo
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+        $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" \
+        > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-buildx-plugin \
+        docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure sshd
+RUN mkdir -p /var/run/sshd && chmod 755 /var/run/sshd
+
+RUN sed -i \
+    -e 's|^#\?Port .*|Port 22|' \
+    -e 's|^#\?PermitRootLogin .*|PermitRootLogin yes|' \
+    -e 's|^#\?PubkeyAuthentication .*|PubkeyAuthentication yes|' \
+    -e 's|^#\?PasswordAuthentication .*|PasswordAuthentication no|' \
+    -e 's|^#\?ChallengeResponseAuthentication .*|ChallengeResponseAuthentication no|' \
+    -e 's|^#\?UsePAM .*|UsePAM no|' \
+    /etc/ssh/sshd_config
+
+# Append any missing directives in case the sed substitutions above found no existing line
+RUN grep -q '^Port ' /etc/ssh/sshd_config || echo 'Port 22' >> /etc/ssh/sshd_config
+RUN grep -q '^PermitRootLogin ' /etc/ssh/sshd_config || echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+RUN grep -q '^PubkeyAuthentication ' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
+RUN grep -q '^PasswordAuthentication ' /etc/ssh/sshd_config || echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
+RUN grep -q '^ChallengeResponseAuthentication ' /etc/ssh/sshd_config || echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config
+RUN grep -q '^UsePAM ' /etc/ssh/sshd_config || echo 'UsePAM no' >> /etc/ssh/sshd_config
+
+# Generate SSH host key (remove any pre-generated key from package install first)
+RUN rm -f /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
+    && ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''
+
+# Generate per-user test RSA key pairs at build time
+RUN mkdir -p /etc/ssh/test_keys && chmod 700 /etc/ssh/test_keys
+RUN ssh-keygen -t rsa -b 2048 -f /etc/ssh/test_keys/root_rsa -N ''
+RUN ssh-keygen -t rsa -b 2048 -f /etc/ssh/test_keys/sshuser_rsa -N ''
+RUN ssh-keygen -t rsa -b 2048 -f /etc/ssh/test_keys/nosudouser_rsa -N ''
+RUN ssh-keygen -t rsa -b 2048 -f /etc/ssh/test_keys/sudopassuser_rsa -N ''
+
+# Configure root
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh \
+    && cp /etc/ssh/test_keys/root_rsa.pub /root/.ssh/authorized_keys \
+    && chmod 600 /root/.ssh/authorized_keys
+
+# Configure sshuser (passwordless sudo, docker group)
+RUN useradd -m -s /bin/bash sshuser \
+    && usermod -aG docker sshuser \
+    && echo 'sshuser ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sshuser \
+    && chmod 440 /etc/sudoers.d/sshuser \
+    && mkdir -p /home/sshuser/.ssh && chmod 700 /home/sshuser/.ssh \
+    && cp /etc/ssh/test_keys/sshuser_rsa.pub /home/sshuser/.ssh/authorized_keys \
+    && chmod 600 /home/sshuser/.ssh/authorized_keys \
+    && chown -R sshuser:sshuser /home/sshuser/.ssh
+
+# Configure nosudouser (no sudo, no docker group)
+RUN useradd -m -s /bin/bash nosudouser \
+    && mkdir -p /home/nosudouser/.ssh && chmod 700 /home/nosudouser/.ssh \
+    && cp /etc/ssh/test_keys/nosudouser_rsa.pub /home/nosudouser/.ssh/authorized_keys \
+    && chmod 600 /home/nosudouser/.ssh/authorized_keys \
+    && chown -R nosudouser:nosudouser /home/nosudouser/.ssh
+
+# Configure sudopassuser (sudo with password required)
+RUN useradd -m -s /bin/bash sudopassuser \
+    && echo 'sudopassuser:testpassword' | chpasswd \
+    && echo 'sudopassuser ALL=(ALL) ALL' > /etc/sudoers.d/sudopassuser \
+    && chmod 440 /etc/sudoers.d/sudopassuser \
+    && mkdir -p /home/sudopassuser/.ssh && chmod 700 /home/sudopassuser/.ssh \
+    && cp /etc/ssh/test_keys/sudopassuser_rsa.pub /home/sudopassuser/.ssh/authorized_keys \
+    && chmod 600 /home/sudopassuser/.ssh/authorized_keys \
+    && chown -R sudopassuser:sudopassuser /home/sudopassuser/.ssh
+
+# Docker daemon configuration for reliable DinD operation
+RUN mkdir -p /etc/docker \
+    && echo '{"storage-driver": "overlay2"}' > /etc/docker/daemon.json
+
+# Entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 22
+
+CMD ["/entrypoint.sh"]
