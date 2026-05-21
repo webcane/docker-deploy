@@ -1,4 +1,4 @@
-.PHONY: build install test
+.PHONY: build install test test-integration
 
 build:
 	mkdir -p bin
@@ -10,3 +10,6 @@ install: build
 
 test:
 	go test ./...
+
+test-integration:
+	go test -tags integration -timeout 5m ./integration/...
