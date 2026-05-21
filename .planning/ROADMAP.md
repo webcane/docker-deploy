@@ -17,7 +17,6 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: File Copy** - SFTP staging-dir upload with smart include/exclude filter; files land atomically on remote — completed 2026-05-14
 - [x] **Phase 4: Core Deploy Loop** - `docker deploy --host ...` runs compose up on remote and streams output; exit codes correct — completed 2026-05-15
 - [x] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up — completed 2026-05-17
-- [ ] **Phase 6: Init Wizard (Draft)** - `--init` creates target directory and writes deploy.yaml via root SSH
 - [x] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag — completed 2026-05-20
 - [ ] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon
 - [ ] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
@@ -163,18 +162,6 @@ Cross-cutting constraints:
 - CHECK-03 (daemon not running) and CHECK-07 (root user) are warnings only — never block (D-05, D-06)
 - CHECK-04 and CHECK-06 assume passwordless sudo; print actionable fix command on failure (D-07, D-08)
 
-### Phase 6: Init Wizard (Draft)
-**Goal**: A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
-**Mode:** mvp
-**Depends on**: Phase 5
-**Requirements**: INIT-01, INIT-02, INIT-03, INIT-04
-**Success Criteria** (what must be TRUE):
-  1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials
-  2. On first deploy, if the target directory does not exist or is not writable, the wizard offers to run the init flow automatically
-  3. After a successful init, `/opt/<project>` exists and is owned by the deploy user on the remote
-  4. A `deploy.yaml` containing host, user, and path is written to the project root after a successful wizard run
-**Plans**: TBD
-
 ### Phase 7: v2 — Leftovers
 **Goal**: Ship a wave of small v2 quality-of-life improvements: expand the built-in exclude list to cover common dev-tooling directories, add a `--skip-env` flag so operators can preserve remote secrets across deploys, and add a `--verbose` flag for detailed deploy output
 **Depends on**: Phase 6
@@ -257,8 +244,24 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. File Copy | 5/5 | Complete | 2026-05-15 |
 | 4. Core Deploy Loop | 4/4 | Complete | 2026-05-18 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
-| 6. Init Wizard | 0/? | Not started | - |
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 0/? | Not started | - |
 | 9. Documentation | 0/? | Not started | - |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
+
+## Backlog
+
+### Phase 999.1: Init Wizard (BACKLOG)
+
+**Goal:** A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
+**Requirements:** INIT-01, INIT-02, INIT-03, INIT-04
+**Plans:** 0 plans
+
+**Success Criteria** (what must be TRUE):
+  1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials
+  2. On first deploy, if the target directory does not exist or is not writable, the wizard offers to run the init flow automatically
+  3. After a successful init, `/opt/<project>` exists and is owned by the deploy user on the remote
+  4. A `deploy.yaml` containing host, user, and path is written to the project root after a successful wizard run
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
