@@ -244,6 +244,9 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		if ok {
 			return nil
 		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 1 (direct copy failed, trying sudo)\n")
+		}
 
 		// Step 2: Try passwordless sudo.
 		sudoCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
@@ -256,6 +259,9 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 		if ok {
 			return nil
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 1 (passwordless sudo failed)\n")
 		}
 
 		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
