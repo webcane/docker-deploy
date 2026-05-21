@@ -55,3 +55,46 @@ func TestVerboseFlagDescription(t *testing.T) {
 		t.Error("--verbose flag usage is empty")
 	}
 }
+
+// TestFormatHostTarget verifies deploy complete message formatting for default and custom ports.
+func TestFormatHostTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		hostname string
+		port     int
+		path     string
+		want     string
+	}{
+		{
+			name:     "default port 22 omits colon",
+			hostname: "192.168.1.99",
+			port:     22,
+			path:     "/opt/test-deploy",
+			want:     "192.168.1.99/opt/test-deploy",
+		},
+		{
+			name:     "custom port includes colon and port",
+			hostname: "192.168.1.99",
+			port:     2222,
+			path:     "/opt/test-deploy",
+			want:     "192.168.1.99:2222/opt/test-deploy",
+		},
+		{
+			name:     "zero port treated as default",
+			hostname: "192.168.1.99",
+			port:     0,
+			path:     "/opt/test-deploy",
+			want:     "192.168.1.99/opt/test-deploy",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatHostTarget(tc.hostname, tc.port, tc.path)
+			if got != tc.want {
+				t.Errorf("formatHostTarget(%q, %d, %q) = %q; want %q",
+					tc.hostname, tc.port, tc.path, got, tc.want)
+			}
+		})
+	}
+}
