@@ -22,7 +22,6 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/testcontainers/testcontainers-go"
-	tcexec "github.com/testcontainers/testcontainers-go/exec"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -172,21 +171,20 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 		return nil, fmt.Errorf("capture host key: %w", err)
 	}
 
-	// Extract per-user private keys from the container via exec (no SSH dial needed).
+	// Extract per-user private keys from the container via CopyFileFromContainer.
+	// This uses the Docker API's TAR-based file copy, which avoids the multiplexed
+	// exec stream that can corrupt binary/PEM data.
 	users := []string{"root", "sshuser", "nosudouser", "sudopassuser"}
 	signers := make(map[string]gossh.Signer, len(users))
 	for _, user := range users {
 		keyPath := fmt.Sprintf("/etc/ssh/test_keys/%s_rsa", user)
-		exitCode, reader, err := container.Exec(ctx, []string{"cat", keyPath}, tcexec.Multiplexed())
+		rc, err := container.CopyFileFromContainer(ctx, keyPath)
 		if err != nil {
 			container.Terminate(ctx) //nolint:errcheck
-			return nil, fmt.Errorf("exec cat %s: %w", keyPath, err)
+			return nil, fmt.Errorf("copy key file %s: %w", keyPath, err)
 		}
-		if exitCode != 0 {
-			container.Terminate(ctx) //nolint:errcheck
-			return nil, fmt.Errorf("cat %s exited with code %d", keyPath, exitCode)
-		}
-		keyBytes, err := io.ReadAll(reader)
+		keyBytes, err := io.ReadAll(rc)
+		rc.Close() //nolint:errcheck
 		if err != nil {
 			container.Terminate(ctx) //nolint:errcheck
 			return nil, fmt.Errorf("read key bytes for %s: %w", user, err)
