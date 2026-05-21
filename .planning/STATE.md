@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: phase_complete
 stopped_at: null
-last_updated: "2026-05-20T00:00:00Z"
-last_activity: 2026-05-20
+last_updated: "2026-05-21T00:00:00Z"
+last_activity: 2026-05-21
 progress:
   total_phases: 10
   completed_phases: 6
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 Phase: 08 of 10 (Integration Tests) — NOT STARTED
 Plan: 00 of TBD complete
-Status: Phase 7 complete — --skip-env, --verbose, expanded defaultExcludes shipped. Bug fix: remote .env preserved across atomic swap. Advancing to Phase 8.
+Status: Phase 7 shipped — v0.3.0 tagged and GitHub Release created. Advancing to Phase 8.
 Last activity: 2026-05-18
 Resume file: None
 
