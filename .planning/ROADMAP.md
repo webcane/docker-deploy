@@ -204,16 +204,16 @@ Plans:
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 08-01-PLAN.md — Container infrastructure (Dockerfile.sshd DinD+SSH with 4 users, helpers_test.go with TestMain + shared helpers)
-- [ ] 08-02-PLAN.md — CI/Makefile (make test-integration target, GitHub Actions integration job after unit-test)
+- [x] 08-01-PLAN.md — Container infrastructure (Dockerfile.sshd DinD+SSH with 4 users, helpers_test.go with TestMain + shared helpers)
+- [x] 08-02-PLAN.md — CI/Makefile (make test-integration target, GitHub Actions integration job after unit-test)
 
 **Wave 2** *(blocked on Wave 1 completion — run in parallel)*
-- [ ] 08-03-PLAN.md — SSH connectivity tests (integration/dial_test.go: TestDial_Timeout, TOFU rejection, TOFU acceptance, Success using sshA)
-- [ ] 08-04-PLAN.md — Preflight check tests (integration/preflight_test.go: CHECK-01 through CHECK-07 pass+fail, CHECK-07 root warning SC-3, sshuser/nosudouser SC-4)
-- [ ] 08-05-PLAN.md — File copy atomicity tests (integration/filetransfer_test.go: TestUpload_HappyPath, AtomicCancel SC-5, SkipEnv)
+- [x] 08-03-PLAN.md — SSH connectivity tests (integration/dial_test.go: TestDial_Timeout, TOFU rejection, TOFU acceptance, Success using sshA)
+- [x] 08-04-PLAN.md — Preflight check tests (integration/preflight_test.go: CHECK-01 through CHECK-07 pass+fail, CHECK-07 root warning SC-3, sshuser/nosudouser SC-4)
+- [x] 08-05-PLAN.md — File copy atomicity tests (integration/filetransfer_test.go: TestUpload_HappyPath, AtomicCancel SC-5, SkipEnv)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 08-06-PLAN.md — Compose + health E2E tests (integration/compose_test.go: healthy nginx SC-7, unhealthy HEALTH-03, no-containers; testdata compose files)
+- [x] 08-06-PLAN.md — Compose + health E2E tests (integration/compose_test.go: healthy nginx SC-7, unhealthy HEALTH-03, no-containers; testdata compose files)
 
 Cross-cutting constraints:
 - //go:build integration on line 1 of every file in integration/ (per D-06)
@@ -267,7 +267,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Core Deploy Loop | 4/4 | Complete | 2026-05-18 |
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
-| 8. Integration Tests | 0/6 | Not started | - |
+| 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Documentation | 0/? | Not started | - |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 
