@@ -226,7 +226,7 @@ Cross-cutting constraints:
 ### Phase 9: Distribution & Documentation
 **Goal**: docker-deploy is installable via three progressively convenient methods (manual binary, install script, Homebrew tap) and README.md is the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
 **Depends on**: Phase 8
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -245,6 +245,12 @@ Cross-cutting constraints:
   10. A troubleshooting section covers the most common failure scenarios (SSH auth failure, unknown host, writable dir, Docker not found, compose v1) with actionable fixes
   11. A feedback and suggestions section links to GitHub Issues with a welcome message for bug reports and feature requests
   12. README.md includes badges for build status, latest release version, and test status
+
+Plans:
+- [ ] 09-01-PLAN.md — GoReleaser darwin builds + cosign signing + brews block + release.yml update (autonomous: false — tap repo + secret setup required)
+- [ ] 09-02-PLAN.md — install.sh: OS/arch detection, SHA256 verification, cosign fallback
+- [ ] 09-03-PLAN.md — README.md: value prop, all 4 install methods, 3 use-case scenarios, badges, TON badge
+- [ ] 09-04-PLAN.md — Supporting docs: PREREQUISITES.md, COMPARISON.md, TROUBLESHOOTING.md, DEPLOY_CONFIG.md
 
 ### Phase 10: Add Phase Autosuggestion
 **Goal**: add phase autosuggestion
