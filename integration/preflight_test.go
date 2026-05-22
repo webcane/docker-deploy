@@ -361,6 +361,13 @@ func TestPreflight_CHECK05_PasswordlessSudo_Fail_nosudouser(t *testing.T) {
 	targetDir := findResult(results, "target-dir")
 	dockerGroup := findResult(results, "docker-group")
 
+	// Guard: at least one expected result must be present — if neither is returned,
+	// the test cannot verify correctness and must fail loudly.
+	if targetDir == nil && dockerGroup == nil {
+		t.Fatal("neither 'target-dir' nor 'docker-group' result was present; " +
+			"preflight must produce these checks for nosudouser")
+	}
+
 	allPass := true
 	if targetDir != nil && targetDir.Status != "pass" {
 		allPass = false
