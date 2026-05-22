@@ -69,38 +69,38 @@
 
 ## Homebrew Tap Structure
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| New tap repo: mniedre/homebrew-docker-deploy | Full control, no review wait, tap URL for install | ✓ |
-| PR to homebrew-core | Official repo, no tap URL needed, but popularity threshold required | |
+| Option                                       | Description                                                         | Selected |
+|----------------------------------------------|---------------------------------------------------------------------|----------|
+| New tap repo: webcane/homebrew-docker-deploy | Full control, no review wait, tap URL for install                   | ✓        |
+| PR to homebrew-core                          | Official repo, no tap URL needed, but popularity threshold required |          |
 
-**User's choice:** New tap repo: mniedre/homebrew-docker-deploy
+**User's choice:** New tap repo: webcane/homebrew-docker-deploy
 
 ---
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| GoReleaser brews: auto-push formula | Zero manual work per release | ✓ |
-| Manual formula update | Full control but requires manual commit per release | |
+| Option                               | Description                                         | Selected |
+|--------------------------------------|-----------------------------------------------------|----------|
+| GoReleaser brews: auto-push formula  | Zero manual work per release                        | ✓        |
+| Manual formula update                | Full control but requires manual commit per release |          |
 
 **User's choice:** GoReleaser auto-push
 
 ---
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| docker-deploy docker-cli-plugin-metadata | Hermetic, no Docker daemon needed | ✓ |
-| docker deploy --help | Requires Docker installed in Homebrew CI | |
-| Version output only | Simpler but doesn't verify plugin binary contract | |
+| Option                                    | Description                                        | Selected |
+|-------------------------------------------|----------------------------------------------------|----------|
+| docker-deploy docker-cli-plugin-metadata  | Hermetic, no Docker daemon needed                  | ✓        |
+| docker deploy --help                      | Requires Docker installed in Homebrew CI           |          |
+| Version output only                       | Simpler but doesn't verify plugin binary contract  |          |
 
 **User's choice:** docker-deploy docker-cli-plugin-metadata
 
 ---
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Dedicated PAT as HOMEBREW_TAP_TOKEN secret | Cross-repo write access, standard approach | ✓ |
-| You decide | Leave to planner | |
+| Option                                      | Description                                 | Selected |
+|---------------------------------------------|---------------------------------------------|----------|
+| Dedicated PAT as HOMEBREW_TAP_TOKEN secret  | Cross-repo write access, standard approach  | ✓        |
+| You decide                                  | Leave to planner                            |          |
 
 **User's choice:** Dedicated PAT as HOMEBREW_TAP_TOKEN secret
 

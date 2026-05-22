@@ -28,14 +28,14 @@ This phase does NOT add new plugin features — only distribution infrastructure
 
 ### Homebrew Tap
 
-- **D-07:** Create new tap repo: **`mniedre/homebrew-docker-deploy`** (not homebrew-core PR)
+- **D-07:** Create new tap repo: **`webcane/homebrew-docker-deploy`** (not homebrew-core PR)
 - **D-08:** GoReleaser `brews:` block auto-pushes formula to tap repo on every release — zero manual work per release
 - **D-09:** Formula `test` block uses: `docker-deploy docker-cli-plugin-metadata` (no Docker daemon needed, hermetic, always passes in Homebrew CI)
 - **D-10:** Use a dedicated PAT stored as **`HOMEBREW_TAP_TOKEN`** Actions secret (GITHUB_TOKEN has no cross-repo write access)
 
 ### install.sh
 
-- **D-11:** Hosted at main repo root; invoked via `curl https://raw.githubusercontent.com/mniedre/docker-deploy/main/install.sh | sh`
+- **D-11:** Hosted at main repo root; invoked via `curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh`
 - **D-12:** Installs **latest** by default; supports version pinning via `INSTALL_VERSION=vX.Y.Z` env var
 - **D-13:** **Silent overwrite** on upgrade — replace existing binary and print "Updated docker-deploy vOLD → vNEW"
 - **D-14:** Verification: attempt cosign signature verification; **fall back to SHA256-only with a warning** if cosign is not installed on the user's machine (do NOT fail hard)
@@ -44,10 +44,10 @@ This phase does NOT add new plugin features — only distribution infrastructure
 ### Install Methods (4 total)
 
 - **D-16:** Four documented install methods:
-  1. **Homebrew:** `brew tap mniedre/docker-deploy && brew install docker-deploy`
-  2. **curl|sh:** `curl https://raw.githubusercontent.com/mniedre/docker-deploy/main/install.sh | sh`
+  1. **Homebrew:** `brew tap webcane/docker-deploy && brew install docker-deploy`
+  2. **curl|sh:** `curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh`
   3. **GitHub Releases:** manual binary download from releases page, chmod +x, move to `~/.docker/cli-plugins/`
-  4. **go install:** `GOBIN=~/.docker/cli-plugins go install github.com/mniedre/docker-deploy/cmd/docker-deploy@latest` (note: must set GOBIN explicitly due to plugin placement requirement)
+  4. **go install:** `GOBIN=~/.docker/cli-plugins go install github.com/webcane/docker-deploy/cmd/docker-deploy@latest` (note: must set GOBIN explicitly due to plugin placement requirement)
 
 ### README Structure
 
@@ -147,7 +147,7 @@ No external specs — all decisions captured above.
 - **"Chinese tutorial video" style:** Use-case section should be step-by-step clear with copy-paste examples — the user explicitly wants this style for the usage documentation
 - **TON donation badge exact URL:** `https://tonviewer.com/UQCB7Y1q3cMl2wxfE1DDHr-VzJ-EeaJIUykx_CUkUdMrbtLG` — badge at bottom of README
 - **cosign fallback behavior:** `install.sh` must print: "cosign not found — skipping signature verification, checking SHA256 only" and continue (not fail)
-- **Tap install command:** `brew tap mniedre/docker-deploy && brew install docker-deploy`
+- **Tap install command:** `brew tap webcane/docker-deploy && brew install docker-deploy`
 - **go install note:** Must explain GOBIN requirement — unlike standard Go tools, docker-deploy must land in `~/.docker/cli-plugins/` not `$GOPATH/bin`
 
 </specifics>
