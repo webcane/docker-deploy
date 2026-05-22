@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: ready_to_plan
 stopped_at: null
-last_updated: "2026-05-22T00:00:00Z"
+last_updated: "2026-05-22T07:00:00Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 10
@@ -22,6 +22,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
 **Current focus:** Phase 9 — Documentation (next up)
+**Shipped:** Phase 8 — Integration Tests pushed to origin/master 2026-05-22
 
 ## Current Position
 
