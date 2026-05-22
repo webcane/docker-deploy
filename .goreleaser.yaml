@@ -9,6 +9,7 @@ builds:
       - -X main.version={{.Version}}
     goos:
       - linux
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -20,6 +21,47 @@ archives:
 checksum:
   name_template: checksums.txt
   algorithm: sha256
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+brews:
+  - name: docker-deploy
+    repository:
+      owner: webcane
+      name: homebrew-docker-deploy
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaser-bot
+      email: goreleaser-bot@webcane.dev
+    homepage: "https://github.com/webcane/docker-deploy"
+    description: "Deploy a docker-compose project to a remote VPS via SSH — no git required on the remote"
+    license: "MIT"
+    install: |
+      bin.install "docker-deploy"
+    test: |
+      system "#{bin}/docker-deploy", "docker-cli-plugin-metadata"
+    caveats: |
+      Homebrew installs docker-deploy to the Homebrew prefix, but Docker CLI plugins
+      must live in ~/.docker/cli-plugins/ to be discovered by the Docker CLI.
+
+      Run the following to create the symlink:
+        mkdir -p ~/.docker/cli-plugins
+        ln -sf $(brew --prefix)/bin/docker-deploy ~/.docker/cli-plugins/docker-deploy
+
+      After symlinking, verify with:
+        docker deploy --help
 
 release:
   draft: false
