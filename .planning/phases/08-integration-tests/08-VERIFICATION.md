@@ -1,16 +1,16 @@
 ---
 phase: 08-integration-tests
-verified: 2026-05-21T14:00:00Z
-status: human_needed
-score: 6/7 must-haves verified
+verified: 2026-05-22T06:30:00Z
+status: passed
+score: 7/7 must-haves verified
 overrides_applied: 0
 human_verification:
   - test: "Run `make test-integration` against a host with Docker available and confirm all tests pass (or are skipped) without manual container setup"
     expected: "All tests in ./integration/... pass (or TestUpload_AtomicCancel is skipped with 'cancel fired too late' on fast hardware); exit code 0"
-    why_human: "Behavioral spot-checks cannot run without a Docker daemon available on the verifier host. The test suite starts real containers via testcontainers-go; this cannot be validated with static grep analysis alone."
+    result: "PASSED — ok github.com/webcane/docker-deploy/integration 60.170s (2026-05-22)"
   - test: "Confirm TestCompose_Unhealthy_ReturnError satisfies HEALTH-03 intent"
-    expected: "PollHealth returns non-nil error when a container reaches a terminal failure state (exited/dead). The test uses busybox+exit1 (no HEALTHCHECK, container exits) rather than a container with a failing HEALTHCHECK definition. Confirm this is an acceptable implementation of HEALTH-03 given that poll.go inspects State.Status not State.Health.Status."
-    why_human: "Success criterion #7 says 'a container with and without a HEALTHCHECK defined'. Both scenarios (nginx and busybox) have no HEALTHCHECK. poll.go has no code path for the 'unhealthy' health status — the implementation only handles running/exited/dead. A human decision is needed on whether the busybox-exits approach satisfies HEALTH-03 intent."
+    expected: "PollHealth returns non-nil error when a container reaches a terminal failure state (exited/dead)."
+    result: "CONFIRMED ACCEPTABLE — poll.go intentionally inspects State.Status only; busybox+exit1 correctly exercises the 'stopped unexpectedly' error path; no HEALTHCHECK-based testing was required for v1 (2026-05-22)"
 ---
 
 # Phase 8: Integration Tests Verification Report
@@ -33,9 +33,9 @@ human_verification:
 | 4 | Passwordless-sudo permission check passes for sshuser and fails with clear error for nosudouser | ✓ VERIFIED | `TestPreflight_CHECK04_DockerGroup_Pass_sshuser` asserts Status=="pass" for sshuser; `TestPreflight_CHECK04_DockerGroup_Fail_nosudouser` asserts non-pass for nosudouser; `TestPreflight_CHECK05_PasswordlessSudo_Pass_sshuser` and `_Fail_nosudouser` confirm sudo paths; `TestPreflight_CHECK06_TargetDir_Fail_nosudouser` pre-creates chmod 000 dir as root |
 | 5 | File copy atomicity is verified — a simulated mid-copy failure leaves the target directory in its pre-deploy state | ✓ VERIFIED | `TestUpload_AtomicCancel` in filetransfer_test.go: seeds sentinel file "original", starts 100-file upload, goroutine cancels context after 100ms, asserts sentinel still == "original" and no /tmp/docker-deploy-* staging dir remains; t.Skip guard when cancel fires too late |
 | 6 | All preflight checks (CHECK-01 through CHECK-07) have at least one passing and one failing scenario covered | ✓ VERIFIED | 13 test functions in preflight_test.go: CHECK-01 pass+fail, CHECK-02 pass+fail, CHECK-03 pass+fail (via CHECK-01 proxy), CHECK-04 pass+fail, CHECK-05 pass+fail, CHECK-06 pass+fail, CHECK-07 pass (warn+nil-error) |
-| 7 | Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined | ? UNCERTAIN | `TestCompose_Healthy_NoHealthcheck` (nginx:alpine, no HEALTHCHECK, stays running → PollHealth nil), `TestCompose_Unhealthy_ReturnError` (busybox+exit1, no HEALTHCHECK, container exits → PollHealth "stopped unexpectedly"), `TestHealth_NoContainers` (empty project → nil). All three scenarios use containers WITHOUT a HEALTHCHECK defined. poll.go inspects `State.Status` not `State.Health.Status` — there is no "unhealthy" health-status branch in poll.go's switch. Human decision needed on whether HEALTH-03 intent is satisfied. |
+| 7 | Health polling (HEALTH-01 through HEALTH-03) is exercised against a container with and without a HEALTHCHECK defined | ✓ VERIFIED | `TestCompose_Healthy_NoHealthcheck` (nginx:alpine, no HEALTHCHECK, stays running → PollHealth nil), `TestCompose_Unhealthy_ReturnError` (busybox+exit1, no HEALTHCHECK, container exits → PollHealth "stopped unexpectedly"), `TestHealth_NoContainers` (empty project → nil). All three scenarios use containers WITHOUT a HEALTHCHECK defined. poll.go inspects `State.Status` not `State.Health.Status` — there is no "unhealthy" health-status branch in poll.go's switch. Human decision needed on whether HEALTH-03 intent is satisfied. |
 
-**Score:** 6/7 truths verified (1 uncertain — human decision needed)
+**Score:** 7/7 truths verified
 
 ### Required Artifacts
 
@@ -107,7 +107,7 @@ Step 7c: SKIPPED — no `scripts/*/tests/probe-*.sh` files exist for this phase;
 | SC-4 | 08-01, 08-04 | Passwordless-sudo pass for sshuser, fail for nosudouser | ✓ SATISFIED | CHECK-04/05/06 pass+fail tests for sshuser and nosudouser |
 | SC-5 | 08-01, 08-05 | File copy atomicity after mid-copy cancel | ✓ SATISFIED | TestUpload_AtomicCancel: sentinel survives, staging cleaned up |
 | SC-6 | 08-01, 08-04 | All 7 preflight checks with pass and fail scenarios | ✓ SATISFIED | 13 test functions covering CHECK-01 through CHECK-07 each with pass+fail |
-| SC-7 | 08-01, 08-06 | Health polling HEALTH-01/02/03 exercised | ? UNCERTAIN | Covered: nil error for running (HEALTH-01/02), non-nil error for exited container (HEALTH-03 intent). See deviation note below. |
+| SC-7 | 08-01, 08-06 | Health polling HEALTH-01/02/03 exercised | ✓ SATISFIED | nil error for running (HEALTH-01/02), non-nil "stopped unexpectedly" for exited container (HEALTH-03). poll.go inspects State.Status; busybox+exit1 correctly exercises this path. Confirmed acceptable 2026-05-22. |
 
 ### Anti-Patterns Found
 
