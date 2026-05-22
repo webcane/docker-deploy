@@ -201,26 +201,21 @@ func checkRootUser(cfg config.Config) CheckResult {
 	}
 }
 
-// checkSudo verifies that sudo is available (either passwordless or with interactive prompt).
-// Returns nil on success; error only if sudo is not available at all.
-// Only called when an auto-fix needs sudo (CHECK-04, CHECK-06).
-func checkSudo(client SSHRunner, cfg config.Config) error {
-	// Try passwordless sudo first
-	if err := runCmd(client, "sudo -n true"); err == nil {
-		return nil // passwordless sudo available
-	}
-	// Passwordless unavailable, but sudo itself may be available — that's fine.
-	// The actual deploy will prompt for password via the auth fallback sequence.
-	return nil
-}
-
 // checkTargetDir ensures cfg.Path exists and is writable. It tries:
-//  1. test -w <path>        — pass immediately if writable
-//  2. mkdir -p <path>       — pass if succeeds without sudo
-//  3. Warn if directory not writable (auto-fix deferred to deploy phase)
+//  1. test -w <path>              — pass immediately if already writable
+//  2. mkdir -p <path> && test -w  — pass if creation succeeds AND dir is writable
+//  3. sudo -n mkdir -p <path>     — pass if passwordless sudo can create it
+//  4. Warn if no path is accessible (auto-fix deferred to deploy phase)
+//
+// Step 2 combines mkdir with an explicit writability check because mkdir -p
+// returns 0 for directories that already exist — even if the caller cannot
+// write to them (e.g. chmod 000). Without the subsequent test -w, an
+// existing but inaccessible directory would be falsely reported as "pass".
+//
+// Step 3 covers users with passwordless sudo (NOPASSWD: ALL). These users
+// cannot create directories in /opt directly but can do so via sudo -n.
 //
 // Returns the CheckResult and any blocking error.
-// Note: sudo auto-fixes are deferred to Upload() which handles interactive password prompts.
 func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 	path := filetransfer.ShellQuote(cfg.Path)
 
@@ -233,8 +228,10 @@ func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 		}, nil
 	}
 
-	// Try: mkdir -p without sudo
-	if err := runCmd(client, "mkdir -p "+path); err == nil {
+	// Try: mkdir -p without sudo, then verify actual writability.
+	// mkdir -p succeeds for existing directories regardless of their permissions,
+	// so a subsequent test -w is required to confirm real write access.
+	if err := runCmd(client, "mkdir -p "+path+" && test -w "+path); err == nil {
 		return CheckResult{
 			Name:    "target-dir",
 			Status:  "pass",
@@ -242,7 +239,17 @@ func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 		}, nil
 	}
 
-	// Directory not writable without sudo. Warn the user but don't fail.
+	// Try: passwordless sudo (sudo -n). This succeeds for users with NOPASSWD: ALL
+	// configured, indicating Upload() will not need to prompt for a password.
+	if err := runCmd(client, "sudo -n mkdir -p "+path); err == nil {
+		return CheckResult{
+			Name:    "target-dir",
+			Status:  "pass",
+			Message: cfg.Path + " created via sudo",
+		}, nil
+	}
+
+	// Directory not accessible without a password. Warn the user but don't fail.
 	// Upload() will handle sudo escalation with interactive password prompts if needed.
 	fmt.Fprintf(os.Stderr,
 		"Warning: %s may require sudo to write to; will attempt password auth during deploy if needed\n",

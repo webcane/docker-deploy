@@ -67,7 +67,9 @@ RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh \
     && chmod 600 /root/.ssh/authorized_keys
 
 # Configure sshuser (passwordless sudo, docker group)
+# usermod -p '*' unlocks the account (UsePAM no rejects '!' locked accounts for pubkey auth)
 RUN useradd -m -s /bin/bash sshuser \
+    && usermod -p '*' sshuser \
     && usermod -aG docker sshuser \
     && echo 'sshuser ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sshuser \
     && chmod 440 /etc/sudoers.d/sshuser \
@@ -77,7 +79,9 @@ RUN useradd -m -s /bin/bash sshuser \
     && chown -R sshuser:sshuser /home/sshuser/.ssh
 
 # Configure nosudouser (no sudo, no docker group)
+# usermod -p '*' unlocks the account (UsePAM no rejects '!' locked accounts for pubkey auth)
 RUN useradd -m -s /bin/bash nosudouser \
+    && usermod -p '*' nosudouser \
     && mkdir -p /home/nosudouser/.ssh && chmod 700 /home/nosudouser/.ssh \
     && cp /etc/ssh/test_keys/nosudouser_rsa.pub /home/nosudouser/.ssh/authorized_keys \
     && chmod 600 /home/nosudouser/.ssh/authorized_keys \
@@ -96,6 +100,13 @@ RUN useradd -m -s /bin/bash sudopassuser \
 # Docker daemon configuration for reliable DinD operation
 RUN mkdir -p /etc/docker \
     && echo '{"storage-driver": "overlay2"}' > /etc/docker/daemon.json
+
+# Declare /var/lib/docker as a Docker volume so the overlay2 storage driver works
+# in nested DinD containers. The volume is backed by the Docker host's filesystem
+# (ext4 on CI / Lima VM on macOS/Colima) rather than the container's own overlayfs
+# layer, which resolves "failed to mount overlay: invalid argument" on kernels that
+# do not support nested overlayfs.
+VOLUME /var/lib/docker
 
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh

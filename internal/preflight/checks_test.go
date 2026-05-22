@@ -248,10 +248,10 @@ func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},            // dir not writable → needs sudo
-		fakeCmd{match: "mkdir -p", exitCode: 1},           // mkdir fails → needs sudo
-		fakeCmd{match: "sudo -n true", exitCode: 1},        // no passwordless sudo
-		fakeCmd{match: "id -nG", output: []byte("docker")}, // user in docker group
+		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},     // no passwordless sudo → fails
+		fakeCmd{match: "id -nG", output: []byte("docker")},  // user in docker group
 	)
 	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
@@ -332,16 +332,14 @@ func TestCheck06_DirNotWritable_NeedsSudoMkdir(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},          // not writable
-		fakeCmd{match: "mkdir -p", exitCode: 1},          // mkdir without sudo fails
-		fakeCmd{match: "sudo -n true", exitCode: 0},      // sudo available
-		fakeCmd{match: "sudo mkdir -p", exitCode: 0},     // sudo mkdir succeeds
-		fakeCmd{match: "sudo chown", exitCode: 0},        // sudo chown succeeds
+		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 0},     // passwordless sudo mkdir succeeds → pass
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
 	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
-		t.Errorf("unexpected error when sudo mkdir/chown succeeds: %v", err)
+		t.Errorf("unexpected error when sudo -n mkdir succeeds: %v", err)
 	}
 }
 

@@ -60,7 +60,8 @@ func TestUpload_HappyPath(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		sshExecHelper(t, client, "rm -rf /opt/testapp-upload-happy")
+		// /opt is root-owned; Upload creates the dir via sudo, so removal needs sudo too.
+		sshExecHelper(t, client, "sudo rm -rf /opt/testapp-upload-happy")
 	})
 }
 
@@ -73,12 +74,14 @@ func TestUpload_AtomicCancel(t *testing.T) {
 	remoteBase := "/opt/testapp-atomic"
 
 	// Register cleanup before any t.Skip — ensures remote dir is always removed.
+	// /opt is root-owned; the pre-seed and Upload create the dir via sudo, so removal
+	// requires sudo as well (sshuser lacks write permission to /opt itself).
 	t.Cleanup(func() {
-		sshExecHelper(t, client, "rm -rf /opt/testapp-atomic")
+		sshExecHelper(t, client, "sudo rm -rf /opt/testapp-atomic")
 	})
 
-	// Pre-seed sentinel file.
-	sshExecHelper(t, client, "mkdir -p /opt/testapp-atomic && echo original > /opt/testapp-atomic/sentinel-before-deploy.txt")
+	// Pre-seed sentinel file using sudo — sshuser cannot create dirs in /opt directly.
+	sshExecHelper(t, client, "sudo bash -c 'mkdir -p /opt/testapp-atomic && echo original > /opt/testapp-atomic/sentinel-before-deploy.txt'")
 
 	// Create a large enough local dir to ensure context cancellation fires mid-transfer.
 	localDir := buildLargeLocalDir(t, 100, 1024)
@@ -121,8 +124,8 @@ func TestUpload_SkipEnv(t *testing.T) {
 
 	remoteBase := "/opt/testapp-skipenv"
 
-	// Pre-seed .env on remote.
-	sshExecHelper(t, client, "mkdir -p /opt/testapp-skipenv && echo 'SECRET=original' > /opt/testapp-skipenv/.env")
+	// Pre-seed .env on remote using sudo — sshuser cannot create dirs in /opt directly.
+	sshExecHelper(t, client, "sudo bash -c 'mkdir -p /opt/testapp-skipenv && echo SECRET=original > /opt/testapp-skipenv/.env'")
 
 	// Create local dir with only compose.yaml — no .env in localDir.
 	localDir := t.TempDir()
@@ -153,6 +156,7 @@ func TestUpload_SkipEnv(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		sshExecHelper(t, client, "rm -rf /opt/testapp-skipenv")
+		// /opt is root-owned; removal requires sudo.
+		sshExecHelper(t, client, "sudo rm -rf /opt/testapp-skipenv")
 	})
 }
