@@ -228,7 +228,7 @@ func TestPreflight_CHECK07_RootWarning_DoesNotBlock(t *testing.T) {
 
 	var results []preflight.CheckResult
 	var err error
-	output := captureStderr(func() {
+	output := captureStderr(t, func() {
 		results, err = preflight.RunPreflightChecks(context.Background(), runner, cfg)
 	})
 

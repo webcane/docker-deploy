@@ -403,14 +403,18 @@ func sshExecOutputHelper(t *testing.T, client *gossh.Client, cmd string) string 
 
 // captureStderr redirects os.Stderr during fn(), captures the output, and returns it.
 // Used for CHECK-03 and CHECK-07 warning assertions in preflight_test.go.
-func captureStderr(fn func()) string {
-	r, w, _ := os.Pipe()
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
 	old := os.Stderr
 	os.Stderr = w
 	fn()
 	w.Close()
 	os.Stderr = old
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	buf.ReadFrom(r) //nolint:errcheck
 	return buf.String()
 }
