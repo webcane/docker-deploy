@@ -56,7 +56,8 @@ func promptSudoPassword() (string, error) {
 //     are suppressed).
 //
 // Atomic swap strategy:
-//  1. Create staging dir: /tmp/docker-deploy-<unixTimestamp> (always writable on remote)
+//  1. Create staging dir: <parent-of-remoteBase>/.deploy-tmp-<unixNanoTimestamp>
+//     (co-located with target so the final mv is an atomic same-filesystem rename)
 //  2. Upload all files into staging dir maintaining relative path structure
 //  3. Ensure remoteBase exists (mkdir -p, falling back to interactive sudo with up to 3
 //     password attempts). If target cannot be created: warn, leave staged files, return error.
@@ -92,11 +93,14 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 	defer sftpClient.Close()
 
-	// Step 4: Derive staging directory in the remote /tmp (always writable).
+	// Step 4: Derive staging directory co-located with the target directory.
+	// Placing the staging dir on the same filesystem as the target ensures the
+	// final mv is an atomic same-filesystem rename(2) rather than a cross-filesystem
+	// copy+delete (CLAUDE.md Rule 3: atomic file copy).
 	// Use nanosecond precision to avoid collisions in concurrent deployments
 	// to the same remote in the same second (IN-03).
 	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-	stagingDir := "/tmp/docker-deploy-" + timestamp
+	stagingDir := path.Dir(remoteBase) + "/.deploy-tmp-" + timestamp
 
 	// Step 5: Create staging directory.
 	if err := sftpClient.MkdirAll(stagingDir); err != nil {

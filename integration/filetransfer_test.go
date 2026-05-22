@@ -110,7 +110,9 @@ func TestUpload_AtomicCancel(t *testing.T) {
 	}
 
 	// Assert no staging dir remains.
-	out2 := sshExecOutputHelper(t, client, "ls /tmp/docker-deploy-* 2>/dev/null && echo found || echo none")
+	// The staging dir is co-located with the target (/opt/.deploy-tmp-*) per CLAUDE.md Rule 3
+	// to ensure the final mv is an atomic same-filesystem rename(2).
+	out2 := sshExecOutputHelper(t, client, "ls /opt/.deploy-tmp-* 2>/dev/null && echo found || echo none")
 	if !strings.Contains(out2, "none") {
 		t.Errorf("staging dir not cleaned up after cancel; found: %q", out2)
 	}
