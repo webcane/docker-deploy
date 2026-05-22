@@ -344,7 +344,7 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 			rmIdx = i
 		}
 		if strings.Contains(cmd, "mv") &&
-			strings.Contains(cmd, "/tmp/docker-deploy-") &&
+			strings.Contains(cmd, "/.deploy-tmp-") &&
 			strings.Contains(cmd, ShellQuote(remoteBase)) {
 			mvIdx = i
 		}
@@ -513,7 +513,7 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 			hasMvToBackup = true
 		}
 		if strings.Contains(cmd, "mv") &&
-			strings.Contains(cmd, "/tmp/docker-deploy-") &&
+			strings.Contains(cmd, "/.deploy-tmp-") &&
 			strings.Contains(cmd, ShellQuote(remoteBase)) &&
 			!strings.Contains(cmd, "-old-") {
 			hasMvStagingToBase = true
