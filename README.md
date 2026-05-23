@@ -17,13 +17,6 @@ brew tap webcane/docker-deploy
 brew install docker-deploy
 ```
 
-Homebrew installs the binary to the Homebrew prefix. Add a symlink to the Docker CLI plugin directory so Docker discovers it:
-
-```bash
-mkdir -p ~/.docker/cli-plugins
-ln -sf $(brew --prefix)/bin/docker-deploy ~/.docker/cli-plugins/docker-deploy
-```
-
 ### Option 2: Install script (macOS / Linux)
 
 ```bash

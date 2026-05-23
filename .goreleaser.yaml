@@ -48,18 +48,16 @@ brews:
     license: "MIT"
     install: |
       bin.install "docker-deploy"
+    post_install: |
+      mkdir -p "#{Dir.home}/.docker/cli-plugins"
+      ln -sf "#{bin}/docker-deploy" "#{Dir.home}/.docker/cli-plugins/docker-deploy"
+    custom_block: |
+      def uninstall
+        symlink = File.expand_path("~/.docker/cli-plugins/docker-deploy")
+        File.delete(symlink) if File.exist?(symlink)
+      end
     test: |
       system "#{bin}/docker-deploy", "docker-cli-plugin-metadata"
-    caveats: |
-      Homebrew installs docker-deploy to the Homebrew prefix, but Docker CLI plugins
-      must live in ~/.docker/cli-plugins/ to be discovered by the Docker CLI.
-
-      Run the following to create the symlink:
-        mkdir -p ~/.docker/cli-plugins
-        ln -sf $(brew --prefix)/bin/docker-deploy ~/.docker/cli-plugins/docker-deploy
-
-      After symlinking, verify with:
-        docker deploy --help
 
 release:
   draft: false
