@@ -113,7 +113,7 @@ None yet.
 | 260523-n24 | Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline | 2026-05-23 | 97485a8 | [260523-n24-fix-ci-node24-actions](./quick/260523-n24-fix-ci-node24-actions/) |
 | 260523-fix | Fix CI integration tests: TestDial_Timeout and TestDial_UnknownHost_TOFU_Accepted | 2026-05-23 | bc109de | [260523-fix-ci-integration-dial-tests](./quick/260523-fix-ci-integration-dial-tests/) |
 | 260523-cos | Fix goreleaser cosign not found in CI release pipeline | 2026-05-23 | 4aef2ac | [260523-cos-fix-goreleaser-cosign-ci](./quick/260523-cos-fix-goreleaser-cosign-ci/) |
-| 260523-ins | Fix install.sh curl URL — /main/ → /master/ (repo has no main branch) | 2026-05-23 | TBD | [260523-ins-fix-install-sh-main-to-master](./quick/260523-ins-fix-install-sh-main-to-master/) |
+| 260523-ins | Fix install.sh curl URL — /main/ → /master/ (repo has no main branch) | 2026-05-23 | 53f9340 | [260523-ins-fix-install-sh-main-to-master](./quick/260523-ins-fix-install-sh-main-to-master/) |
 
 ## Deferred Items
 
