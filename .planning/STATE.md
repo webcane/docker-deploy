@@ -112,7 +112,7 @@ None yet.
 | 260521-afl | fix deploy complete status message: omit colon when no custom port | 2026-05-21 | 1f6103a | [260521-afl-fix-deploy-complete-status-message-omit-](./quick/260521-afl-fix-deploy-complete-status-message-omit-/) |
 | 260523-n24 | Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline | 2026-05-23 | 97485a8 | [260523-n24-fix-ci-node24-actions](./quick/260523-n24-fix-ci-node24-actions/) |
 | 260523-fix | Fix CI integration tests: TestDial_Timeout and TestDial_UnknownHost_TOFU_Accepted | 2026-05-23 | bc109de | [260523-fix-ci-integration-dial-tests](./quick/260523-fix-ci-integration-dial-tests/) |
-| 260523-cos | Fix goreleaser cosign not found in CI release pipeline | 2026-05-23 | - | [260523-cos-fix-goreleaser-cosign-ci](./quick/260523-cos-fix-goreleaser-cosign-ci/) |
+| 260523-cos | Fix goreleaser cosign not found in CI release pipeline | 2026-05-23 | 4aef2ac | [260523-cos-fix-goreleaser-cosign-ci](./quick/260523-cos-fix-goreleaser-cosign-ci/) |
 
 ## Deferred Items
 
