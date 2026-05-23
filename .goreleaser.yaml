@@ -49,9 +49,17 @@ brews:
     install: |
       bin.install "docker-deploy"
     post_install: |
-      (Pathname.new("#{Dir.home}/.docker/cli-plugins")).mkpath
-      ln_sf "#{bin}/docker-deploy", "#{Dir.home}/.docker/cli-plugins/docker-deploy"
+      cli_plugins = Pathname.new("#{Dir.home}/.docker/cli-plugins")
+      cli_plugins.mkpath
+      target = "#{cli_plugins}/docker-deploy"
+      src = "#{opt_bin}/docker-deploy"
+      File.delete(target) if File.symlink?(target)
+      File.symlink(src, target)
     custom_block: |
+      def sandbox_allowlist?
+        true
+      end
+
       def uninstall
         symlink = File.expand_path("~/.docker/cli-plugins/docker-deploy")
         File.delete(symlink) if File.exist?(symlink)
