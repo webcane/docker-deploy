@@ -1,0 +1,10 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+
+comment:
+  layout: "reach, diff"
+  behavior: default
+  require_changes: true
