@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Pre-flight & Health Polling** - All pre-flight checks run before deploy; health polling reports pass/fail after compose up — completed 2026-05-17
 - [x] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag — completed 2026-05-20
 - [x] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon — completed 2026-05-22
-- [ ] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
+- [x] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
 
 ## Phase Details
@@ -274,7 +274,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 5. Pre-flight & Health Polling | 4/4 | Complete | 2026-05-17 |
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
-| 9. Documentation | 0/? | Not started | - |
+| 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 
 ## Backlog
