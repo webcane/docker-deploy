@@ -8,10 +8,6 @@ updated: 2026-05-17T12:00:00Z
 
 ## Current Test
 
-<!-- OVERWRITE each test - shows where we are -->
-
-## Current Test
-
 [testing complete]
 
 ## Tests
@@ -44,8 +40,6 @@ passed: 4
 issues: 0
 pending: 0
 skipped: 1
-blocked: 0
-skipped: 0
 blocked: 0
 
 ## Gaps
