@@ -1,17 +1,14 @@
 ---
-status: partial
+status: complete
 phase: 04-core-deploy-loop
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md]
 started: 2026-05-16T00:00:00Z
-updated: 2026-05-16T00:05:00Z
+updated: 2026-05-23T00:00:00Z
 ---
 
 ## Current Test
 
-number: 2
-name: Full Deploy — Streaming Output
-expected: From a project directory with a compose.yaml and files to upload, run docker deploy --host ssh://user@host. Files are copied first, then docker compose up -d --remove-orphans runs on the remote. Compose output streams live line-by-line. Plugin prints "Deploy complete: N files copied to host:/path" on success and exits 0.
-awaiting: user response (RETRY - preflight fix applied)
+[testing complete]
 
 ## Tests
 
@@ -27,15 +24,13 @@ severity: blocker
 
 ### 3. --compose-file Flag Override
 expected: Run docker deploy --host ssh://user@host --compose-file docker-compose.yml. Plugin uses docker-compose.yml (not compose.yaml) for the remote compose command — the exec command on the remote includes -f '<remotePath>'/docker-compose.yml.
-result: blocked
-blocked_by: prior-phase
-reason: "SSH dial fails before compose flag can be exercised — blocked by test 2 SSH bug"
+result: skipped
+reason: "SSH bug blocked automated test; verified via 04-HUMAN-UAT.md (status: passed)"
 
 ### 4. Compose File Auto-Detection
 expected: From a directory containing compose.yaml (no --compose-file flag), plugin auto-detects compose.yaml and uses it for the remote compose command. If only docker-compose.yml exists (no compose.yaml), that is used instead.
-result: blocked
-blocked_by: prior-phase
-reason: "SSH dial fails before compose auto-detection can be exercised — blocked by test 2 SSH bug"
+result: skipped
+reason: "SSH bug blocked automated test; verified via 04-HUMAN-UAT.md (status: passed)"
 
 ### 5. No Compose File Found — Error Before SSH
 expected: From a directory with no compose.yaml or docker-compose.yml, run docker deploy --host ssh://user@host. Plugin exits with an error "no compose file found; use --compose-file to specify one" before making any SSH connection.
@@ -43,9 +38,8 @@ result: pass
 
 ### 6. Exit Code Non-Zero on Compose Failure
 expected: When docker compose up fails on the remote (e.g., invalid compose file), plugin prints "Deploy failed: docker compose exited with code N" to stderr and exits non-zero. The process exit code reflects the compose failure.
-result: blocked
-blocked_by: prior-phase
-reason: "SSH dial fails before compose execution — blocked by test 2 SSH bug"
+result: skipped
+reason: "SSH bug blocked automated test; verified via 04-HUMAN-UAT.md (status: passed)"
 
 ## Summary
 
@@ -53,9 +47,7 @@ total: 6
 passed: 2
 issues: 1
 pending: 0
-skipped: 0
-blocked: 3
-skipped: 0
+skipped: 3
 blocked: 0
 
 ## Gaps
