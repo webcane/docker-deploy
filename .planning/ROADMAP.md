@@ -311,3 +311,12 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: SSH Config Host Alias Resolution (BACKLOG)
+
+**Goal:** Parse `~/.ssh/config` when resolving a host so that short aliases (e.g. `minipc`) resolve to their real `HostName` and `User` without requiring DNS or explicit user in the URL
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
