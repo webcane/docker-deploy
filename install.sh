@@ -1,6 +1,6 @@
 #!/bin/sh
 # install.sh — One-liner installer for docker-deploy
-# Usage: curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh
+# Usage: curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | sh
 # Version pinning: curl ... | INSTALL_VERSION=v1.2.3 sh
 set -e
 

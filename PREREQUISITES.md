@@ -95,7 +95,7 @@ docker-deploy's `install.sh` requires bash (or POSIX sh). On Windows, use **WSL2
 
 ```bash
 # In WSL2 or Git Bash:
-curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh
+curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | sh
 ```
 
 The binary itself builds natively for Windows. If you prefer, install via `go install` directly in a Windows terminal (no WSL2 needed):

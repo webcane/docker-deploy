@@ -27,13 +27,13 @@ ln -sf $(brew --prefix)/bin/docker-deploy ~/.docker/cli-plugins/docker-deploy
 ### Option 2: Install script (macOS / Linux)
 
 ```bash
-curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh
+curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | sh
 ```
 
 Installs the latest release. To pin a specific version:
 
 ```bash
-curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | INSTALL_VERSION=v1.0.0 sh
+curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | INSTALL_VERSION=v1.0.0 sh
 ```
 
 ### Option 3: Manual binary (GitHub Releases)
