@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 09-documentation
 source: [09-01-SUMMARY.md, 09-02-SUMMARY.md, 09-03-SUMMARY.md, 09-04-SUMMARY.md]
 started: 2026-05-23T00:00:00Z
@@ -85,7 +85,13 @@ blocked: 0
   reason: "User reported: Apple could not verify 'docker-deploy' is free of malware that may harm your Mac or compromise your privacy."
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "macOS Gatekeeper quarantines unsigned binaries downloaded via browser/curl+tar. Binary is not Apple-notarized. README manual install steps omit the required xattr workaround."
+  artifacts:
+    - path: "README.md"
+      issue: "Manual install section missing: xattr -d com.apple.quarantine ~/.docker/cli-plugins/docker-deploy"
+    - path: "TROUBLESHOOTING.md"
+      issue: "No Gatekeeper/quarantine troubleshooting entry"
+  missing:
+    - "Add xattr -d com.apple.quarantine step to README.md Option 3 manual install"
+    - "Add Gatekeeper quarantine section to TROUBLESHOOTING.md"
   debug_session: ""
