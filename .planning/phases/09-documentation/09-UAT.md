@@ -81,7 +81,7 @@ blocked: 0
 ## Gaps
 
 - truth: "Manual binary install on macOS works without extra steps after tar/mv/chmod"
-  status: failed
+  status: resolved
   reason: "User reported: Apple could not verify 'docker-deploy' is free of malware that may harm your Mac or compromise your privacy."
   severity: major
   test: 2
@@ -94,4 +94,5 @@ blocked: 0
   missing:
     - "Add xattr -d com.apple.quarantine step to README.md Option 3 manual install"
     - "Add Gatekeeper quarantine section to TROUBLESHOOTING.md"
+  fix: "docs(09): add macOS Gatekeeper xattr workaround — commit d04fabf"
   debug_session: ""
