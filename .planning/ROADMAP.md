@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon — completed 2026-05-22
 - [x] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
-- [ ] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall
+- [x] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall (completed 2026-05-23)
 - [ ] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link
 - [ ] **Phase 13: Small Code Fixes** - Resolve `deploy.yaml` relative to cwd; `docker deploy version` subcommand via ldflags
 - [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
@@ -281,12 +281,12 @@ Plans:
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 11-01-PLAN.md — Codecov config + badge (fix README badge branch, add coverage upload step)
-- [ ] 11-02-PLAN.md — GitHub Actions hygiene (remove FORCE_JAVASCRIPT_ACTIONS_TO_NODE24, add Dependabot)
-- [ ] 11-04-PLAN.md — Linting & formatting (.golangci.yml, make lint, make fmt, CI lint job)
+- [x] 11-01-PLAN.md — Codecov config + badge (fix README badge branch, add coverage upload step)
+- [x] 11-02-PLAN.md — GitHub Actions hygiene (remove FORCE_JAVASCRIPT_ACTIONS_TO_NODE24, add Dependabot)
+- [x] 11-04-PLAN.md — Linting & formatting (.golangci.yml, make lint, make fmt, CI lint job)
 
 **Wave 2** *(independent of Wave 1 — only touches .goreleaser.yaml)*
-- [ ] 11-03-PLAN.md — Brew formula: post_install symlink + def uninstall cleanup + remove caveats
+- [x] 11-03-PLAN.md — Brew formula: post_install symlink + def uninstall cleanup + remove caveats
 
 ### Phase 12: Docs Polish
 **Goal**: Tighten all user-facing documentation in one pass — fix the plugin help text, sharpen the README value proposition, move install instructions to a dedicated INSTALL.md, and add a feedback link to COMPARISON.md
@@ -363,7 +363,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
-| 11. CI & Tooling Polish | 0/4 | Not started | - |
+| 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. Small Code Fixes | 0/2 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
@@ -375,7 +375,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 **Goal:** A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
 **Requirements:** INIT-01, INIT-02, INIT-03, INIT-04
-**Plans:** 0 plans
+**Plans:** 4/4 plans complete
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials

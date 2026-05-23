@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
   pull_request:
 
@@ -47,7 +47,7 @@ jobs:
         run: go vet ./...
 
   integration:
-    needs: [test]
+    needs: [test, lint]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
