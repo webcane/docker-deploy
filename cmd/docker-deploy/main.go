@@ -76,6 +76,23 @@ func buildDeployCmd() *cobra.Command {
 	return cmd
 }
 
+// rollupMsg returns the warning rollup message shown at the end of runDeploy()
+// when at least one warning was accumulated. When verbose is true the message
+// omits the --verbose hint because details were already printed inline.
+func rollupMsg(verbose bool) string {
+	if verbose {
+		return "WARN: there are some warnings during deployment."
+	}
+	return "WARN: there are some warnings during deployment. For more details use --verbose flag"
+}
+
+// formatCheckResult formats a single CheckResult for verbose preflight output.
+// The bracket notation "[STATUS] name: message" is printed to stderr when
+// --verbose is set (D-01).
+func formatCheckResult(r preflight.CheckResult) string {
+	return fmt.Sprintf("  [%s] %s: %s", strings.ToUpper(r.Status), r.Name, r.Message)
+}
+
 // formatHostTarget formats the host+path portion of the deploy complete message.
 // When port is 0 or 22 (the default SSH port), the colon separator is omitted to
 // avoid the confusing "host:/path" appearance (host:port with empty port).
@@ -262,7 +279,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	if resolved.Verbose {
 		// Verbose: print full checklist to stderr (D-01, Phase 5 deferral fulfilled).
 		for _, r := range results {
-			fmt.Fprintf(os.Stderr, "  [%s] %s: %s\n", strings.ToUpper(r.Status), r.Name, r.Message)
+			fmt.Fprintln(os.Stderr, formatCheckResult(r))
 		}
 	} else {
 		// Non-verbose: collect warn-status results for rollup (D-02).
@@ -346,11 +363,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// Always print when warnings occurred. In non-verbose mode adds the --verbose hint
 	// since details were suppressed; in verbose mode details were already printed inline.
 	if len(warnings) > 0 {
-		if resolved.Verbose {
-			fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment.")
-		} else {
-			fmt.Fprintln(os.Stderr, "WARN: there are some warnings during deployment. For more details use --verbose flag")
-		}
+		fmt.Fprintln(os.Stderr, rollupMsg(resolved.Verbose))
 	}
 
 	// 11. Print success summary after compose completes successfully.
