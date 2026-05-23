@@ -208,24 +208,33 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 
 // captureHostKeyFromContainer captures the SSH host key from a running container
 // using a short-lived connection that captures the key then intentionally disconnects.
+// Retries every 500ms for up to 30s because wait.ForListeningPort fires when the TCP
+// port opens, but sshd may not yet be ready to complete the SSH handshake (race on CI).
 func captureHostKeyFromContainer(ctx context.Context, _ testcontainers.Container, host string, port int) (gossh.PublicKey, error) {
-	var captured gossh.PublicKey
-	cfg := &gossh.ClientConfig{
-		User: "root",
-		Auth: []gossh.AuthMethod{gossh.Password("")},
-		HostKeyCallback: func(_ string, _ net.Addr, key gossh.PublicKey) error {
-			captured = key
-			// Return error to immediately disconnect after key capture.
-			return fmt.Errorf("key captured")
-		},
-		Timeout: 15 * time.Second,
-	}
 	addr := fmt.Sprintf("%s:%d", host, port)
-	gossh.Dial("tcp", addr, cfg) //nolint:errcheck — intentional disconnect
-	if captured == nil {
-		return nil, fmt.Errorf("failed to capture SSH host key from DinD container")
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		var captured gossh.PublicKey
+		cfg := &gossh.ClientConfig{
+			User: "root",
+			Auth: []gossh.AuthMethod{gossh.Password("")},
+			HostKeyCallback: func(_ string, _ net.Addr, key gossh.PublicKey) error {
+				captured = key
+				return fmt.Errorf("key captured")
+			},
+			Timeout: 5 * time.Second,
+		}
+		gossh.Dial("tcp", addr, cfg) //nolint:errcheck — intentional disconnect
+		if captured != nil {
+			return captured, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
-	return captured, nil
+	return nil, fmt.Errorf("failed to capture SSH host key from DinD container after 30s")
 }
 
 // captureHostKey dials the SSH server to capture its host public key, then disconnects.
