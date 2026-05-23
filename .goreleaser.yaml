@@ -49,8 +49,8 @@ brews:
     install: |
       bin.install "docker-deploy"
     post_install: |
-      mkdir -p "#{Dir.home}/.docker/cli-plugins"
-      ln -sf "#{bin}/docker-deploy" "#{Dir.home}/.docker/cli-plugins/docker-deploy"
+      (Pathname.new("#{Dir.home}/.docker/cli-plugins")).mkpath
+      ln_sf "#{bin}/docker-deploy", "#{Dir.home}/.docker/cli-plugins/docker-deploy"
     custom_block: |
       def uninstall
         symlink = File.expand_path("~/.docker/cli-plugins/docker-deploy")
