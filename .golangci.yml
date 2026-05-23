@@ -1,0 +1,15 @@
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - goimports
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/webcane/docker-deploy
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

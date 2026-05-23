@@ -1,4 +1,4 @@
-.PHONY: build install test test-ci
+.PHONY: build install test test-ci lint fmt
 
 build:
 	mkdir -p bin
@@ -15,3 +15,9 @@ test-ci:
 	$(eval DOCKER_HOST ?= $(shell docker context inspect --format '{{(index .Endpoints "docker").Host}}' 2>/dev/null))
 	DOCKER_HOST=$(DOCKER_HOST) TESTCONTAINERS_RYUK_DISABLED=true \
 	  go test -v -tags integration -timeout 15m ./integration/...
+
+lint:
+	golangci-lint run ./...
+
+fmt:
+	goimports -w -local github.com/webcane/docker-deploy ./...
