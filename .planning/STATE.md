@@ -110,6 +110,7 @@ None yet.
 | 260519-q01 | Verify docker-compose detached mode (-d flag) — confirmed already implemented in Phase 4, all tests passing | 2026-05-19 | 2150b80 | [260519-q01-docker-compose-detached-mode](./quick/260519-q01-docker-compose-detached-mode/) |
 | 260519-q02 | Fix health check docker inspect exit status 1 — nil .State.Health template fix for containers with no HEALTHCHECK | 2026-05-19 | 703d819 | [260519-q02-fix-health-check-docker-inspect-ssh](./quick/260519-q02-fix-health-check-docker-inspect-ssh/) |
 | 260521-afl | fix deploy complete status message: omit colon when no custom port | 2026-05-21 | 1f6103a | [260521-afl-fix-deploy-complete-status-message-omit-](./quick/260521-afl-fix-deploy-complete-status-message-omit-/) |
+| 260523-n24 | Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline | 2026-05-23 | 97485a8 | [260523-n24-fix-ci-node24-actions](./quick/260523-n24-fix-ci-node24-actions/) |
 
 ## Deferred Items
 
@@ -122,4 +123,4 @@ None yet.
 Last session: 2026-05-22T06:30:00Z
 Stopped at: Phase 8 complete — all integration tests pass; human UAT items confirmed; VERIFICATION.md status=passed
 Resume file: None
-Last activity: 2026-05-22 - Phase 8 integration tests fully passing; all 4 runtime blockers fixed; Phase 9 (Documentation) ready to plan
+Last activity: 2026-05-23 - Completed quick task 260523-n24: Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline
