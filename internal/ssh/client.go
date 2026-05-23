@@ -70,15 +70,13 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) {
 	}
 
 	// Step 1: Build auth methods (agent → config keys; no password).
+	// We do not short-circuit here on an empty list: attempting the TCP
+	// connection first is required so that (a) the timeout path fires for
+	// unreachable hosts and (b) TOFU host-key acceptance runs before auth.
+	// The "no methods" case is handled by formatDialError after gossh returns.
 	authMethods, err := buildAuthMethods(cfg.Hostname, cfg.User)
 	if err != nil {
 		return nil, err
-	}
-	if len(authMethods) == 0 {
-		return nil, fmt.Errorf(
-			"SSH auth failed: ensure your key is loaded in ssh-agent or configured in ~/.ssh/config for host %s",
-			cfg.Hostname,
-		)
 	}
 
 	// Step 2: Build the known-hosts callback with TOFU and hard-fail support.
@@ -122,7 +120,10 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) {
 		User:            cfg.User,
 		Auth:            authMethods,
 		HostKeyCallback: wrappedCallback,
-		Timeout:         timeout,
+		// Set 100ms longer than our select timeout so time.After always fires
+		// first, guaranteeing the deterministic "SSH connection timed out after X"
+		// message rather than an OS-level "i/o timeout" from the net stack.
+		Timeout: timeout + 100*time.Millisecond,
 	}
 
 	type result struct {

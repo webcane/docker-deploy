@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 Phase: 09 of 10 (Documentation) — READY TO PLAN
 Plan: 00 of ? complete
 Status: Phase 8 complete. Ready to plan Phase 9.
-Last activity: 2026-05-22
+Last activity: 2026-05-23 - Completed quick task 260523-fix: Fix CI integration tests (TestDial_Timeout, TestDial_UnknownHost_TOFU_Accepted)
 Resume file: None
 
 Progress: [████████░░] 87%
@@ -111,6 +111,7 @@ None yet.
 | 260519-q02 | Fix health check docker inspect exit status 1 — nil .State.Health template fix for containers with no HEALTHCHECK | 2026-05-19 | 703d819 | [260519-q02-fix-health-check-docker-inspect-ssh](./quick/260519-q02-fix-health-check-docker-inspect-ssh/) |
 | 260521-afl | fix deploy complete status message: omit colon when no custom port | 2026-05-21 | 1f6103a | [260521-afl-fix-deploy-complete-status-message-omit-](./quick/260521-afl-fix-deploy-complete-status-message-omit-/) |
 | 260523-n24 | Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline | 2026-05-23 | 97485a8 | [260523-n24-fix-ci-node24-actions](./quick/260523-n24-fix-ci-node24-actions/) |
+| 260523-fix | Fix CI integration tests: TestDial_Timeout and TestDial_UnknownHost_TOFU_Accepted | 2026-05-23 | TBD | [260523-fix-ci-integration-dial-tests](./quick/260523-fix-ci-integration-dial-tests/) |
 
 ## Deferred Items
 

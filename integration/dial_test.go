@@ -15,9 +15,6 @@ import (
 // TestDial_Timeout verifies that Dial returns a "timed out" error when the target
 // host (192.0.2.1 — TEST-NET, guaranteed non-routable per RFC 5737) does not respond.
 func TestDial_Timeout(t *testing.T) {
-	// emptyKnownHosts provides KnownHostsPath so buildAuthMethods proceeds to
-	// attempt the TCP connection (and hit the timeout) rather than returning
-	// early with "no auth methods" on CI runners without SSH_AUTH_SOCK.
 	cfg := internalssh.DialConfig{
 		User:           "nobody",
 		Hostname:       "192.0.2.1", // TEST-NET, guaranteed non-routable
