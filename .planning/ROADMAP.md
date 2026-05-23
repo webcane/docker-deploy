@@ -266,25 +266,27 @@ Plans:
   1. TBD
 
 ### Phase 11: CI & Tooling Polish
-**Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
+**Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. Coverage reports are uploaded to Codecov and a badge displays current coverage in README
   2. All actions in `.github/workflows/` reference current major versions with no deprecation warnings in CI
   3. `brew install <tap>/docker-deploy` results in a working `docker deploy --help` with no additional user steps
   4. `brew uninstall docker-deploy` leaves no dangling symlink or binary in `~/.docker/cli-plugins/`
+  5. `make lint` runs errcheck, govet, staticcheck, and goimports; a CI lint job must pass before merge
 
 Plans:
 
 **Wave 1** *(run in parallel)*
-- [ ] 11-01-PLAN.md — Codecov config + badge
-- [ ] 11-02-PLAN.md — Bump GitHub Actions versions
+- [ ] 11-01-PLAN.md — Codecov config + badge (fix README badge branch, add coverage upload step)
+- [ ] 11-02-PLAN.md — GitHub Actions hygiene (remove FORCE_JAVASCRIPT_ACTIONS_TO_NODE24, add Dependabot)
+- [ ] 11-04-PLAN.md — Linting & formatting (.golangci.yml, make lint, make fmt, CI lint job)
 
-**Wave 2** *(run in parallel — independent of Wave 1)*
-- [ ] 11-03-PLAN.md — Brew formula: post_install symlink + post_uninstall cleanup
+**Wave 2** *(independent of Wave 1 — only touches .goreleaser.yaml)*
+- [ ] 11-03-PLAN.md — Brew formula: post_install symlink + def uninstall cleanup + remove caveats
 
 ### Phase 12: Docs Polish
 **Goal**: Tighten all user-facing documentation in one pass — fix the plugin help text, sharpen the README value proposition, move install instructions to a dedicated INSTALL.md, and add a feedback link to COMPARISON.md
@@ -361,7 +363,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
-| 11. CI & Tooling Polish | 0/3 | Not started | - |
+| 11. CI & Tooling Polish | 0/4 | Not started | - |
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. Small Code Fixes | 0/2 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
