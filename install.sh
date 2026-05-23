@@ -1,7 +1,7 @@
 #!/bin/sh
 # install.sh — One-liner installer for docker-deploy
 # Usage: curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh
-# Version pinning: INSTALL_VERSION=v1.2.3 curl ... | sh
+# Version pinning: curl ... | INSTALL_VERSION=v1.2.3 sh
 set -e
 
 # ── Variables ────────────────────────────────────────────────────────────────
@@ -59,12 +59,21 @@ curl -fsSL "${BASE_URL}/checksums.txt"     -o "${TMPDIR}/checksums.txt"
 cd "${TMPDIR}"
 
 if command -v sha256sum >/dev/null 2>&1; then
-  grep "${ARCHIVE_NAME}" checksums.txt | sha256sum -c - || {
+  # CR-01 fix: grep empty output silently passes on Linux — extract to file first
+  grep "${ARCHIVE_NAME}" checksums.txt > "${TMPDIR}/archive.sha256" || {
+    echo "ERROR: ${ARCHIVE_NAME} not found in checksums.txt — cannot verify" >&2
+    exit 1
+  }
+  sha256sum -c "${TMPDIR}/archive.sha256" || {
     echo "ERROR: SHA256 checksum mismatch — aborting" >&2
     exit 1
   }
 elif command -v shasum >/dev/null 2>&1; then
-  grep "${ARCHIVE_NAME}" checksums.txt | shasum -a 256 -c - || {
+  grep "${ARCHIVE_NAME}" checksums.txt > "${TMPDIR}/archive.sha256" || {
+    echo "ERROR: ${ARCHIVE_NAME} not found in checksums.txt — cannot verify" >&2
+    exit 1
+  }
+  shasum -a 256 -c "${TMPDIR}/archive.sha256" || {
     echo "ERROR: SHA256 checksum mismatch — aborting" >&2
     exit 1
   }
@@ -80,11 +89,15 @@ cd - >/dev/null
 if command -v cosign >/dev/null 2>&1; then
   curl -fsSL "${BASE_URL}/checksums.txt.sig" -o "${TMPDIR}/checksums.txt.sig"
   curl -fsSL "${BASE_URL}/checksums.txt.pem" -o "${TMPDIR}/checksums.txt.pem"
+  # CR-02 fix: cosign v2 requires explicit identity flags for keyless verification
+  # WR-01 fix: hard failure → ERROR label, not WARNING
   cosign verify-blob \
     --certificate "${TMPDIR}/checksums.txt.pem" \
     --signature   "${TMPDIR}/checksums.txt.sig" \
+    --certificate-identity-regexp "https://github.com/${REPO}/" \
+    --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
     "${TMPDIR}/checksums.txt" || {
-    echo "WARNING: cosign signature verification failed — binary may be tampered" >&2
+    echo "ERROR: cosign signature verification failed — binary may be tampered" >&2
     exit 1
   }
 else

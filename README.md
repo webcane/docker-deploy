@@ -33,7 +33,7 @@ curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | s
 Installs the latest release. To pin a specific version:
 
 ```bash
-INSTALL_VERSION=v1.0.0 curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | sh
+curl https://raw.githubusercontent.com/webcane/docker-deploy/main/install.sh | INSTALL_VERSION=v1.0.0 sh
 ```
 
 ### Option 3: Manual binary (GitHub Releases)
