@@ -111,7 +111,7 @@ None yet.
 | 260519-q02 | Fix health check docker inspect exit status 1 — nil .State.Health template fix for containers with no HEALTHCHECK | 2026-05-19 | 703d819 | [260519-q02-fix-health-check-docker-inspect-ssh](./quick/260519-q02-fix-health-check-docker-inspect-ssh/) |
 | 260521-afl | fix deploy complete status message: omit colon when no custom port | 2026-05-21 | 1f6103a | [260521-afl-fix-deploy-complete-status-message-omit-](./quick/260521-afl-fix-deploy-complete-status-message-omit-/) |
 | 260523-n24 | Fix Node.js 20 deprecation warnings in GitHub Actions CI pipeline | 2026-05-23 | 97485a8 | [260523-n24-fix-ci-node24-actions](./quick/260523-n24-fix-ci-node24-actions/) |
-| 260523-fix | Fix CI integration tests: TestDial_Timeout and TestDial_UnknownHost_TOFU_Accepted | 2026-05-23 | TBD | [260523-fix-ci-integration-dial-tests](./quick/260523-fix-ci-integration-dial-tests/) |
+| 260523-fix | Fix CI integration tests: TestDial_Timeout and TestDial_UnknownHost_TOFU_Accepted | 2026-05-23 | bc109de | [260523-fix-ci-integration-dial-tests](./quick/260523-fix-ci-integration-dial-tests/) |
 
 ## Deferred Items
 
