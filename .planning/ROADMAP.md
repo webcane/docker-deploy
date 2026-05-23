@@ -21,6 +21,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon — completed 2026-05-22
 - [x] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
+- [ ] **Phase 11: Fix Help Description** - fix the help text shown by `docker deploy --help`
+- [ ] **Phase 12: Fix Codecov** - restore Codecov coverage reporting in CI
+- [ ] **Phase 13: Update GitHub Action Versions** - bump CI action versions to latest stable
+- [ ] **Phase 14: Brew Install Auto-Symlink** - formula post_install auto-symlinks plugin into `~/.docker/cli-plugins/`
+- [ ] **Phase 15: Brew Uninstall Symlink Cleanup** - formula post_uninstall removes plugin symlink and binary
+- [ ] **Phase 16: Improve README Value Proposition** - sharpen "Why docker deploy?" copy and positioning
+- [ ] **Phase 17: Restructure Installation Docs** - move install instructions to INSTALL.md with Script/Homebrew/Manual/go sections
+- [ ] **Phase 18: Avoid Hardcoded Config Paths** - locate `deploy.yaml` relative to binary rather than a fixed path
+- [ ] **Phase 19: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
+- [ ] **Phase 20: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour
+- [ ] **Phase 21: Comparison Page Feedback Link** - add a feedback link to COMPARISON.md for unknown deploy approaches
 
 ## Phase Details
 
@@ -260,6 +271,105 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. TBD
 
+### Phase 11: Fix Help Description
+**Goal**: Fix the help text displayed by `docker deploy --help` so it accurately describes the plugin
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `docker deploy --help` shows an accurate, well-formed description of the plugin
+
+### Phase 12: Fix Codecov
+**Goal**: Restore Codecov coverage reporting in CI so coverage metrics are visible on every PR
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. Coverage reports are uploaded to Codecov and a badge displays current coverage in README
+
+### Phase 13: Update GitHub Action Versions
+**Goal**: Bump all GitHub Actions to their latest stable versions to eliminate deprecation warnings
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. All actions in `.github/workflows/` reference current major versions with no deprecation warnings in CI
+
+### Phase 14: Brew Install Auto-Symlink
+**Goal**: The Homebrew formula automatically symlinks the plugin binary into `~/.docker/cli-plugins/` after install so `docker deploy` works without manual steps
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `brew install <tap>/docker-deploy` results in a working `docker deploy --help` with no additional user steps
+
+### Phase 15: Brew Uninstall Symlink Cleanup
+**Goal**: The Homebrew formula removes the symlink and plugin binary from `~/.docker/cli-plugins/` on uninstall
+**Depends on**: Phase 14
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `brew uninstall docker-deploy` leaves no dangling symlink or binary in `~/.docker/cli-plugins/`
+
+### Phase 16: Improve README Value Proposition
+**Goal**: Sharpen the "Why docker deploy?" section with compelling, accurate copy that positions the tool against CI/CD overhead for solo developers and small teams
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. README clearly explains who the tool is for and why it is simpler than CI/CD pipelines in under 100 words
+
+### Phase 17: Restructure Installation Docs
+**Goal**: Move installation instructions out of README.md into a dedicated INSTALL.md covering Script, Homebrew, Manual binary, and `go install` methods
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. INSTALL.md exists with a section for each install method; README links to it
+
+### Phase 18: Avoid Hardcoded Config Paths
+**Goal**: Locate `deploy.yaml` relative to the binary (or current working directory) rather than a fixed path so the tool works when invoked from any directory
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `deploy.yaml` is resolved relative to cwd; no hardcoded absolute paths in config resolution logic
+
+### Phase 19: SSH Config Host Alias Resolution
+**Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. `--host minipc` resolves via `~/.ssh/config` and connects successfully when a matching `Host` block exists
+
+### Phase 20: Deploy Healthcheck Config Format
+**Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval, retries) per service
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. Users can set `health_timeout`, `health_interval` per target in `deploy.yaml` and the values are respected during polling
+
+### Phase 21: Comparison Page Feedback Link
+**Goal**: Add a feedback/contribution link to COMPARISON.md inviting users to suggest deploy approaches not yet covered
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: TBD
+
+**Success Criteria** (what must be TRUE):
+  1. COMPARISON.md contains a visible link to GitHub Issues for users to suggest additions
+
 ## Progress
 
 **Execution Order:**
@@ -276,6 +386,17 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
+| 11. Fix Help Description | 0/? | Not started | - |
+| 12. Fix Codecov | 0/? | Not started | - |
+| 13. Update GitHub Action Versions | 0/? | Not started | - |
+| 14. Brew Install Auto-Symlink | 0/? | Not started | - |
+| 15. Brew Uninstall Symlink Cleanup | 0/? | Not started | - |
+| 16. Improve README Value Proposition | 0/? | Not started | - |
+| 17. Restructure Installation Docs | 0/? | Not started | - |
+| 18. Avoid Hardcoded Config Paths | 0/? | Not started | - |
+| 19. SSH Config Host Alias Resolution | 0/? | Not started | - |
+| 20. Deploy Healthcheck Config Format | 0/? | Not started | - |
+| 21. Comparison Page Feedback Link | 0/? | Not started | - |
 
 ## Backlog
 
@@ -290,111 +411,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
   2. On first deploy, if the target directory does not exist or is not writable, the wizard offers to run the init flow automatically
   3. After a successful init, `/opt/<project>` exists and is owned by the deploy user on the remote
   4. A `deploy.yaml` containing host, user, and path is written to the project root after a successful wizard run
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.2: Deploy Healthcheck Config Format (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.3: COMPARISON.md Feedback Link for Unknown Deploy Approaches (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.4: SSH Config Host Alias Resolution (BACKLOG)
-
-**Goal:** Parse `~/.ssh/config` when resolving a host so that short aliases (e.g. `minipc`) resolve to their real `HostName` and `User` without requiring DNS or explicit user in the URL
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.5: Fix Codecov (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.6: Fix Help Description (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.7: Improve README.md Value Proposition and Positioning Copy (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-### Why docker deploy?
-
-Tools like GitHub Actions and GitLab CI are powerful — but they're designed for teams, compliance, and multi-environment pipelines. If you're a developer deploying a side project, internal tool, or MVP, that overhead gets in the way.
-
-`docker deploy` does one thing well: take your local Compose project and run it on a remote machine over SSH. No agents, no tokens, no yaml sprawl.
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.8: Improve brew uninstall — remove symlink and plugin binary (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.9: Improve brew install — auto symlink (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.10: Update GitHub action versions (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.11: Avoid hardcoded config paths — use deploy.yaml near binary (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.12: Restructure Installation docs — separate file with Script/Homebrew/Manual/go sections (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
