@@ -21,18 +21,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon — completed 2026-05-22
 - [x] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
-- [ ] **Phase 11: Fix Help Description** - fix the help text shown by `docker deploy --help`
-- [ ] **Phase 12: Fix Codecov** - restore Codecov coverage reporting in CI
-- [ ] **Phase 13: Update GitHub Action Versions** - bump CI action versions to latest stable
-- [ ] **Phase 14: Brew Install Auto-Symlink** - formula post_install auto-symlinks plugin into `~/.docker/cli-plugins/`
-- [ ] **Phase 15: Brew Uninstall Symlink Cleanup** - formula post_uninstall removes plugin symlink and binary
-- [ ] **Phase 16: Improve README Value Proposition** - sharpen "Why docker deploy?" copy and positioning
-- [ ] **Phase 17: Restructure Installation Docs** - move install instructions to INSTALL.md with Script/Homebrew/Manual/go sections
-- [ ] **Phase 18: Avoid Hardcoded Config Paths** - locate `deploy.yaml` relative to binary rather than a fixed path
-- [ ] **Phase 19: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
-- [ ] **Phase 20: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour
-- [ ] **Phase 21: Comparison Page Feedback Link** - add a feedback link to COMPARISON.md for unknown deploy approaches
-- [ ] **Phase 22: Version Subcommand** - `docker deploy version` prints semver on tagged builds, commit hash on untagged builds
+- [ ] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall
+- [ ] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link
+- [ ] **Phase 13: Small Code Fixes** - Resolve `deploy.yaml` relative to cwd; `docker deploy version` subcommand via ldflags
+- [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
+- [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
 
 ## Phase Details
 
@@ -272,79 +265,66 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. TBD
 
-### Phase 11: Fix Help Description
-**Goal**: Fix the help text displayed by `docker deploy --help` so it accurately describes the plugin
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. `docker deploy --help` shows an accurate, well-formed description of the plugin
-
-### Phase 12: Fix Codecov
-**Goal**: Restore Codecov coverage reporting in CI so coverage metrics are visible on every PR
+### Phase 11: CI & Tooling Polish
+**Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
   1. Coverage reports are uploaded to Codecov and a badge displays current coverage in README
+  2. All actions in `.github/workflows/` reference current major versions with no deprecation warnings in CI
+  3. `brew install <tap>/docker-deploy` results in a working `docker deploy --help` with no additional user steps
+  4. `brew uninstall docker-deploy` leaves no dangling symlink or binary in `~/.docker/cli-plugins/`
 
-### Phase 13: Update GitHub Action Versions
-**Goal**: Bump all GitHub Actions to their latest stable versions to eliminate deprecation warnings
+Plans:
+
+**Wave 1** *(run in parallel)*
+- [ ] 11-01-PLAN.md — Codecov config + badge
+- [ ] 11-02-PLAN.md — Bump GitHub Actions versions
+
+**Wave 2** *(run in parallel — independent of Wave 1)*
+- [ ] 11-03-PLAN.md — Brew formula: post_install symlink + post_uninstall cleanup
+
+### Phase 12: Docs Polish
+**Goal**: Tighten all user-facing documentation in one pass — fix the plugin help text, sharpen the README value proposition, move install instructions to a dedicated INSTALL.md, and add a feedback link to COMPARISON.md
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
-  1. All actions in `.github/workflows/` reference current major versions with no deprecation warnings in CI
+  1. `docker deploy --help` shows an accurate, well-formed description of the plugin
+  2. README clearly explains who the tool is for and why it is simpler than CI/CD pipelines in under 100 words
+  3. INSTALL.md exists with a section for each install method (Script, Homebrew, Manual, `go install`); README links to it
+  4. COMPARISON.md contains a visible link to GitHub Issues for users to suggest additions
 
-### Phase 14: Brew Install Auto-Symlink
-**Goal**: The Homebrew formula automatically symlinks the plugin binary into `~/.docker/cli-plugins/` after install so `docker deploy` works without manual steps
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
+Plans:
 
-**Success Criteria** (what must be TRUE):
-  1. `brew install <tap>/docker-deploy` results in a working `docker deploy --help` with no additional user steps
+**Wave 1** *(run in parallel — all independent markdown edits)*
+- [ ] 12-01-PLAN.md — Fix help description (cobra root command Short/Long strings)
+- [ ] 12-02-PLAN.md — README: sharpen value prop + add INSTALL.md link
+- [ ] 12-03-PLAN.md — Create INSTALL.md; strip install section from README
+- [ ] 12-04-PLAN.md — COMPARISON.md: add feedback/contribution link
 
-### Phase 15: Brew Uninstall Symlink Cleanup
-**Goal**: The Homebrew formula removes the symlink and plugin binary from `~/.docker/cli-plugins/` on uninstall
-**Depends on**: Phase 14
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. `brew uninstall docker-deploy` leaves no dangling symlink or binary in `~/.docker/cli-plugins/`
-
-### Phase 16: Improve README Value Proposition
-**Goal**: Sharpen the "Why docker deploy?" section with compelling, accurate copy that positions the tool against CI/CD overhead for solo developers and small teams
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. README clearly explains who the tool is for and why it is simpler than CI/CD pipelines in under 100 words
-
-### Phase 17: Restructure Installation Docs
-**Goal**: Move installation instructions out of README.md into a dedicated INSTALL.md covering Script, Homebrew, Manual binary, and `go install` methods
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. INSTALL.md exists with a section for each install method; README links to it
-
-### Phase 18: Avoid Hardcoded Config Paths
-**Goal**: Locate `deploy.yaml` relative to the binary (or current working directory) rather than a fixed path so the tool works when invoked from any directory
+### Phase 13: Small Code Fixes
+**Goal**: Fix two self-contained Go issues: resolve `deploy.yaml` relative to the current working directory instead of a hardcoded path, and add a `docker deploy version` subcommand that prints semver on tagged builds and a git commit hash on untagged builds
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
   1. `deploy.yaml` is resolved relative to cwd; no hardcoded absolute paths in config resolution logic
+  2. `docker deploy version` is a standalone subcommand that prints a single version string and exits 0
+  3. When built from a tagged commit, the version string is the semver tag (e.g. `v0.6.3`); untagged builds print the short git commit hash
+  4. Version values are injected at build time via Go `-ldflags`; no runtime git invocation
 
-### Phase 19: SSH Config Host Alias Resolution
+Plans:
+
+**Wave 1** *(run in parallel — no shared files)*
+- [ ] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd
+- [ ] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
+
+### Phase 14: SSH Config Host Alias Resolution
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL
 **Depends on**: Phase 9
 **Requirements**: TBD
@@ -352,36 +332,18 @@ Plans:
 
 **Success Criteria** (what must be TRUE):
   1. `--host minipc` resolves via `~/.ssh/config` and connects successfully when a matching `Host` block exists
+  2. `HostName`, `User`, and `Port` directives are all honoured; missing directives fall back to defaults
+  3. An unmatched alias produces a clear error distinguishing "alias not found in ssh config" from a dial failure
 
-### Phase 20: Deploy Healthcheck Config Format
-**Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval, retries) per service
+### Phase 15: Deploy Healthcheck Config Format
+**Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: TBD
 
 **Success Criteria** (what must be TRUE):
-  1. Users can set `health_timeout`, `health_interval` per target in `deploy.yaml` and the values are respected during polling
-
-### Phase 21: Comparison Page Feedback Link
-**Goal**: Add a feedback/contribution link to COMPARISON.md inviting users to suggest deploy approaches not yet covered
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. COMPARISON.md contains a visible link to GitHub Issues for users to suggest additions
-
-### Phase 22: Version Subcommand
-**Goal**: `docker deploy version` prints the plugin version — semver tag on tagged builds, git commit hash on untagged builds
-**Depends on**: Phase 9
-**Requirements**: TBD
-**Plans**: TBD
-
-**Success Criteria** (what must be TRUE):
-  1. `docker deploy version` is a standalone subcommand that prints a single version string and exits 0
-  2. When built from a tagged commit, the version string is the semver tag (e.g. `v0.6.3`)
-  3. When built from an untagged commit, the version string is the short git commit hash (e.g. `abc1234`)
-  4. Version values are injected at build time via Go `-ldflags`; no runtime git invocation
+  1. Users can set `health_timeout` and `health_interval` per target in `deploy.yaml` and the values are respected during polling
+  2. Omitting the keys falls back to the existing global defaults without breaking existing configs
 
 ## Progress
 
@@ -399,18 +361,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
-| 11. Fix Help Description | 0/? | Not started | - |
-| 12. Fix Codecov | 0/? | Not started | - |
-| 13. Update GitHub Action Versions | 0/? | Not started | - |
-| 14. Brew Install Auto-Symlink | 0/? | Not started | - |
-| 15. Brew Uninstall Symlink Cleanup | 0/? | Not started | - |
-| 16. Improve README Value Proposition | 0/? | Not started | - |
-| 17. Restructure Installation Docs | 0/? | Not started | - |
-| 18. Avoid Hardcoded Config Paths | 0/? | Not started | - |
-| 19. SSH Config Host Alias Resolution | 0/? | Not started | - |
-| 20. Deploy Healthcheck Config Format | 0/? | Not started | - |
-| 21. Comparison Page Feedback Link | 0/? | Not started | - |
-| 22. Version Subcommand | 0/? | Not started | - |
+| 11. CI & Tooling Polish | 0/3 | Not started | - |
+| 12. Docs Polish | 0/4 | Not started | - |
+| 13. Small Code Fixes | 0/2 | Not started | - |
+| 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
+| 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
 
 ## Backlog
 
