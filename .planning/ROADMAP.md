@@ -345,6 +345,12 @@ Plans:
 **Requirements:** TBD
 **Plans:** 0 plans
 
+### Why docker deploy?
+
+Tools like GitHub Actions and GitLab CI are powerful — but they're designed for teams, compliance, and multi-environment pipelines. If you're a developer deploying a side project, internal tool, or MVP, that overhead gets in the way.
+
+`docker deploy` does one thing well: take your local Compose project and run it on a remote machine over SSH. No agents, no tokens, no yaml sprawl.
+
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
