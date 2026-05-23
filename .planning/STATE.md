@@ -6,13 +6,13 @@ status: ready_to_execute
 stopped_at: null
 last_updated: "2026-05-23T00:00:00Z"
 last_activity: 2026-05-23
-shipped_phases: Phase 9 shipped — pushed to master (no PR, branching_strategy: none)
+shipped_phases: Phase 11 shipped — pushed to master (no PR, branching_strategy: none)
 progress:
-  total_phases: 10
-  completed_phases: 8
-  total_plans: 27
-  completed_plans: 27
-  percent: 97
+  total_phases: 15
+  completed_phases: 9
+  total_plans: 31
+  completed_plans: 31
+  percent: 60
 ---
 
 # Project State
@@ -22,15 +22,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 11 — CI & Tooling Polish (ready to execute)
-**Shipped:** Phase 9 — Documentation complete 2026-05-23
+**Current focus:** Phase 12 — Docs Polish (not yet started)
+**Shipped:** Phase 11 — CI & Tooling Polish complete 2026-05-23
 
 ## Current Position
 
-Phase: 11 of 15 (CI & Tooling Polish) — READY TO EXECUTE
+Phase: 12 of 15 (Docs Polish) — NOT STARTED
 Plan: 00 of 4 complete
-Status: Phase 11 planned — 4 plans in 1 wave. Ready to execute.
-Last activity: 2026-05-23 - Completed quick task 260523-ins: Fix install.sh curl URL — /main/ → /master/
+Status: Phase 11 complete — ready to plan Phase 12.
+Last activity: 2026-05-23 - Phase 11 complete (Codecov, GHA hygiene, Homebrew symlink, golangci-lint gate)
 Resume file: None
 
 Progress: [█████████░] 97%
@@ -125,7 +125,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T06:30:00Z
-Stopped at: Phase 8 complete — all integration tests pass; human UAT items confirmed; VERIFICATION.md status=passed
+Last session: 2026-05-23T00:00:00Z
+Stopped at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
 Resume file: None
-Last activity: 2026-05-23 - Completed quick task 260523-hkr: Fix CI DinD SSH host key capture race condition
+Last activity: 2026-05-23 - Phase 11 complete: Codecov, GHA hygiene, Homebrew symlink lifecycle, golangci-lint CI gate
