@@ -143,3 +143,31 @@ ssh sshuser@vps.example.com docker compose version
 ```
 
 The output must start with `Docker Compose version v2.` (e.g. `Docker Compose version v2.24.0`).
+
+---
+
+## 6. macOS Gatekeeper blocks the binary (manual install)
+
+**Symptom:** After manually downloading from GitHub Releases, macOS shows:
+
+```
+"docker-deploy" cannot be opened because Apple cannot check it for malicious software.
+```
+or
+```
+Apple could not verify "docker-deploy" is free of malware that may harm your Mac or compromise your privacy.
+```
+
+**Cause:** Binaries downloaded from the internet are quarantined by macOS Gatekeeper. docker-deploy is an open-source binary that is not Apple-notarized, so Gatekeeper blocks it on first run.
+
+**Fix:** Remove the quarantine attribute:
+```bash
+xattr -d com.apple.quarantine ~/.docker/cli-plugins/docker-deploy
+```
+
+**Verify:**
+```bash
+docker deploy --help
+```
+
+**Note:** This issue only affects the manual binary install (Option 3). The Homebrew install and the install script (`install.sh`) do not trigger this warning because they handle the quarantine attribute automatically.

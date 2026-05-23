@@ -50,6 +50,12 @@ chmod +x ~/.docker/cli-plugins/docker-deploy
 
 Replace `linux_amd64` with your OS and architecture (e.g. `darwin_arm64` for Apple Silicon).
 
+**macOS only:** macOS Gatekeeper will block the binary because it is not Apple-notarized. Remove the quarantine attribute after install:
+
+```bash
+xattr -d com.apple.quarantine ~/.docker/cli-plugins/docker-deploy
+```
+
 ### Option 4: go install
 
 ```bash
