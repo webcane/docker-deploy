@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
-	"golang.org/x/term"
 	gossh "golang.org/x/crypto/ssh"
+	"golang.org/x/term"
 )
 
 // tryDirectCopy attempts to run a command without privilege escalation.
@@ -91,7 +91,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	if err != nil {
 		return 0, fmt.Errorf("opening SFTP session: %w", err)
 	}
-	defer sftpClient.Close()
+	defer sftpClient.Close() //nolint:errcheck
 
 	// Step 4: Derive staging directory in /tmp.
 	// /tmp is world-writable so SFTP (which runs as the SSH user with no sudo)
@@ -139,19 +139,22 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			// Create remote file.
 			remoteFile, err := sftpClient.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 			if err != nil {
-				localFile.Close()
+				_ = localFile.Close()
 				return fmt.Errorf("creating remote file %s: %w", remotePath, err)
 			}
 
 			// Copy contents.
 			if _, err := io.Copy(remoteFile, localFile); err != nil {
-				remoteFile.Close()
-				localFile.Close()
+				_ = remoteFile.Close()
+				_ = localFile.Close()
 				return fmt.Errorf("copying %s to remote: %w", relPath, err)
 			}
 
-			remoteFile.Close()
-			localFile.Close()
+			if err := remoteFile.Close(); err != nil {
+				_ = localFile.Close()
+				return fmt.Errorf("flushing remote file %s: %w", remotePath, err)
+			}
+			_ = localFile.Close()
 
 			// Preserve source file permissions (e.g. executable bit for scripts).
 			if err := sftpClient.Chmod(remotePath, localInfo.Mode().Perm()); err != nil {
@@ -392,7 +395,7 @@ func sshExec(client *gossh.Client, cmd string) error {
 	if err != nil {
 		return fmt.Errorf("creating SSH session: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 
 	if err := session.Run(cmd); err != nil {
 		return fmt.Errorf("running %q: %w", cmd, err)
@@ -406,7 +409,7 @@ func sshExecOutput(client *gossh.Client, cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating SSH session: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 
 	out, err := session.Output(cmd)
 	if err != nil {
@@ -416,7 +419,7 @@ func sshExecOutput(client *gossh.Client, cmd string) (string, error) {
 }
 
 // ShellQuote wraps s in single quotes for safe use in shell commands,
-// escaping any embedded single quotes using the '\'' technique.
+// escaping any embedded single quotes using the '\” technique.
 // This handles paths derived from validated config values (remoteBase is from
 // Resolve() which validates via ParseHost; staging dir name uses only
 // alphanumerics + timestamp integer — T-03-05).

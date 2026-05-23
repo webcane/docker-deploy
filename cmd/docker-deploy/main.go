@@ -163,7 +163,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 		fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
 		return err
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// 7. Determine auth method indicator (best-effort).
 	authMethod := "key file (~/.ssh/config)"
@@ -176,7 +176,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 	fmt.Fprintf(os.Stdout, "  Host:        %s@%s:%d\n", resolved.Host.User, resolved.Host.Hostname, port)
 	fmt.Fprintf(os.Stdout, "  Remote path: %s\n", resolved.Path)
 	fmt.Fprintf(os.Stdout, "  Auth method: %s\n", authMethod)
-	fmt.Fprintf(os.Stdout, "  Server:      %s\n", string(client.Conn.ServerVersion()))
+	fmt.Fprintf(os.Stdout, "  Server:      %s\n", string(client.ServerVersion()))
 	fmt.Fprintf(os.Stdout, "  Status:      OK\n")
 
 	return nil
@@ -248,7 +248,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
 		return err
 	}
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 
 	// 6a. Initialize the warning collector (D-02, T-07-02-02).
 	// Non-blocking warnings are accumulated here. At the end of runDeploy():
@@ -332,12 +332,8 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// sudoPw is populated during interactive auth fallback and reused across operations.
 	// warnedOnce is set to true by Upload when passwordless sudo was unavailable;
 	// in non-verbose mode Upload suppresses the inline print so we add it to the rollup here.
-	var sudoPw *string
-	sudoPw = new(string)
-	*sudoPw = ""
-	var warnedOnce *bool
-	warnedOnce = new(bool)
-	*warnedOnce = false
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw, warnedOnce, resolved.Verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)

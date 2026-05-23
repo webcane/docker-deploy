@@ -1,14 +1,29 @@
+version: "2"
+
 linters:
   disable-all: true
   enable:
     - errcheck
     - govet
     - staticcheck
-    - goimports
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+        - (io.Closer).Close
+        - (*github.com/pkg/sftp.Client).Close
+        - (*golang.org/x/crypto/ssh.Client).Close
+        - (*golang.org/x/crypto/ssh.Session).Close
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/webcane/docker-deploy
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/webcane/docker-deploy
 
 issues:
   max-issues-per-linter: 0

@@ -53,7 +53,7 @@ func buildHostKeyCallback(knownHostsPath string) (gossh.HostKeyCallback, error) 
 	if err != nil {
 		return nil, fmt.Errorf("opening known_hosts %s: %w", knownHostsPath, err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	base, err := knownhosts.New(knownHostsPath)
 	if err != nil {
@@ -110,7 +110,7 @@ func appendKnownHost(knownHostsPath string, hostname string, remote net.Addr, ke
 	if err != nil {
 		return fmt.Errorf("opening known_hosts for append: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	line := knownhosts.Line([]string{hostname}, key) + "\n"
 	if _, err := fmt.Fprint(f, line); err != nil {

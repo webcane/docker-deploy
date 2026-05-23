@@ -44,7 +44,7 @@ func parseIdentityFiles(configPath, hostname string) []string {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	var (
 		result  []string

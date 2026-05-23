@@ -312,7 +312,7 @@ func runOutput(client SSHRunner, cmd string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating SSH session: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 	return session.Output(cmd)
 }
 
@@ -323,6 +323,6 @@ func runCmd(client SSHRunner, cmd string) error {
 	if err != nil {
 		return fmt.Errorf("creating SSH session: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 	return session.Run(cmd)
 }

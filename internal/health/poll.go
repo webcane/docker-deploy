@@ -164,7 +164,7 @@ func listContainers(runner sessionOpener, projectName string) ([]string, error) 
 	if err != nil {
 		return nil, fmt.Errorf("creating session for docker ps: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 
 	out, err := session.Output()
 	if err != nil {
@@ -235,7 +235,7 @@ func inspectHealth(runner sessionOpener, containerName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating session for docker inspect: %w", err)
 	}
-	defer session.Close()
+	defer session.Close() //nolint:errcheck
 
 	out, err := session.Output()
 	if err != nil {

@@ -101,8 +101,8 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) (*gossh.Cli
 	}
 
 	clientCfg := &gossh.ClientConfig{
-		User: "testuser",
-		Auth: []gossh.AuthMethod{gossh.PublicKeys(clientSigner)},
+		User:            "testuser",
+		Auth:            []gossh.AuthMethod{gossh.PublicKeys(clientSigner)},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint — test-only
 	}
 
@@ -112,8 +112,8 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) (*gossh.Cli
 	}
 
 	closer := func() {
-		client.Close()      //nolint:errcheck
-		ln.Close()          //nolint:errcheck
+		client.Close() //nolint:errcheck
+		ln.Close()     //nolint:errcheck
 	}
 
 	return client, closer
@@ -288,7 +288,7 @@ func TestRunCompose_VerboseSSHCommandLogging(t *testing.T) {
 
 	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", true)
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
@@ -319,7 +319,7 @@ func TestRunCompose_VerboseNoSSHLoggingWhenFalse(t *testing.T) {
 
 	err := RunCompose(context.Background(), client, "/opt/myapp", "compose.yaml", false)
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	var buf strings.Builder

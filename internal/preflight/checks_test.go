@@ -83,10 +83,10 @@ func captureStderr(fn func()) string {
 	old := os.Stderr
 	os.Stderr = w
 	fn()
-	w.Close()
+	_ = w.Close()
 	os.Stderr = old
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	return buf.String()
 }
 
@@ -248,10 +248,10 @@ func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
-		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
-		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},     // no passwordless sudo → fails
-		fakeCmd{match: "id -nG", output: []byte("docker")},  // user in docker group
+		fakeCmd{match: "test -w", exitCode: 1},             // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},            // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},    // no passwordless sudo → fails
+		fakeCmd{match: "id -nG", output: []byte("docker")}, // user in docker group
 	)
 	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
@@ -279,7 +279,7 @@ func TestCheck05_NotExecutedWhenNoSudoNeeded(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 0},            // writable
+		fakeCmd{match: "test -w", exitCode: 0}, // writable
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
 	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
@@ -317,8 +317,8 @@ func TestCheck06_DirNotWritable_MkdirSucceeds(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},    // not writable
-		fakeCmd{match: "mkdir -p", exitCode: 0},   // mkdir succeeds without sudo
+		fakeCmd{match: "test -w", exitCode: 1},  // not writable
+		fakeCmd{match: "mkdir -p", exitCode: 0}, // mkdir succeeds without sudo
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
 	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
@@ -332,9 +332,9 @@ func TestCheck06_DirNotWritable_NeedsSudoMkdir(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
-		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
-		fakeCmd{match: "sudo -n mkdir -p", exitCode: 0},     // passwordless sudo mkdir succeeds → pass
+		fakeCmd{match: "test -w", exitCode: 1},          // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},         // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 0}, // passwordless sudo mkdir succeeds → pass
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
 	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
@@ -419,6 +419,6 @@ func TestSSHRunnerInterface_GosshClientSatisfies(t *testing.T) {
 	// NewSSHRunner(*gossh.Client) returns SSHRunner — compile-time check only.
 	// We use a nil pointer cast to avoid dialling a real SSH server.
 	var client *gossh.Client
-	var _ preflight.SSHRunner = preflight.NewSSHRunner(client)
+	var _ = preflight.NewSSHRunner(client)
 	_ = fmt.Sprintf // suppress unused import
 }

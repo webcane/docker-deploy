@@ -107,8 +107,8 @@ func startMockSSHServer(t *testing.T, srv *mockSSHServer) *gossh.Client {
 	}
 
 	clientCfg := &gossh.ClientConfig{
-		User: "testuser",
-		Auth: []gossh.AuthMethod{gossh.PublicKeys(clientSigner)},
+		User:            "testuser",
+		Auth:            []gossh.AuthMethod{gossh.PublicKeys(clientSigner)},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint — test-only
 	}
 
@@ -236,12 +236,8 @@ func TestUploadAuthFallback_DirectCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var sudoPw *string
-	sudoPw = new(string)
-	*sudoPw = ""
-	var warnedOnce *bool
-	warnedOnce = new(bool)
-	*warnedOnce = false
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
@@ -261,12 +257,8 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	}
 
 	// This test expects tryAuthFallback to be called and to handle permission denied
-	var sudoPw *string
-	sudoPw = new(string)
-	*sudoPw = ""
-	var warnedOnce *bool
-	warnedOnce = new(bool)
-	*warnedOnce = false
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload with passwordless sudo fallback failed: %v", err)
@@ -320,12 +312,8 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var sudoPw *string
-	sudoPw = new(string)
-	*sudoPw = ""
-	var warnedOnce *bool
-	warnedOnce = new(bool)
-	*warnedOnce = false
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
@@ -382,11 +370,11 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		var sudoPw *string = new(string)
-		var warnedOnce *bool = new(bool)
+		sudoPw := new(string)
+		warnedOnce := new(bool)
 		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
 
-		w.Close()
+		_ = w.Close()
 		os.Stderr = oldStderr
 
 		var buf strings.Builder
@@ -415,11 +403,11 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		var sudoPw *string = new(string)
-		var warnedOnce *bool = new(bool)
+		sudoPw := new(string)
+		warnedOnce := new(bool)
 		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 
-		w.Close()
+		_ = w.Close()
 		os.Stderr = oldStderr
 
 		var buf strings.Builder
@@ -451,11 +439,11 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	var sudoPw *string = new(string)
-	var warnedOnce *bool = new(bool)
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
@@ -488,12 +476,8 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var sudoPw *string
-	sudoPw = new(string)
-	*sudoPw = ""
-	var warnedOnce *bool
-	warnedOnce = new(bool)
-	*warnedOnce = false
+	sudoPw := new(string)
+	warnedOnce := new(bool)
 	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
@@ -563,8 +547,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var sudoPw *string = new(string)
-		var warnedOnce *bool = new(bool)
+		sudoPw := new(string)
+		warnedOnce := new(bool)
 		excludes := []string{".env"}
 		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
 		if err != nil {
@@ -623,8 +607,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var sudoPw *string = new(string)
-		var warnedOnce *bool = new(bool)
+		sudoPw := new(string)
+		warnedOnce := new(bool)
 		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
@@ -648,8 +632,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var sudoPw *string = new(string)
-		var warnedOnce *bool = new(bool)
+		sudoPw := new(string)
+		warnedOnce := new(bool)
 		excludes := []string{".env"}
 		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
 		if err != nil {
