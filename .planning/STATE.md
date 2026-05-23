@@ -6,6 +6,7 @@ status: ready_to_plan
 stopped_at: null
 last_updated: "2026-05-23T00:00:00Z"
 last_activity: 2026-05-23
+shipped_phases: Phase 9 shipped — pushed to master (no PR, branching_strategy: none)
 progress:
   total_phases: 10
   completed_phases: 8
