@@ -162,7 +162,7 @@ func listContainers(runner sessionOpener, projectName string) ([]string, error) 
 	// Note: Docker label filter parsing splits on the first '=', so a projectName
 	// containing '=' would produce a malformed filter. Directory names with '=' are
 	// an edge case but worth documenting as a known Docker CLI limitation.
-	cmd := "docker ps --filter label=com.docker.compose.project=" + filetransfer.ShellQuote(projectName) + " --format '{{.Names}}'"
+	cmd := "docker ps -a --filter label=com.docker.compose.project=" + filetransfer.ShellQuote(projectName) + " --format '{{.Names}}'"
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("creating session for docker ps: %w", err)
@@ -215,6 +215,10 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 			fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
 			return false, fmt.Errorf("health: container %s is unhealthy", container)
 
+		case "exited", "dead":
+			fmt.Fprintf(os.Stderr, "Health check failed: container %s stopped unexpectedly\n", container)
+			return false, fmt.Errorf("health: container %s stopped unexpectedly", container)
+
 		default:
 			// "starting" or unexpected → continue polling.
 		}
@@ -235,7 +239,7 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 // ("exited", "dead") are detected via a fallback format template.
 // T-05-03-02: containerName from docker ps is wrapped in ShellQuote() before use.
 func inspectHealth(runner sessionOpener, containerName string) (string, error) {
-	cmd := "docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' " + filetransfer.ShellQuote(containerName)
+	cmd := "docker inspect --format '{{if or (eq .State.Status \"exited\") (eq .State.Status \"dead\")}}{{.State.Status}}{{else if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' " + filetransfer.ShellQuote(containerName)
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return "", fmt.Errorf("creating session for docker inspect: %w", err)
