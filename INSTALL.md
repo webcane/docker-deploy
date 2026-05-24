@@ -48,7 +48,7 @@ xattr -d com.apple.quarantine ~/.docker/cli-plugins/docker-deploy
 ## go install
 
 ```bash
-GOBIN=~/.docker/cli-plugins go install github.com/webcane/docker-deploy/cmd/docker-deploy@latest
+GOBIN=$HOME/.docker/cli-plugins go install github.com/webcane/docker-deploy/cmd/docker-deploy@latest
 ```
 
-`GOBIN` must be set to `~/.docker/cli-plugins` — Docker CLI plugins must live in that directory, not in the standard `$GOPATH/bin`. Without `GOBIN`, `docker deploy` will not be discoverable by the Docker CLI.
+`GOBIN` must be set to `$HOME/.docker/cli-plugins` — Docker CLI plugins must live in that directory, not in the standard `$GOPATH/bin`. Without `GOBIN`, `docker deploy` will not be discoverable by the Docker CLI.
