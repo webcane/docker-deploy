@@ -115,6 +115,7 @@ None yet.
 | 260523-ins | Fix install.sh curl URL — /main/ → /master/ (repo has no main branch) | 2026-05-23 | 53f9340 | [260523-ins-fix-install-sh-main-to-master](./quick/260523-ins-fix-install-sh-main-to-master/) |
 | 260523-hkr | Fix CI DinD SSH host key capture race condition — retry loop for sshd readiness | 2026-05-23 | cd98298 | [260523-hkr-fix-ci-dind-host-key-capture](./quick/260523-hkr-fix-ci-dind-host-key-capture/) |
 | 260523-lnt | Fix linting — migrate golangci-lint config to v2, fix errcheck/staticcheck/goimports across 12 files | 2026-05-23 | f6837ee | — |
+| 260524-brw | Fix brew install symlink warning — add sandbox_allowlist? to formula and goreleaser template | 2026-05-24 | d2c702c | [260524-brw-fix-brew-install-symlink](./quick/260524-brw-fix-brew-install-symlink/) |
 
 ## Deferred Items
 
@@ -127,5 +128,4 @@ None yet.
 Last session: 2026-05-23T00:00:00Z
 Stopped at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
 Resume file: None
-Last activity: 2026-05-23 - Quick task: fix linting (golangci-lint v2 config migration + errcheck/staticcheck/goimports fixes)
-| 2026-05-23 | fast | Run CI only on tags, remove master branch trigger | ✅ |
+Last activity: 2026-05-24 - Quick task 260524-brw: fix brew install symlink warning — add sandbox_allowlist? to formula and goreleaser template
