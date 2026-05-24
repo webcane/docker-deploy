@@ -101,3 +101,15 @@ shell-based config assertion plus the existing `make lint` gate.
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** approved 2026-05-24
+
+---
+
+## Validation Audit 2026-05-24 (re-verify)
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Automated checks re-run | 10/10 PASS |
+| `make lint` result | 0 issues |

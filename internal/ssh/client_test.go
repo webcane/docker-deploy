@@ -18,9 +18,10 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	internalssh "github.com/webcane/docker-deploy/internal/ssh"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	internalssh "github.com/webcane/docker-deploy/internal/ssh"
 )
 
 // sshContainer holds a running SSH container for tests.
