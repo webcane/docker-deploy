@@ -6,18 +6,11 @@ Deploy your docker-compose project to any SSH-accessible VPS with a single comma
 
 ## What is docker-deploy?
 
-docker-deploy is a Docker CLI plugin (`docker deploy`) that solves the problem of deploying a local docker-compose project to a remote VPS without needing git, a container registry, or a CI/CD pipeline on the server. It copies your project files (compose.yaml, .env, Makefile, and more) to the target directory on the remote host via SFTP, runs `docker compose up -d`, and reports deployment health — all without exposing the Docker daemon socket. It is built for developers who want the simplicity of `scp + compose up` without the operational overhead of Kamal, Ansible, or a full CI/CD system.
+A Docker CLI plugin for solo developers and small teams with a single VPS. One command copies your compose project files to the remote host via SFTP and runs `docker compose up -d` — no git on the remote, no container registry, no CI/CD pipeline required. It handles `.env` and secrets automatically, verifies SSH host keys, and reports deployment health.
 
 ## Installation
 
-### Option 1: Homebrew (macOS / Linux)
-
-```bash
-brew tap webcane/docker-deploy
-brew install docker-deploy
-```
-
-### Option 2: Install script (macOS / Linux)
+### Install script
 
 Pin to a release tag (recommended — avoids fetching from an unpinned `master` branch):
 
@@ -31,33 +24,7 @@ Or to select a specific version at install time:
 curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v1.0.0/install.sh | INSTALL_VERSION=v1.0.0 sh
 ```
 
-### Option 3: Manual binary (GitHub Releases)
-
-1. Go to the [releases page](https://github.com/webcane/docker-deploy/releases) and download the archive for your OS and architecture (e.g. `docker-deploy_linux_amd64.tar.gz`).
-2. Extract the archive, move the binary to `~/.docker/cli-plugins/`, and make it executable:
-
-```bash
-tar -xzf docker-deploy_linux_amd64.tar.gz
-mkdir -p ~/.docker/cli-plugins
-mv docker-deploy ~/.docker/cli-plugins/docker-deploy
-chmod +x ~/.docker/cli-plugins/docker-deploy
-```
-
-Replace `linux_amd64` with your OS and architecture (e.g. `darwin_arm64` for Apple Silicon).
-
-**macOS only:** macOS Gatekeeper will block the binary because it is not Apple-notarized. Remove the quarantine attribute after install:
-
-```bash
-xattr -d com.apple.quarantine ~/.docker/cli-plugins/docker-deploy
-```
-
-### Option 4: go install
-
-```bash
-GOBIN=~/.docker/cli-plugins go install github.com/webcane/docker-deploy/cmd/docker-deploy@latest
-```
-
-`GOBIN` must be set to `~/.docker/cli-plugins` — Docker CLI plugins must live in that directory, not in the standard `$GOPATH/bin`. Without `GOBIN`, `docker deploy` will not be discoverable by the Docker CLI.
+For Homebrew, manual binary download, and `go install`, see [INSTALL.md](INSTALL.md).
 
 ## Usage
 
