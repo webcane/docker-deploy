@@ -266,13 +266,12 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			if readErr != nil {
 				return readErr
 			}
-			// Redact the interactive sudo command in verbose output — it contains
-			// the literal password (T-07-02-05).
 			if verbose {
 				fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted)\n")
 			}
-			sudoCmd := fmt.Sprintf("echo %s | sudo -S -p '' sh -c %s", ShellQuote(pw), ShellQuote(cmd))
-			if sshExec(client, sudoCmd) == nil {
+			// Pass password via stdin pipe instead of command string to avoid
+			// credential exposure in SSH server logs and process listings (CR-04).
+			if sshExecWithSudoPassword(client, pw, cmd) == nil {
 				*sudoPw = pw
 				if verbose {
 					fmt.Fprintf(os.Stderr, "  → exit 0\n")
@@ -399,6 +398,33 @@ func sshExec(client *gossh.Client, cmd string) error {
 
 	if err := session.Run(cmd); err != nil {
 		return fmt.Errorf("running %q: %w", cmd, err)
+	}
+	return nil
+}
+
+// sshExecWithSudoPassword runs cmd under sudo, supplying pw via stdin pipe
+// rather than embedding it in the command string. This keeps the credential
+// out of SSH server logs and /proc process listings.
+func sshExecWithSudoPassword(client *gossh.Client, pw, cmd string) error {
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("creating SSH session: %w", err)
+	}
+	defer session.Close() //nolint:errcheck
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("opening stdin pipe: %w", err)
+	}
+
+	sudoCmd := fmt.Sprintf("sudo -S -p '' sh -c %s", ShellQuote(cmd))
+	if err := session.Start(sudoCmd); err != nil {
+		return fmt.Errorf("starting sudo command: %w", err)
+	}
+	fmt.Fprintln(stdin, pw)
+	stdin.Close()
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("sudo command failed: %w", err)
 	}
 	return nil
 }

@@ -83,12 +83,12 @@ func TestPollHealth_NoContainers(t *testing.T) {
 	}
 }
 
-// TestPollHealth_AllRunning: two containers both return "running" on first poll.
+// TestPollHealth_AllRunning: two containers without HEALTHCHECK both return "no-healthcheck" on first poll.
 func TestPollHealth_AllRunning(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("container-one\ncontainer-two\n"),
-		fakeSessionOut("running"),
-		fakeSessionOut("running"),
+		fakeSessionOut("no-healthcheck"),
+		fakeSessionOut("no-healthcheck"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
@@ -97,58 +97,58 @@ func TestPollHealth_AllRunning(t *testing.T) {
 	}
 }
 
-// TestPollHealth_ExitedImmediate: one container returns "exited" on first poll → non-nil error.
+// TestPollHealth_ExitedImmediate: container with HEALTHCHECK returns "unhealthy" → non-nil error.
 func TestPollHealth_ExitedImmediate(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("bad-container\n"),
-		fakeSessionOut("exited"),
+		fakeSessionOut("unhealthy"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
 	if err == nil {
-		t.Fatal("expected non-nil error for exited container, got nil")
+		t.Fatal("expected non-nil error for unhealthy container, got nil")
 	}
-	if !strings.Contains(err.Error(), "stopped") {
-		t.Errorf("expected error to mention 'stopped', got: %v", err)
+	if !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("expected error to mention 'unhealthy', got: %v", err)
 	}
 }
 
-// TestPollHealth_DeadImmediate: one container returns "dead" → non-nil error.
+// TestPollHealth_DeadImmediate: container with HEALTHCHECK returns "unhealthy" immediately → non-nil error.
 func TestPollHealth_DeadImmediate(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("bad-container\n"),
-		fakeSessionOut("dead"),
+		fakeSessionOut("unhealthy"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
 	if err == nil {
-		t.Fatal("expected non-nil error for dead container, got nil")
+		t.Fatal("expected non-nil error for unhealthy container, got nil")
 	}
-	if !strings.Contains(err.Error(), "stopped") {
-		t.Errorf("expected error to mention 'stopped', got: %v", err)
+	if !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("expected error to mention 'unhealthy', got: %v", err)
 	}
 }
 
-// TestPollHealth_CreatingThenRunning: container in "created" state twice, then "running".
+// TestPollHealth_CreatingThenRunning: container HEALTHCHECK in "starting" state twice, then "healthy".
 func TestPollHealth_CreatingThenRunning(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("slow-container\n"),
-		fakeSessionOut("created"),
-		fakeSessionOut("created"),
-		fakeSessionOut("running"),
+		fakeSessionOut("starting"),
+		fakeSessionOut("starting"),
+		fakeSessionOut("healthy"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(30, 0))
 	if err != nil {
-		t.Fatalf("expected nil error after container reaches running, got: %v", err)
+		t.Fatalf("expected nil error after container becomes healthy, got: %v", err)
 	}
 }
 
-// TestPollHealth_Timeout: container stays in "created" state until timeout expires → non-nil error.
+// TestPollHealth_Timeout: container HEALTHCHECK stays in "starting" state until timeout expires → non-nil error.
 func TestPollHealth_Timeout(t *testing.T) {
 	responses := []*fakeSession{fakeSessionOut("timeout-container\n")}
 	for i := 0; i < 50; i++ {
-		responses = append(responses, fakeSessionOut("created"))
+		responses = append(responses, fakeSessionOut("starting"))
 	}
 	fc := newFakeClient(responses...)
 
@@ -167,14 +167,14 @@ func TestPollHealth_Timeout(t *testing.T) {
 	}
 }
 
-// TestPollHealth_Mixed: one running, one restarting then running → returns nil.
+// TestPollHealth_Mixed: one container healthy immediately (no-healthcheck), one with HEALTHCHECK starting then healthy.
 func TestPollHealth_Mixed(t *testing.T) {
 	fc := newFakeClient(
 		fakeSessionOut("fast-container\nslow-container\n"),
-		fakeSessionOut("running"),
-		fakeSessionOut("restarting"),
-		// second poll: fast already done; slow now running
-		fakeSessionOut("running"),
+		fakeSessionOut("no-healthcheck"),
+		fakeSessionOut("starting"),
+		// second poll: fast already done; slow now healthy
+		fakeSessionOut("healthy"),
 	)
 
 	err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))

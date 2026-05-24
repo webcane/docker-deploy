@@ -12,8 +12,7 @@ test:
 	go test ./...
 
 test-ci:
-	$(eval DOCKER_HOST ?= $(shell docker context inspect --format '{{(index .Endpoints "docker").Host}}' 2>/dev/null))
-	DOCKER_HOST=$(DOCKER_HOST) TESTCONTAINERS_RYUK_DISABLED=true \
+	TESTCONTAINERS_RYUK_DISABLED=true \
 	  go test -v -tags integration -timeout 15m ./integration/...
 
 lint:

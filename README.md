@@ -19,14 +19,16 @@ brew install docker-deploy
 
 ### Option 2: Install script (macOS / Linux)
 
+Pin to a release tag (recommended — avoids fetching from an unpinned `master` branch):
+
 ```bash
-curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v1.0.0/install.sh | sh
 ```
 
-Installs the latest release. To pin a specific version:
+Or to select a specific version at install time:
 
 ```bash
-curl https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | INSTALL_VERSION=v1.0.0 sh
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v1.0.0/install.sh | INSTALL_VERSION=v1.0.0 sh
 ```
 
 ### Option 3: Manual binary (GitHub Releases)

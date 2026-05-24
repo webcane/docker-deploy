@@ -159,6 +159,9 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 // compose project and returns a list of container names.
 // T-05-03-01: projectName is wrapped in ShellQuote() before shell injection.
 func listContainers(runner sessionOpener, projectName string) ([]string, error) {
+	// Note: Docker label filter parsing splits on the first '=', so a projectName
+	// containing '=' would produce a malformed filter. Directory names with '=' are
+	// an edge case but worth documenting as a known Docker CLI limitation.
 	cmd := "docker ps --filter label=com.docker.compose.project=" + filetransfer.ShellQuote(projectName) + " --format '{{.Names}}'"
 	session, err := runner.newSession(cmd)
 	if err != nil {
@@ -205,15 +208,15 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 		}
 
 		switch status {
-		case "running":
+		case "healthy", "no-healthcheck":
 			done[container] = true
 
-		case "exited", "dead":
-			fmt.Fprintf(os.Stderr, "Health check failed: container %s stopped (state: %s)\n", container, status)
-			return false, fmt.Errorf("health: container %s stopped unexpectedly (state: %s)", container, status)
+		case "unhealthy":
+			fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
+			return false, fmt.Errorf("health: container %s is unhealthy", container)
 
 		default:
-			// "created", "restarting", "paused", "removing", or unexpected → continue polling.
+			// "starting" or unexpected → continue polling.
 		}
 	}
 
@@ -226,11 +229,13 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 	return true, nil
 }
 
-// inspectHealth runs docker inspect to get the running state of a single container.
-// Returns the trimmed .State.Status string ("running", "exited", "dead", etc.) or an error.
+// inspectHealth returns the health status of a container. For containers with a
+// HEALTHCHECK it returns the health check status ("healthy", "unhealthy", "starting");
+// for containers without one it returns "no-healthcheck". Lifecycle states
+// ("exited", "dead") are detected via a fallback format template.
 // T-05-03-02: containerName from docker ps is wrapped in ShellQuote() before use.
 func inspectHealth(runner sessionOpener, containerName string) (string, error) {
-	cmd := "docker inspect --format '{{.State.Status}}' " + filetransfer.ShellQuote(containerName)
+	cmd := "docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' " + filetransfer.ShellQuote(containerName)
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return "", fmt.Errorf("creating session for docker inspect: %w", err)

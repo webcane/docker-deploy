@@ -5,6 +5,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -96,11 +97,7 @@ func buildHostKeyCallback(knownHostsPath string) (gossh.HostKeyCallback, error) 
 // asKeyError attempts to unwrap err as a *knownhosts.KeyError.
 // Returns true and sets target if successful.
 func asKeyError(err error, target **knownhosts.KeyError) bool {
-	ke, ok := err.(*knownhosts.KeyError)
-	if ok {
-		*target = ke
-	}
-	return ok
+	return errors.As(err, target)
 }
 
 // appendKnownHost writes a valid known_hosts line for the given host and key

@@ -69,8 +69,14 @@ func parseIdentityFiles(configPath, hostname string) []string {
 
 		switch keyword {
 		case "host":
-			// A new Host block starts — determine if it matches our hostname.
-			active = hostMatches(value, hostname)
+			// SSH config allows multiple patterns on one Host line (e.g. "Host a b *.c").
+			active = false
+			for _, pattern := range parts[1:] {
+				if hostMatches(pattern, hostname) {
+					active = true
+					break
+				}
+			}
 
 		case "identityfile":
 			if active {

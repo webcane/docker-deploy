@@ -33,6 +33,9 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: Run vet
+        run: go vet ./...
+
       - name: Run tests
         run: go test -coverprofile=coverage.out ./...
 
@@ -41,9 +44,6 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
-
-      - name: Run vet
-        run: go vet ./...
 
   integration:
     needs: [test, lint]
