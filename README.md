@@ -15,7 +15,7 @@ A Docker CLI plugin for solo developers and small teams with a single VPS. One c
 Pin to a release tag (recommended — avoids fetching from an unpinned `master` branch):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v0.8.3/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v0.8.4/install.sh | sh
 ```
 
 For Homebrew, manual binary download, and `go install`, see [INSTALL.md](INSTALL.md).
