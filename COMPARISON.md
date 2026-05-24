@@ -42,3 +42,9 @@ docker-deploy is designed for a specific use case — deploying a local docker-c
 - **Team with UI management needs:** Use Portainer if your team needs a web dashboard for container monitoring, log browsing, and manual operations without SSH.
 - **Infrastructure-as-code requirements:** Use Terraform if your organisation requires declarative state management, drift detection, and audit trails for infrastructure.
 - **Automated pipeline with secrets management:** Use GitHub Actions or GitLab CI if you already have a CI system and want environment-specific secrets injected from a vault rather than copied from a local file.
+
+---
+
+## Missing a tool?
+
+The table above covers the most common alternatives, but the ecosystem evolves. If you know of a tool that belongs here, [open an issue](https://github.com/webcane/docker-deploy/issues) and suggest it.
