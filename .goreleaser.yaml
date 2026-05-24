@@ -60,9 +60,15 @@ brews:
         opoo "Could not create symlink automatically. Run manually:\n" \
              "  ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy"
       end
-    caveats: |
-      To remove the Docker CLI plugin symlink on uninstall:
-        rm -f ~/.docker/cli-plugins/docker-deploy
+    custom_block: |
+      def sandbox_allowlist?
+        true
+      end
+
+      def uninstall
+        target = "#{Dir.home}/.docker/cli-plugins/docker-deploy"
+        File.delete(target) if File.exist?(target)
+      end
     test: |
       system "#{bin}/docker-deploy", "docker-cli-plugin-metadata"
 
