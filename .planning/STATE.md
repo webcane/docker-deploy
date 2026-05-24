@@ -130,3 +130,4 @@ Last session: 2026-05-23T00:00:00Z
 Stopped at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
 Resume file: None
 Last activity: 2026-05-23 - Quick task: fix linting (golangci-lint v2 config migration + errcheck/staticcheck/goimports fixes)
+| 2026-05-23 | fast | Run CI only on tags, remove master branch trigger | ✅ |
