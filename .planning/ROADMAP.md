@@ -260,7 +260,7 @@ Plans:
 ### Phase 10: Add Phase Autosuggestion
 **Goal**: add phase autosuggestion
 **Depends on**: Phase 8
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. TBD
@@ -292,7 +292,7 @@ Plans:
 **Goal**: Tighten all user-facing documentation in one pass — fix the plugin help text, sharpen the README value proposition, move install instructions to a dedicated INSTALL.md, and add a feedback link to COMPARISON.md
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --help` shows an accurate, well-formed description of the plugin
@@ -312,7 +312,7 @@ Plans:
 **Goal**: Fix two self-contained Go issues: resolve `deploy.yaml` relative to the current working directory instead of a hardcoded path, and add a `docker deploy version` subcommand that prints semver on tagged builds and a git commit hash on untagged builds
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. `deploy.yaml` is resolved relative to cwd; no hardcoded absolute paths in config resolution logic
@@ -330,7 +330,7 @@ Plans:
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. `--host minipc` resolves via `~/.ssh/config` and connects successfully when a matching `Host` block exists
@@ -341,7 +341,7 @@ Plans:
 **Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: TBD
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
   1. Users can set `health_timeout` and `health_interval` per target in `deploy.yaml` and the values are respected during polling
