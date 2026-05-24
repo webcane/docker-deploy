@@ -3,7 +3,7 @@ module github.com/webcane/docker-deploy
 go 1.26.3
 
 require (
-	github.com/docker/cli v29.4.3+incompatible
+	github.com/docker/cli v29.5.2+incompatible
 	github.com/spf13/cobra v1.10.2
 	github.com/testcontainers/testcontainers-go v0.42.0
 	golang.org/x/term v0.43.0
