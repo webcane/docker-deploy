@@ -298,7 +298,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 			return fmt.Errorf("creating SSH session for existence check: %w", err)
 		}
 		out, err := session.Output(fmt.Sprintf("test -d %s && echo exists || echo absent", filetransfer.ShellQuote(resolved.Path)))
-		session.Close()
+		_ = session.Close()
 		if err != nil {
 			return fmt.Errorf("checking remote target existence: %w", err)
 		}

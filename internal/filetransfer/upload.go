@@ -421,8 +421,8 @@ func sshExecWithSudoPassword(client *gossh.Client, pw, cmd string) error {
 	if err := session.Start(sudoCmd); err != nil {
 		return fmt.Errorf("starting sudo command: %w", err)
 	}
-	fmt.Fprintln(stdin, pw)
-	stdin.Close()
+	_, _ = fmt.Fprintln(stdin, pw)
+	_ = stdin.Close()
 	if err := session.Wait(); err != nil {
 		return fmt.Errorf("sudo command failed: %w", err)
 	}

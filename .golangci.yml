@@ -6,17 +6,16 @@ linters:
     - errcheck
     - govet
     - staticcheck
-
-settings:
-  errcheck:
-    exclude-functions:
-      - fmt.Fprintf
-      - fmt.Fprintln
-      - fmt.Fprint
-      - (io.Closer).Close
-      - (*github.com/pkg/sftp.Client).Close
-      - (*golang.org/x/crypto/ssh.Client).Close
-      - (*golang.org/x/crypto/ssh.Session).Close
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+        - (io.Closer).Close
+        - (*github.com/pkg/sftp.Client).Close
+        - (*golang.org/x/crypto/ssh.Client).Close
+        - (*golang.org/x/crypto/ssh.Session).Close
 
 formatters:
   enable:
