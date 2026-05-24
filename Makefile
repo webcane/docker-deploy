@@ -12,8 +12,14 @@ test:
 	go test ./...
 
 test-ci:
-	TESTCONTAINERS_RYUK_DISABLED=true \
-	  go test -v -tags integration -timeout 15m ./integration/...
+	@if [ -S /var/run/docker.sock ]; then \
+		TESTCONTAINERS_RYUK_DISABLED=true \
+		go test -v -tags integration -timeout 15m ./integration/... ; \
+	else \
+		TESTCONTAINERS_RYUK_DISABLED=true \
+		DOCKER_HOST=unix://$(HOME)/.colima/default/docker.sock \
+		go test -v -tags integration -timeout 15m ./integration/... ; \
+	fi
 
 lint:
 	golangci-lint run ./...
