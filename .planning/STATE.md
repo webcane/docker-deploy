@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
 stopped_at: null
-last_updated: "2026-05-23T00:00:00Z"
-last_activity: 2026-05-23
-shipped_phases: Phase 11 shipped — pushed to master (no PR, branching_strategy: none)
+last_updated: "2026-05-24T00:00:00Z"
+last_activity: 2026-05-24
+shipped_phases: Phase 11 shipped — v0.7.8 tagged and released (https://github.com/webcane/docker-deploy/releases/tag/v0.7.8)
 progress:
   total_phases: 15
   completed_phases: 9
