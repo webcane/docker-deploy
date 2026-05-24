@@ -57,13 +57,11 @@ brews:
       begin
         File.symlink(src, target)
       rescue Errno::EPERM
-        opoo "Could not create symlink automatically. Run manually:\n" \
-             "  ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy"
+        opoo "Could not create symlink to ~/.docker/cli-plugins/docker-deploy. " \
+             "See `brew info docker-deploy` for manual instructions."
       end
     custom_block: |
-      def sandbox_allowlist?
-        true
-      end
+      def sandbox_allowlist? = true
 
       def uninstall
         target = "#{Dir.home}/.docker/cli-plugins/docker-deploy"

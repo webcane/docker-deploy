@@ -37,7 +37,7 @@ func main() {
 		SchemaVersion:    "0.1.0",
 		Vendor:           "webcane",
 		Version:          version,
-		ShortDescription: "Deploy a docker-compose project to a remote VPS",
+		ShortDescription: "Deploy a docker-compose project to a remote host",
 	})
 }
 
@@ -55,7 +55,7 @@ func buildDeployCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy a docker-compose project to a remote VPS",
+		Short: "Deploy a docker-compose project to a remote host",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRun {
 				return runDryRun(host, path, excludes, force, composeFile, skipEnv, verbose)
