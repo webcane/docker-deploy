@@ -48,25 +48,15 @@ brews:
     license: "MIT"
     install: |
       bin.install "docker-deploy"
-    post_install: |
-      cli_plugins = Pathname.new("#{Dir.home}/.docker/cli-plugins")
-      cli_plugins.mkpath
-      target = "#{cli_plugins}/docker-deploy"
-      src = "#{opt_bin}/docker-deploy"
-      File.delete(target) if File.symlink?(target)
-      begin
-        File.symlink(src, target)
-      rescue Errno::EPERM
-        opoo "Could not create symlink to ~/.docker/cli-plugins/docker-deploy. " \
-             "See `brew info docker-deploy` for manual instructions."
-      end
-    custom_block: |
-      def sandbox_allowlist? = true
+      (lib/"docker/cli-plugins").install_symlink bin/"docker-deploy"
+    caveats: |
+      docker-deploy is installed as a Docker CLI plugin.
 
-      def uninstall
-        target = "#{Dir.home}/.docker/cli-plugins/docker-deploy"
-        File.delete(target) if File.exist?(target)
-      end
+      The plugin symlink was created at:
+        #{HOMEBREW_PREFIX}/lib/docker/cli-plugins/docker-deploy
+
+      If Docker does not discover it automatically, link it manually:
+        ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy
     test: |
       system "#{bin}/docker-deploy", "docker-cli-plugin-metadata"
 
