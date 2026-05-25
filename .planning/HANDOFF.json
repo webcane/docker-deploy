@@ -1,56 +1,40 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-20T00:00:00Z",
-  "phase": "7",
-  "phase_name": "v2 — Leftovers",
-  "phase_dir": ".planning/phases/07-v2-skip-env-override",
-  "plan": 0,
-  "task": 0,
-  "total_tasks": 0,
+  "timestamp": "2026-05-25T11:45:11Z",
+  "phase": "12",
+  "phase_name": "fix-codecov",
+  "phase_dir": ".planning/phases/12-fix-codecov",
+  "plan": 1,
+  "task": 1,
+  "total_tasks": 5,
   "status": "paused",
-  "completed_tasks": [],
+  "completed_tasks": [
+    {"id": 0, "name": "Execute all 4 phase 12 plans", "status": "done", "commit": "c1605fd"},
+    {"id": 0, "name": "Apply code review fixes WR-01/WR-02/WR-03", "status": "done", "commit": "c1605fd"},
+    {"id": 0, "name": "Create 12-UAT.md and present Test 1", "status": "done", "commit": "uncommitted"}
+  ],
   "remaining_tasks": [
-    {
-      "id": 1,
-      "plan": "07-01",
-      "wave": 1,
-      "name": "Config foundation — FlagOpts struct, Resolve() refactor, expanded defaultExcludes, SkipEnv/Verbose fields, config tests",
-      "status": "not_started"
-    },
-    {
-      "id": 2,
-      "plan": "07-02",
-      "wave": 2,
-      "name": "Wire-up — --skip-env/--verbose flags, FlagOpts call sites, Upload() verbose logging, SSH cmd/exit logging, warning rollup, preflight CheckResult rendering, compose verbose, human verification checkpoint",
-      "status": "not_started"
-    }
+    {"id": 1, "name": "UAT Test 1: Cold Start Smoke Test", "status": "awaiting_user"},
+    {"id": 2, "name": "UAT Test 2: Plugin Description Uses remote host", "status": "not_started"},
+    {"id": 3, "name": "UAT Test 3: README Installation Section Simplified", "status": "not_started"},
+    {"id": 4, "name": "UAT Test 4: INSTALL.md Exists with All Four Methods", "status": "not_started"},
+    {"id": 5, "name": "UAT Test 5: COMPARISON.md Feedback Section", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Human verification checkpoint in 07-02-PLAN.md",
-      "context": "Plan 02 is autonomous: false — requires manual smoke test confirming --verbose output, --skip-env behavior, and go test ./... passes",
+      "action": "Run UAT tests for Phase 12",
+      "context": "User needs to build binary and verify 5 test scenarios in 12-UAT.md",
       "blocking": true
     }
   ],
-  "decisions": [
-    {
-      "decision": "FlagOpts struct replaces positional params in Resolve()",
-      "rationale": "One-time breaking change for long-term cleanliness; Resolve() was approaching 10+ positional params",
-      "phase": "7"
-    },
-    {
-      "decision": "Warning rollup: all non-blocking warnings suppressed by default, single rollup message at end",
-      "rationale": "User specified exact copy: 'WARN: there are some warnings during deployment. For more details use --verbose flag'",
-      "phase": "7"
-    },
-    {
-      "decision": "Sudo password command redacted in verbose output",
-      "rationale": "T-07-02-05 threat: sshExecVerbose must print '[ssh] (sudo password cmd redacted)' not the actual command",
-      "phase": "7"
-    }
+  "decisions": [],
+  "uncommitted_files": [
+    ".planning/phases/12-fix-codecov/12-UAT.md",
+    ".planning/phases/12-fix-codecov/.continue-here.md",
+    ".planning/HANDOFF.json",
+    ".planning/reports/20260525-session-report.md"
   ],
-  "uncommitted_files": [],
-  "next_action": "Run /gsd-execute-phase 7 in a fresh context window. Wave 1 (07-01) is fully autonomous. Wave 2 (07-02) will pause for human verification checkpoint.",
-  "context_notes": "Phase 7 planning just completed this session. 2 plans created and verified (2 revision iterations: 1 blocker fixed — SSH command logging added; 2 warnings fixed — removed redundant Task 1b step 7). All 6 ROADMAP success criteria covered. Working tree clean, 3 new commits. Phase 6 (Init Wizard) context exists in 06-CONTEXT.md but planning has NOT been done yet — Phase 6 must be executed before Phase 7 per ROADMAP dependency."
+  "next_action": "Run /gsd-verify-work 12 to resume UAT from Test 1",
+  "context_notes": "Phase 12 is fully executed and code-reviewed. UAT was just initiated this session — user paused before responding to the first test."
 }
