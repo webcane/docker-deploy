@@ -321,7 +321,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 			}
 			answer = strings.TrimSpace(answer)
 			if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
-				// User declined or pressed Enter (default No) — cancel silently.
+				fmt.Fprintln(os.Stderr, "Deploy cancelled.")
 				return nil
 			}
 		}
