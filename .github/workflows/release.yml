@@ -1,17 +1,15 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  push:
+    tags: ['v*']
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci-jobs.yml
+
   release:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      startsWith(github.event.workflow_run.head_branch, 'v') &&
-      contains(github.event.workflow_run.head_branch, '.')
+    needs: [ci]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,7 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - uses: actions/setup-go@v6
