@@ -1,6 +1,6 @@
 ---
 name: gsd:release-tag
-description: Bump semver, update README install URL, commit, tag, and push to trigger CI release
+description: Bump semver, update README and INSTALL.md install URLs, commit, tag, and push to trigger CI release
 argument-hint: "[major|minor|patch]"
 allowed-tools:
   - Read
@@ -13,8 +13,8 @@ allowed-tools:
 Cut a new release from the current branch:
 1. Detect the latest git tag
 2. Compute the next version (or accept one from $ARGUMENTS)
-3. Update the hardcoded version in README.md
-4. Commit the README change, create the tag, push both
+3. Update the hardcoded version in README.md and INSTALL.md
+4. Commit the file changes, create the tag, push both
 5. GitHub Actions fires on the `v*` tag and builds the release binary
 
 This is the **sole entry point** for creating releases. Do not tag manually outside this skill.
@@ -59,6 +59,7 @@ Show the plan and ask for confirmation:
 ```
 Ready to release $NEXT_TAG:
   • Update README.md: s/$CURRENT_TAG/$NEXT_TAG/g
+  • Update INSTALL.md: s/$CURRENT_TAG/$NEXT_TAG/g
   • git commit -m "chore: bump version to $NEXT_TAG"
   • git tag $NEXT_TAG
   • git push && git push --tags
@@ -68,21 +69,22 @@ Proceed? [y/N]
 
 If the user says no, abort with no changes made.
 
-## Step 5 — Update README.md
+## Step 5 — Update README.md and INSTALL.md
 
-Read README.md. Replace **all** occurrences of the old version string with `$NEXT_TAG`.
+Read both files. Replace **all** occurrences of the old version string with `$NEXT_TAG` in each.
 
 The version appears in install URLs like:
 ```
-https://raw.githubusercontent.com/webcane/docker-deploy/v1.0.0/install.sh
+https://raw.githubusercontent.com/webcane/docker-deploy/v0.8.4/install.sh
 ```
+and inline `INSTALL_VERSION=v0.8.4` env vars.
 
-Use Edit to update each occurrence. Verify no old version string remains after editing.
+Use Edit to update each occurrence in both files. Verify no old version string remains after editing.
 
 ## Step 6 — Commit
 
 ```bash
-git add README.md
+git add README.md INSTALL.md
 git commit -m "chore: bump version to $NEXT_TAG"
 ```
 
@@ -108,6 +110,7 @@ If `git push` fails (e.g. no upstream, auth error):
 ```
 Released $NEXT_TAG
   README.md updated
+  INSTALL.md updated
   Commit: {short hash}
   Tag: $NEXT_TAG pushed → GitHub Actions CI/release workflow triggered
 ```
@@ -118,5 +121,5 @@ Released $NEXT_TAG
 - NEVER push without explicit user confirmation in Step 4
 - NEVER create a tag before the README commit succeeds
 - If push fails, do NOT delete the local tag — leave it for the user to push manually
-- Only README.md is modified; no other files change
+- Only README.md and INSTALL.md are modified; no other files change
 </guardrails>
