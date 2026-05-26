@@ -1,6 +1,7 @@
 package filetransfer
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -176,11 +177,14 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 //
 // remoteBase is the target directory path on the remote (e.g. "/opt/myapp").
 // excludes is the list of exclude patterns (from Config.Excludes).
+// force skips the replace-confirmation prompt on repeat deploys.
 // verbose controls per-file output and SSH command logging:
 //   - When verbose=true: per-file lines "  -> relative/path" are written to
 //     os.Stderr; each SSH command (mkdir, mv, rm) and its exit code are logged
 //     to os.Stderr before/after execution; warnedOnce is never set to true so
-//     every sudo warning prints.
+//     every sudo warning prints. When !force and existsBefore, the pre-confirm
+//     diff block prints local and remote file lists (truncated at 20) before the
+//     "Replace all contents?" prompt.
 //   - When verbose=false: per-file lines are suppressed; SSH command lines are
 //     suppressed; warnedOnce behavior is unchanged (first warning prints, rest
 //     are suppressed).
@@ -203,7 +207,7 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, creds *SudoCreds, warnedOnce *bool, verbose bool) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, creds *SudoCreds, force bool, warnedOnce *bool, verbose bool) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -322,6 +326,73 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 	if err != nil {
 		return 0, fmt.Errorf("checking remote target existence: %w", err)
+	}
+
+	// Pre-confirm diff + confirm prompt.
+	// Runs only when !force and the remote target already exists (repeat deploy).
+	// On first deploy no prompt is shown (nothing to overwrite).
+	if !force && existsBefore {
+		// Verbose pre-confirm diff block (D-17, D-18, D-19).
+		// Print local and remote file lists to stderr before the prompt so the
+		// operator can verify what will change.
+		if verbose {
+			// Local file list (already computed in step 1).
+			const maxDisplay = 20
+			fmt.Fprintf(os.Stderr, "Local files (%d):\n", len(files))
+			for i, f := range files {
+				if i >= maxDisplay {
+					fmt.Fprintf(os.Stderr, "  ... and %d more\n", len(files)-maxDisplay)
+					break
+				}
+				fmt.Fprintf(os.Stderr, "  %s\n", f)
+			}
+
+			// Remote file list via SFTP ReadDir (sftpClient opened at step 3).
+			remoteEntries, rdErr := sftpClient.ReadDir(remoteBase)
+			if rdErr != nil {
+				fmt.Fprintf(os.Stderr, "Remote files: (unable to list: %v)\n", rdErr)
+			} else {
+				fmt.Fprintf(os.Stderr, "Remote files (%d):\n", len(remoteEntries))
+				for i, e := range remoteEntries {
+					if i >= maxDisplay {
+						fmt.Fprintf(os.Stderr, "  ... and %d more\n", len(remoteEntries)-maxDisplay)
+						break
+					}
+					fmt.Fprintf(os.Stderr, "  %s\n", e.Name())
+				}
+			}
+		}
+
+		// Confirm prompt.
+		fmt.Fprintf(os.Stderr, "Target %s exists on remote. Replace all contents? [y/N] ", remoteBase)
+		reader := bufio.NewReader(os.Stdin)
+		answer, readErr := reader.ReadString('\n')
+		if readErr != nil && readErr != io.EOF {
+			return 0, fmt.Errorf("reading confirmation: %w", readErr)
+		}
+		if readErr == io.EOF && strings.TrimSpace(answer) == "" {
+			fmt.Fprintln(os.Stderr, "No input received — deploy cancelled.")
+			return 0, nil
+		}
+		answer = strings.TrimSpace(answer)
+		if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
+			fmt.Fprintln(os.Stderr, "Deploy cancelled.")
+			return 0, nil
+		}
+	}
+
+	// Verbose diff: first-deploy case — show "Remote files: (none)" when verbose.
+	if verbose && !existsBefore {
+		fmt.Fprintf(os.Stderr, "Local files (%d):\n", len(files))
+		const maxDisplay = 20
+		for i, f := range files {
+			if i >= maxDisplay {
+				fmt.Fprintf(os.Stderr, "  ... and %d more\n", len(files)-maxDisplay)
+				break
+			}
+			fmt.Fprintf(os.Stderr, "  %s\n", f)
+		}
+		fmt.Fprintf(os.Stderr, "Remote files: (none)\n")
 	}
 
 	// If .env is excluded from upload and the remote target already has a .env file,

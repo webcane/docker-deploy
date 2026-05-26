@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -387,42 +386,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		}
 	}
 
-	// 7. Check if the remote target directory already exists.
-	// Use a dedicated SSH session per CLAUDE.md (sessions are NOT reusable).
-	if !resolved.Force {
-		session, err := client.NewSession()
-		if err != nil {
-			return fmt.Errorf("creating SSH session for existence check: %w", err)
-		}
-		out, err := session.Output(fmt.Sprintf("test -d %s && echo exists || echo absent", filetransfer.ShellQuote(resolved.Path)))
-		_ = session.Close()
-		if err != nil {
-			return fmt.Errorf("checking remote target existence: %w", err)
-		}
-
-		if strings.HasPrefix(strings.TrimSpace(string(out)), "exists") {
-			// Target exists — prompt user for confirmation (default No per D-09, T-03-07).
-			fmt.Fprintf(os.Stderr, "Target %s exists on %s. Replace all contents? [y/N] ", resolved.Path, resolved.Host.Hostname)
-			// Use bufio.NewReader.ReadString rather than bufio.Scanner to avoid
-			// the 64 KB default token-size limit and to be semantically precise
-			// for a single-line prompt (WR-02).
-			reader := bufio.NewReader(os.Stdin)
-			answer, readErr := reader.ReadString('\n')
-			if readErr != nil && readErr != io.EOF {
-				return fmt.Errorf("reading confirmation: %w", readErr)
-			}
-			if readErr == io.EOF && strings.TrimSpace(answer) == "" {
-				// EOF on stdin with no content — treat as "No" but inform the user.
-				fmt.Fprintln(os.Stderr, "No input received — deploy cancelled.")
-				return nil
-			}
-			answer = strings.TrimSpace(answer)
-			if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
-				fmt.Fprintln(os.Stderr, "Deploy cancelled.")
-				return nil
-			}
-		}
-	}
+	// 7. (confirm prompt is now inside Upload() — see force bool parameter)
 
 	// 8. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
@@ -434,7 +398,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	creds := new(filetransfer.SudoCreds) // SudoCreds captures sudo password for reuse across ops
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, warnedOnce, resolved.Verbose)
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, resolved.Force, warnedOnce, resolved.Verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err

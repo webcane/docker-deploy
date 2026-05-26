@@ -299,7 +299,7 @@ func TestUploadAuthFallback_DirectCopy(t *testing.T) {
 	creds := new(SudoCreds)
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	creds := new(SudoCreds)
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload with passwordless sudo fallback failed: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 	creds := new(SudoCreds)
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -436,7 +436,7 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		creds := new(SudoCreds)
 		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, true)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, true)
 
 		_ = w.Close()
 		os.Stderr = oldStderr
@@ -470,7 +470,7 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		creds := new(SudoCreds)
 		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
 
 		_ = w.Close()
 		os.Stderr = oldStderr
@@ -507,7 +507,7 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 	creds := new(SudoCreds)
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, true)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, true)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -545,7 +545,8 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 	creds := new(SudoCreds)
 	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+	// force=true: bypass the confirm prompt (this test checks swap mechanics, not prompt)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, true, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -618,7 +619,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		defer creds.Zero()
 		warnedOnce := new(bool)
 		excludes := []string{".env"}
-		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, warnedOnce, false)
+		// force=true: bypass the confirm prompt (this test checks .env preservation, not prompt)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, true, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
@@ -678,7 +680,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		creds := new(SudoCreds)
 		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
+		// force=true: bypass confirm prompt (test checks .env backup logic, not prompt)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, true, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
@@ -705,7 +708,8 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		defer creds.Zero()
 		warnedOnce := new(bool)
 		excludes := []string{".env"}
-		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, warnedOnce, false)
+		// force=true: bypass confirm prompt (test checks .env absence logic, not prompt)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, true, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
