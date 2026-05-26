@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
 - [x] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall (completed 2026-05-23)
 - [x] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link (completed 2026-05-24)
-- [ ] **Phase 13: Small Code Fixes** - Resolve `deploy.yaml` relative to cwd; `docker deploy version` subcommand via ldflags
+- [ ] **Phase 13: Small Code Fixes** - Resolve `deploy.yaml` relative to cwd; `docker deploy version` subcommand via ldflags; `docker deploy validate` subcommand (local config check)
 - [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
 - [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
 - [ ] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body
@@ -310,7 +310,7 @@ Plans:
 - [ ] 12-04-PLAN.md — COMPARISON.md: add feedback/contribution link
 
 ### Phase 13: Small Code Fixes
-**Goal**: Fix two self-contained Go issues: resolve `deploy.yaml` relative to the current working directory instead of a hardcoded path, and add a `docker deploy version` subcommand that prints semver on tagged builds and a git commit hash on untagged builds
+**Goal**: Fix three self-contained Go issues: resolve `deploy.yaml` relative to the current working directory, add a `docker deploy version` subcommand, and add a `docker deploy validate` subcommand that checks `deploy.yaml` locally before any SSH connection
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: 4 plans
@@ -320,12 +320,14 @@ Plans:
   2. `docker deploy version` is a standalone subcommand that prints a single version string and exits 0
   3. When built from a tagged commit, the version string is the semver tag (e.g. `v0.6.3`); untagged builds print the short git commit hash
   4. Version values are injected at build time via Go `-ldflags`; no runtime git invocation
+  5. `docker deploy validate` exits 0 and prints `✓ deploy.yaml is valid` on a good config; exits non-zero and lists field errors on a bad config — no SSH connection made
 
 Plans:
 
 **Wave 1** *(run in parallel — no shared files)*
 - [ ] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd
 - [ ] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
+- [ ] 13-03-PLAN.md — `validate` subcommand (cmd/validate.go + structured errors from Resolve())
 
 ### Phase 14: SSH Config Host Alias Resolution
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL
@@ -379,7 +381,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
-| 13. Small Code Fixes | 0/2 | Not started | - |
+| 13. Small Code Fixes | 0/3 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
 | 16. Release Tooling Enhancement | 0/1 | Not started | - |
