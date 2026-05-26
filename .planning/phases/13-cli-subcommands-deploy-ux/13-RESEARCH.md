@@ -539,9 +539,9 @@ if verbose && !force {
 
 ```go
 // Source: CONTEXT.md D-26 to D-28; preflight/checks.go checkDockerGroup pattern
-// Added inside checkDockerGroup() in the verbose path (verbose bool param added)
+// Added inside checkDockerGroup() in the verbose path (cfg.Verbose — no signature change needed)
 
-if verbose {
+if cfg.Verbose {
     sudoLOut, sudoLErr := runOutput(client, "sudo -l")
     if sudoLErr == nil {
         fmt.Fprintf(os.Stderr, "[sudo -l]\n%s\n", strings.TrimSpace(string(sudoLOut)))
@@ -573,7 +573,7 @@ if verbose {
 
 **Note on A4:** This is [VERIFIED] — `checkDockerGroup` was read directly from checks.go lines 265-302 and is clearly CHECK-04 (checks docker group membership).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Confirm prompt architecture for Plan 13-05**
    - What we know: The confirm prompt is in `main.go:295-328`; SFTP client is opened inside `Upload()` after the prompt is shown.
