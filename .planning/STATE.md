@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 13, Plan 07 complete — verbose sudo -l block in checkDockerGroup
-last_updated: "2026-05-26T12:43:00Z"
-last_activity: 2026-05-26 -- Phase 13 Plan 07 complete (verbose sudo -l in CHECK-04)
+stopped_at: Phase 13, Plan 05 complete — verbose pre-confirm diff + force param in Upload()
+last_updated: "2026-05-26T13:05:00Z"
+last_activity: 2026-05-26 -- Phase 13 Plan 05 complete (verbose pre-confirm diff, confirm prompt moved into Upload())
 progress:
   total_phases: 18
   completed_phases: 9
@@ -62,6 +62,7 @@ Progress: [█████████░] 91%
 | Phase 13-cli-subcommands-deploy-ux P03 | 8 | 1 tasks (TDD) | 2 files |
 | Phase 13-cli-subcommands-deploy-ux P04 | 7 | 2 tasks (TDD) | 3 files |
 | Phase 13-cli-subcommands-deploy-ux P07 | 8 | 1 task (TDD) | 2 files |
+| Phase 13-cli-subcommands-deploy-ux P05 | 12 | 1 task (TDD) | 3 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,7 @@ Recent decisions affecting current work:
 - 13-03: validate subcommand uses os.Stat before LoadFile to emit exact "deploy.yaml not found" message; Resolve(FlagOpts{}) validates file-only config; SilenceUsage=true suppresses cobra usage block on error
 - 13-04: SudoCreds stores pw as []byte with Zero() for safe memory wipe; sshRun unifies sshExec+sshExecWithSudoPassword; SudoExec uses D-11 step order (direct→cached→sudo-n→interactive); promptSudoPasswordFunc package var enables test injection; prompt EOF breaks to canonical error; all 8 Upload() call sites use SudoExec (D-15 rollback paths)
 - 13-07: Verbose sudo -l block inserted after id -nG in checkDockerGroup; runs regardless of docker group membership; failure silently swallowed (D-27); no signature change to RunPreflightChecks
+- 13-05: Upload() now owns confirm prompt and verbose diff; force bool added after creds, before warnedOnce; sftpClient.ReadDir used for remote listing; existing repeat-deploy tests use force=true
 
 ### Roadmap Evolution
 
@@ -136,8 +138,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T12:43:00Z
-Stopped at: Phase 13, Plan 07 complete — verbose sudo -l block in checkDockerGroup (TDD: 3 tests, 2 commits)
+Last session: 2026-05-26T13:05:00Z
+Stopped at: Phase 13, Plan 05 complete — verbose pre-confirm diff + force param in Upload() (TDD: 4 tests, 2 commits)
 Resume file: None
-Last activity: 2026-05-26 - Phase 13 Plan 07: verbose sudo -l diagnostic in CHECK-04
+Last activity: 2026-05-26 - Phase 13 Plan 05: verbose pre-confirm diff + confirm prompt moved to Upload()
 | 2026-05-24 | fast | add /release-tag skill | ✅ |
