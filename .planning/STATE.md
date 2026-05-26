@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 13 — Small Code Fixes (ready to plan)
+**Current focus:** Phase 13 — CLI Subcommands & Deploy UX (ready to plan)
 **Shipped:** Phase 11 — CI & Tooling Polish complete 2026-05-23
 
 ## Current Position
 
-Phase: 13 of 15 (Small Code Fixes) — NOT STARTED
+Phase: 13 of 15 (CLI Subcommands & Deploy UX) — NOT STARTED
 Plan: 00 of TBD complete
 Status: Ready to plan/execute
 Last activity: 2026-05-24 -- Phase 12 complete (4/4 plans, verification passed)
@@ -91,6 +91,7 @@ Recent decisions affecting current work:
 - Phase 8 added: Integration Tests (testcontainers-based suite verifying all requirements against real SSH daemon)
 - Phase 9 added: Documentation (README.md — motivation, install, use-cases, comparison table, prerequisites, troubleshooting, badges, feedback section)
 - Phase 10 added: add phase autosuggestion
+- Phase 13 edited: renamed from "Small Code Fixes" to "CLI Subcommands & Deploy UX" (edited fields: title)
 
 ### Pending Todos
 

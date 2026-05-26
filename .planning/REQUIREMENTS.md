@@ -34,6 +34,7 @@
 - [ ] **CFG-03**: `deploy.yaml` in project root stores persistent config (host, path, include, exclude)
 - [ ] **CFG-04**: Flag values take precedence over deploy.yaml; deploy.yaml takes precedence over defaults
 - [ ] **CFG-05**: `deploy.yaml` schema is forward-compatible with future multi-target extension (v2)
+- [ ] **CFG-07**: `~/.docker/cli-plugins/deploy.yaml` acts as a global defaults layer loaded before built-in defaults; project `deploy.yaml` takes precedence; same schema as project config; ships pre-populated with all keys commented out so users can discover available options
 
 ### Pre-Flight Checks (CHECK)
 
@@ -131,13 +132,14 @@ Updated during roadmap creation.
 | INIT-03 | Phase 6 | Pending |
 | INIT-04 | Phase 6 | Pending |
 | CFG-06 | Phase 7 | Pending |
+| CFG-07 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total
+- v1 requirements: 28 total
 - v2 requirements: 1 mapped (CFG-06 → Phase 7)
-- Mapped to phases: 28
+- Mapped to phases: 29
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-13*
-*Last updated: 2026-05-13 after roadmap creation*
+*Last updated: 2026-05-26 — added CFG-07 (global defaults config layer)*
