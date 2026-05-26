@@ -227,6 +227,48 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 	defer sftpClient.Close() //nolint:errcheck
 
+	// Step 3b: Probe whether the target path requires elevation.
+	// Use `test -w` with an OR fallback for the first-deploy case where the
+	// path does not yet exist — check path itself first, then its parent.
+	// path.Dir is used (not filepath.Dir) because the remote is always Linux.
+	// sshRun with nil password: probe is read-only and never needs elevation.
+	// If the shell exits 0, needsSudo=false (path is user-writable); if exit 1
+	// (permission denied or path absent and parent not writable), needsSudo=true.
+	probeCmd := fmt.Sprintf("test -w %s || test -w %s",
+		ShellQuote(remoteBase), ShellQuote(path.Dir(remoteBase)))
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] %s\n", probeCmd)
+	}
+	needsSudo := sshRun(client, probeCmd, nil) != nil
+	if verbose {
+		if needsSudo {
+			fmt.Fprintf(os.Stderr, "  → exit 1 (path requires elevation)\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "  → exit 0 (path is user-writable)\n")
+		}
+	}
+
+	// execCmd dispatches to SudoExec (elevated path) or sshRun with nil
+	// password (user-writable path) for all remoteBase operations.
+	execCmd := func(cmd string) error {
+		if needsSudo {
+			return SudoExec(client, cmd, creds, warnedOnce, verbose)
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+		}
+		if err := sshRun(client, cmd, nil); err != nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  → exit 1\n")
+			}
+			return err
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		}
+		return nil
+	}
+
 	// Step 4: Derive staging directory in /tmp.
 	// /tmp is world-writable so SFTP (which runs as the SSH user with no sudo)
 	// can always create it, even when the target dir (e.g. /opt/…) is root-owned.
@@ -418,8 +460,8 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 
 	// Step 8: Ensure target directory exists.
-	// D-15: SudoExec (not bare sshRun) — remoteBase may be root-owned.
-	if err := SudoExec(client, fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
+	// D-15: execCmd — dispatches to SudoExec or sshRun based on needsSudo probe.
+	if err := execCmd(fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))); err != nil {
 		remoteHost := client.RemoteAddr().String()
 		fmt.Fprintf(os.Stderr,
 			"Warning: could not create target directory %s.\n"+
@@ -445,16 +487,16 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		//   3. rm -rf backup (non-fatal on failure)
 		oldDir := remoteBase + "-old-" + timestamp
 
-		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir)), creds, warnedOnce, verbose); err != nil {
+		if err := execCmd(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
 			if envBackupPath != "" {
 				_ = sshRun(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)), nil)
 			}
 			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
-		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
-			// Rollback: best-effort restore using SudoExec so the mv succeeds even
+		if err := execCmd(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+			// Rollback: best-effort restore using execCmd so the mv succeeds even
 			// when /opt/… requires elevated privileges (D-15, feedback_sudo_rollback.md).
-			rollbackErr := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose)
+			rollbackErr := execCmd(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
 			// Clean up .env backup on all error paths — the original remoteBase is
 			// being restored, so its .env is already present.
 			if envBackupPath != "" {
@@ -473,7 +515,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 					"Original error: %w",
 				err)
 		}
-		if err := SudoExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(oldDir)), creds, warnedOnce, verbose); err != nil {
+		if err := execCmd(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
 		}
 	} else {
@@ -482,20 +524,20 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		// run `mv stagingDir remoteBase`, Unix mv moves stagingDir *inside*
 		// remoteBase (because the destination exists) instead of renaming it.
 		// Remove the empty placeholder first so that mv performs a clean rename.
-		if err := SudoExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
+		if err := execCmd(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
 			return 0, fmt.Errorf("removing target placeholder before first deploy: %w", err)
 		}
-		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
+		if err := execCmd(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
 			return 0, fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
 
 	// Restore backed-up .env into the new remoteBase now that the swap is complete.
-	// SudoExec is used for the copy because remoteBase may require elevated
+	// execCmd is used for the copy because remoteBase may require elevated
 	// permissions (the same path that handled the mv/rm steps above) — D-15.
 	if envBackupPath != "" {
 		envDest := path.Join(remoteBase, ".env")
-		if restoreErr := SudoExec(client, fmt.Sprintf("cp %s %s", ShellQuote(envBackupPath), ShellQuote(envDest)), creds, warnedOnce, verbose); restoreErr != nil {
+		if restoreErr := execCmd(fmt.Sprintf("cp %s %s", ShellQuote(envBackupPath), ShellQuote(envDest))); restoreErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: deploy succeeded but could not restore remote .env: %v\n", restoreErr)
 		}
 		_ = sshRun(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)), nil)

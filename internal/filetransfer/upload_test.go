@@ -1172,13 +1172,13 @@ func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) {
 		if strings.Contains(cmd, "test -w") {
 			return 1
 		}
-		// Direct mkdir/mv/rm also fail (simulating root-owned path).
-		if strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf") {
-			return 1
-		}
-		// sudo -n succeeds (NOPASSWD sudoers).
+		// sudo -n succeeds (NOPASSWD sudoers) — check before bare mkdir/mv/rm.
 		if strings.Contains(cmd, "sudo -n") {
 			return 0
+		}
+		// Direct mkdir/mv/rm fail (simulating root-owned path, no direct write access).
+		if strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf") {
+			return 1
 		}
 		return 0
 	}
