@@ -67,6 +67,11 @@ The problem this solves: docker remote context requires project files on the rem
 | --skip-env flag + skip_env config | Preserve remote .env across deploy; backup/restore around atomic swap | ✓ Validated Phase 7 |
 | Backup/restore remote .env (not skip entirely) | The atomic swap replaces the whole dir; backup before swap + restore after ensures remote .env is truly preserved | ✓ Validated Phase 7 |
 | Warning rollup without --verbose | All non-blocking warnings suppressed; single rollup at end; --verbose prints each inline | ✓ Validated Phase 7 |
+| `docker deploy version` subcommand | Build metadata (semver tag, git commit, build timestamp, OS/Arch) via ldflags — no runtime git | ✓ Validated Phase 13 |
+| `docker deploy validate` subcommand | Local-only config validation, no SSH — fast feedback before deploy | ✓ Validated Phase 13 |
+| SudoExec / SudoCreds exported types | Consolidated sudo machinery: single interactive prompt per deploy, []byte credential with Zero() wipe | ✓ Validated Phase 13 |
+| needsSudo probe in Upload() | `test -w` OR probe skips all sudo scaffolding for user-writable paths — no false prompts for ~/project deploys | ✓ Validated Phase 13 |
+| ErrDeployCancelled sentinel | Confirm-prompt cancellation stops execution cleanly before RunCompose; staging dir cleaned up on cancel | ✓ Validated Phase 13 |
 | Smart file defaults + user override | Opinionated but flexible — avoids copying entire project tree inadvertently | ✓ Validated Phase 3 |
 | Go | Single binary distribution, no deps on VPS or dev machine beyond the binary | ✓ Validated Phase 1 |
 
