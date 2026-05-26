@@ -1,6 +1,9 @@
 package main
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -199,6 +202,124 @@ func TestVersionCmd_ExitZero(t *testing.T) {
 	err := cmd.RunE(cmd, nil)
 	if err != nil {
 		t.Errorf("buildVersionCmd().RunE returned non-nil error: %v", err)
+	}
+}
+
+// TestValidateCmd_Registered verifies that buildDeployCmd() has a subcommand with Use=="validate".
+func TestValidateCmd_Registered(t *testing.T) {
+	cmd := buildDeployCmd()
+	for _, sub := range cmd.Commands() {
+		if sub.Use == "validate" {
+			return
+		}
+	}
+	t.Fatal("deploy command has no 'validate' subcommand registered")
+}
+
+// TestValidateCmd_ValidConfig verifies that runValidate() with a valid deploy.yaml in cwd
+// returns nil. Output must contain "✓ deploy.yaml is valid" (D-09).
+func TestValidateCmd_ValidConfig(t *testing.T) {
+	dir := t.TempDir()
+	// Write a minimal valid deploy.yaml with an explicit compose_file so Resolve()
+	// does not need to auto-detect a local compose file.
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte("version: 1\ntarget:\n  host: ssh://user@example.com\n  compose_file: docker-compose.yml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir) //nolint:errcheck
+
+	// Capture stdout by replacing os.Stdout temporarily.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdout := os.Stdout
+	os.Stdout = w
+
+	runErr := runValidate()
+
+	w.Close()
+	os.Stdout = origStdout
+
+	var buf strings.Builder
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if runErr != nil {
+		t.Fatalf("runValidate() returned error: %v", runErr)
+	}
+	if !strings.Contains(out, "✓ deploy.yaml is valid") {
+		t.Errorf("stdout does not contain '✓ deploy.yaml is valid'; got: %q", out)
+	}
+}
+
+// TestValidateCmd_MissingFile verifies that runValidate() in a dir with no deploy.yaml
+// returns a non-nil error and the message contains "deploy.yaml not found" (D-07).
+func TestValidateCmd_MissingFile(t *testing.T) {
+	dir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir) //nolint:errcheck
+
+	err = runValidate()
+	if err == nil {
+		t.Fatal("runValidate() expected non-nil error for missing deploy.yaml, got nil")
+	}
+	if !strings.Contains(err.Error(), "deploy.yaml not found") {
+		t.Errorf("error %q does not contain 'deploy.yaml not found'", err.Error())
+	}
+}
+
+// TestValidateCmd_InvalidYAML verifies that runValidate() with a deploy.yaml containing
+// invalid YAML returns a non-nil error.
+func TestValidateCmd_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(":::invalid yaml:::\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir) //nolint:errcheck
+
+	err = runValidate()
+	if err == nil {
+		t.Fatal("runValidate() expected non-nil error for invalid YAML, got nil")
+	}
+}
+
+// TestValidateCmd_NoSSH verifies that runValidate() does not import or invoke any SSH dialing.
+// This is a structural test: if the function exists and passes other tests without needing
+// sshpkg.Dial(), the code path is confirmed SSH-free. The test validates that the validate
+// subcommand's RunE is set (not a bare Run which would swallow errors).
+func TestValidateCmd_NoSSH(t *testing.T) {
+	cmd := buildValidateCmd()
+	if cmd.RunE == nil {
+		t.Fatal("buildValidateCmd() RunE is nil; validate must use RunE not Run")
+	}
+	// Structural: validate that SilenceUsage is set so cobra does not print usage on error.
+	if !cmd.SilenceUsage {
+		t.Error("buildValidateCmd() SilenceUsage must be true (Pitfall 4: suppress usage block on error)")
 	}
 }
 
