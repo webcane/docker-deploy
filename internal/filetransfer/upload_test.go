@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -855,6 +856,184 @@ func TestSudoExec_AllStepsExhausted(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no valid auth path available") {
 		t.Errorf("expected error to contain 'no valid auth path available'; got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Verbose pre-confirm diff tests (Plan 13-05)
+// ---------------------------------------------------------------------------
+
+// TestUploadVerbose_PreConfirmDiff verifies that when verbose=true, force=false,
+// and the remote dir exists, Upload() prints "Local files" and "Remote files"
+// sections to stderr before the confirm prompt fires.
+func TestUploadVerbose_PreConfirmDiff(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	// Repeat deploy: remoteBase EXISTS.
+	srv := newMockSSHServer([]string{remoteBase})
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Redirect stderr to capture output.
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	// Feed "y\n" to stdin so the confirm prompt auto-answers yes.
+	oldStdin := os.Stdin
+	pr, pw2, _ := os.Pipe()
+	os.Stdin = pr
+	pw2.WriteString("y\n") //nolint:errcheck
+	pw2.Close()            //nolint:errcheck
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, true)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+	os.Stdin = oldStdin
+	_ = pr.Close()
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("Upload(verbose=true, force=false) returned error: %v", err)
+	}
+	if !strings.Contains(captured, "Local files") {
+		t.Errorf("verbose+force=false: expected 'Local files' in stderr before prompt; got: %q", captured)
+	}
+	if !strings.Contains(captured, "Remote files") {
+		t.Errorf("verbose+force=false: expected 'Remote files' in stderr before prompt; got: %q", captured)
+	}
+}
+
+// TestUpload_ForceSkipsPrompt verifies that when force=true, no prompt is shown
+// and upload proceeds without stdin input (even on repeat deploy).
+func TestUpload_ForceSkipsPrompt(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	// Repeat deploy: remoteBase EXISTS.
+	srv := newMockSSHServer([]string{remoteBase})
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Redirect stderr to capture output — confirm that no prompt is printed.
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	// force=true: no stdin needed — if the prompt fired it would block or fail.
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, true, warnedOnce, false)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("Upload(force=true) returned error: %v", err)
+	}
+	if strings.Contains(captured, "Replace all contents") {
+		t.Errorf("force=true: unexpected confirm prompt in stderr; got: %q", captured)
+	}
+}
+
+// TestUploadVerbose_FirstDeploy_NoRemote verifies that when the remote dir is
+// absent and verbose=true, stderr contains "Remote files: (none)".
+func TestUploadVerbose_FirstDeploy_NoRemote(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	// First deploy: remoteBase does NOT exist.
+	srv := newMockSSHServer(nil)
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Redirect stderr to capture output.
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	// force=true so no prompt fires (first deploy doesn't prompt anyway, but let's be explicit).
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, true, warnedOnce, true)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("Upload(verbose=true, first deploy) returned error: %v", err)
+	}
+	if !strings.Contains(captured, "Remote files: (none)") {
+		t.Errorf("first deploy, verbose=true: expected 'Remote files: (none)' in stderr; got: %q", captured)
+	}
+}
+
+// TestUploadVerbose_Truncation verifies that when more than 20 local files exist,
+// stderr contains "... and N more" message.
+func TestUploadVerbose_Truncation(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	// First deploy: remoteBase does NOT exist.
+	srv := newMockSSHServer(nil)
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	// Create 25 files to trigger truncation at 20.
+	for i := 0; i < 25; i++ {
+		fname := filepath.Join(localDir, fmt.Sprintf("file%02d.txt", i))
+		if err := os.WriteFile(fname, []byte("data"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, true, warnedOnce, true)
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var buf strings.Builder
+	io.Copy(&buf, r) //nolint:errcheck
+	captured := buf.String()
+
+	if err != nil {
+		t.Fatalf("Upload(verbose=true, 25 files) returned error: %v", err)
+	}
+	if !strings.Contains(captured, "... and") || !strings.Contains(captured, "more") {
+		t.Errorf("truncation: expected '... and N more' in stderr; got: %q", captured)
 	}
 }
 
