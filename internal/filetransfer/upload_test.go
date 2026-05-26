@@ -1,6 +1,7 @@
 package filetransfer
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pkg/sftp"
@@ -27,6 +29,14 @@ type mockSSHServer struct {
 	existingDirs map[string]bool
 	// existingFiles is the set of paths that `test -f` reports as "exists".
 	existingFiles map[string]bool
+
+	// cmdExitCode, if non-nil, is called with the command string and the stdin
+	// bytes received (for sudo -S commands) to determine the exit code.
+	// If nil, all commands exit 0.
+	cmdExitCode func(cmd string, stdin []byte) uint32
+
+	// stdinReceived accumulates stdin bytes sent to exec sessions (for sudo -S tests).
+	stdinReceived [][]byte
 }
 
 func newMockSSHServer(existingDirs []string) *mockSSHServer {
@@ -51,6 +61,20 @@ func (m *mockSSHServer) getCommands() []string {
 	defer m.mu.Unlock()
 	cp := make([]string, len(m.commands))
 	copy(cp, m.commands)
+	return cp
+}
+
+func (m *mockSSHServer) recordStdin(data []byte) {
+	m.mu.Lock()
+	m.stdinReceived = append(m.stdinReceived, data)
+	m.mu.Unlock()
+}
+
+func (m *mockSSHServer) getStdinReceived() [][]byte {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := make([][]byte, len(m.stdinReceived))
+	copy(cp, m.stdinReceived)
 	return cp
 }
 
@@ -193,9 +217,44 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 				ch.Write([]byte(output)) //nolint:errcheck
 			}
 
-			// Send exit-status 0 (success for all commands in these tests).
-			exitMsg := gossh.Marshal(struct{ Code uint32 }{0})
-			ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+			// Read stdin data (for sudo -S commands that pipe a password).
+			// Read non-blocking: drain what's available.
+			var stdinBuf bytes.Buffer
+			done := make(chan struct{})
+			go func() {
+				io.Copy(&stdinBuf, ch) //nolint:errcheck
+				close(done)
+			}()
+
+			// Determine exit code.
+			exitCode := uint32(0)
+			if srv.cmdExitCode != nil {
+				// Wait briefly for stdin to arrive for sudo -S commands.
+				// We use a goroutine drain with channel signal.
+				// For non-sudo commands, stdin will EOF immediately.
+				select {
+				case <-done:
+					// stdin drained
+				default:
+					// For sudo -S, the client writes password then closes stdin.
+					// We need to wait for that data. Use a short read attempt.
+					// Actually we already launched a goroutine — just wait.
+					<-done
+				}
+				stdinData := stdinBuf.Bytes()
+				if len(stdinData) > 0 {
+					srv.recordStdin(stdinData)
+				}
+				exitCode = srv.cmdExitCode(cmd, stdinData)
+			}
+
+			if exitCode == 0 {
+				exitMsg := gossh.Marshal(struct{ Code uint32 }{0})
+				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+			} else {
+				exitMsg := gossh.Marshal(struct{ Code uint32 }{exitCode})
+				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+			}
 			return
 
 		case "subsystem":
@@ -236,9 +295,10 @@ func TestUploadAuthFallback_DirectCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sudoPw := new(string)
+	creds := new(SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -257,9 +317,10 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	}
 
 	// This test expects tryAuthFallback to be called and to handle permission denied
-	sudoPw := new(string)
+	creds := new(SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload with passwordless sudo fallback failed: %v", err)
 	}
@@ -312,9 +373,10 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sudoPw := new(string)
+	creds := new(SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -370,9 +432,10 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		sudoPw := new(string)
+		creds := new(SudoCreds)
+		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, true)
 
 		_ = w.Close()
 		os.Stderr = oldStderr
@@ -403,9 +466,10 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		sudoPw := new(string)
+		creds := new(SudoCreds)
+		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 
 		_ = w.Close()
 		os.Stderr = oldStderr
@@ -439,9 +503,10 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	sudoPw := new(string)
+	creds := new(SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, true)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, true)
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -476,9 +541,10 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sudoPw := new(string)
+	creds := new(SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 	if err != nil {
 		t.Fatalf("Upload returned unexpected error: %v", err)
 	}
@@ -547,10 +613,11 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		sudoPw := new(string)
+		creds := new(SudoCreds)
+		defer creds.Zero()
 		warnedOnce := new(bool)
 		excludes := []string{".env"}
-		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
@@ -607,9 +674,10 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		sudoPw := new(string)
+		creds := new(SudoCreds)
+		defer creds.Zero()
 		warnedOnce := new(bool)
-		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, sudoPw, warnedOnce, false)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
@@ -632,10 +700,11 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		sudoPw := new(string)
+		creds := new(SudoCreds)
+		defer creds.Zero()
 		warnedOnce := new(bool)
 		excludes := []string{".env"}
-		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, sudoPw, warnedOnce, false)
+		_, err := Upload(context.Background(), client, localDir, remoteBase, excludes, creds, warnedOnce, false)
 		if err != nil {
 			t.Fatalf("Upload returned unexpected error: %v", err)
 		}
@@ -646,4 +715,209 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 			}
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// SudoCreds and SudoExec tests (TDD RED → GREEN)
+// ---------------------------------------------------------------------------
+
+// TestSudoCreds_Zero verifies that Zero() zeroes all bytes and nils the slice,
+// and that calling Zero() on an empty SudoCreds (nil pw) does not panic.
+func TestSudoCreds_Zero(t *testing.T) {
+	t.Run("zeroes_pw_bytes_and_nils_slice", func(t *testing.T) {
+		c := &SudoCreds{}
+		c.pw = []byte("secret")
+		c.Zero()
+		if c.pw != nil {
+			t.Errorf("expected c.pw to be nil after Zero(); got %v", c.pw)
+		}
+	})
+
+	t.Run("nil_pw_does_not_panic", func(t *testing.T) {
+		c := &SudoCreds{}
+		// Must not panic.
+		c.Zero()
+		if c.pw != nil {
+			t.Errorf("expected c.pw to remain nil after Zero() on empty creds")
+		}
+	})
+
+	t.Run("new_SudoCreds_zero_does_not_panic", func(t *testing.T) {
+		c := new(SudoCreds)
+		c.Zero()
+	})
+}
+
+// TestSudoExec_DirectSuccess verifies that SudoExec succeeds on step 1 (direct
+// cmd exits 0) and does not prompt for a password.
+func TestSudoExec_DirectSuccess(t *testing.T) {
+	srv := newMockSSHServer(nil)
+	// Default: all commands exit 0.
+	client := startMockSSHServer(t, srv)
+
+	warnedOnce := new(bool)
+	creds := new(SudoCreds)
+	err := SudoExec(client, "mkdir -p /opt/test", creds, warnedOnce, false)
+	if err != nil {
+		t.Errorf("SudoExec direct step: unexpected error: %v", err)
+	}
+
+	// Step 1 (direct) should have been the only command.
+	cmds := srv.getCommands()
+	if len(cmds) != 1 {
+		t.Errorf("expected exactly 1 SSH command (direct); got %d: %v", len(cmds), cmds)
+	}
+	if cmds[0] != "mkdir -p /opt/test" {
+		t.Errorf("expected direct command %q; got %q", "mkdir -p /opt/test", cmds[0])
+	}
+	if creds.pw != nil {
+		t.Errorf("expected creds.pw to remain nil after direct success; got %v", creds.pw)
+	}
+}
+
+// TestSudoExec_CachedCreds verifies that SudoExec uses creds.pw on step 2 when
+// direct fails and creds.pw != nil, without prompting interactively.
+func TestSudoExec_CachedCreds(t *testing.T) {
+	const correctPassword = "cached-password"
+
+	srv := newMockSSHServer(nil)
+	// Direct commands fail (exit 1); sudo -S with correct password succeeds.
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		if strings.Contains(cmd, "sudo -S") {
+			// Correct password supplied via stdin?
+			if bytes.Contains(stdin, []byte(correctPassword)) {
+				return 0
+			}
+			return 1
+		}
+		if strings.Contains(cmd, "sudo -n") {
+			return 1
+		}
+		// Direct command: fail.
+		return 1
+	}
+	client := startMockSSHServer(t, srv)
+
+	warnedOnce := new(bool)
+	creds := &SudoCreds{pw: []byte(correctPassword)}
+	err := SudoExec(client, "mkdir -p /opt/test", creds, warnedOnce, false)
+	if err != nil {
+		t.Errorf("SudoExec cached-creds step: unexpected error: %v", err)
+	}
+
+	// Should have seen: direct (fail), then sudo -S with cached pw (succeed).
+	cmds := srv.getCommands()
+	hasDirect := false
+	hasSudoS := false
+	for _, cmd := range cmds {
+		if cmd == "mkdir -p /opt/test" {
+			hasDirect = true
+		}
+		if strings.Contains(cmd, "sudo -S") {
+			hasSudoS = true
+		}
+	}
+	if !hasDirect {
+		t.Errorf("expected direct command attempt; got: %v", cmds)
+	}
+	if !hasSudoS {
+		t.Errorf("expected sudo -S command attempt; got: %v", cmds)
+	}
+	// Must NOT have hit interactive prompt (warnedOnce stays false).
+	if *warnedOnce {
+		t.Errorf("expected warnedOnce=false when cached creds succeed; got true")
+	}
+}
+
+// TestSudoExec_AllStepsExhausted verifies that when direct, cached, and passwordless
+// sudo all fail and no interactive input is available, SudoExec returns an error
+// containing "no valid auth path available".
+func TestSudoExec_AllStepsExhausted(t *testing.T) {
+	srv := newMockSSHServer(nil)
+	// All commands fail.
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		return 1
+	}
+	client := startMockSSHServer(t, srv)
+
+	// Override promptSudoPassword to return an error immediately (no terminal available).
+	origPrompt := promptSudoPasswordFunc
+	promptSudoPasswordFunc = func() (string, error) {
+		return "", io.EOF // simulate no interactive input
+	}
+	defer func() { promptSudoPasswordFunc = origPrompt }()
+
+	warnedOnce := new(bool)
+	creds := new(SudoCreds)
+	err := SudoExec(client, "mkdir -p /opt/test", creds, warnedOnce, false)
+	if err == nil {
+		t.Fatal("expected error when all auth paths exhausted; got nil")
+	}
+	if !strings.Contains(err.Error(), "no valid auth path available") {
+		t.Errorf("expected error to contain 'no valid auth path available'; got: %v", err)
+	}
+}
+
+// TestSudoExec_SinglePromptMultiFile verifies that across multiple SudoExec calls
+// in a single deploy to a root-owned path, the interactive password prompt fires
+// exactly once. Subsequent calls reuse creds.pw (step 2) and do not re-prompt.
+func TestSudoExec_SinglePromptMultiFile(t *testing.T) {
+	const correctPassword = "testpassword"
+
+	// promptCount tracks how many times the interactive prompt is called.
+	var promptCount int64
+
+	srv := newMockSSHServer(nil)
+	// Direct commands fail; sudo -S with correct password succeeds; sudo -n fails.
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		if strings.Contains(cmd, "sudo -S") {
+			if bytes.Contains(stdin, []byte(correctPassword)) {
+				return 0
+			}
+			return 1
+		}
+		if strings.Contains(cmd, "sudo -n") {
+			return 1
+		}
+		// Direct: fail.
+		return 1
+	}
+	client := startMockSSHServer(t, srv)
+
+	// Override promptSudoPassword to supply the correct password and track calls.
+	origPrompt := promptSudoPasswordFunc
+	promptSudoPasswordFunc = func() (string, error) {
+		atomic.AddInt64(&promptCount, 1)
+		return correctPassword, nil
+	}
+	defer func() { promptSudoPasswordFunc = origPrompt }()
+
+	warnedOnce := new(bool)
+	creds := new(SudoCreds)
+	defer creds.Zero()
+
+	// Simulate the 8 SudoExec calls that Upload() would make for a
+	// root-owned target path.
+	ops := []string{
+		"mkdir -p /opt/myapp",
+		"mv /opt/myapp /opt/myapp-old-123",
+		"mv /tmp/docker-deploy-123 /opt/myapp",
+		"mv /opt/myapp-old-123 /opt/myapp",    // rollback (simulated)
+		"rm -rf /opt/myapp-old-123",
+		"rm -rf /opt/myapp",
+		"mv /tmp/docker-deploy-456 /opt/myapp", // first-deploy mv
+		"cp /tmp/docker-deploy-env-123 /opt/myapp/.env",
+	}
+
+	for i, cmd := range ops {
+		err := SudoExec(client, cmd, creds, warnedOnce, false)
+		if err != nil {
+			t.Fatalf("SudoExec call %d (%q) failed: %v", i, cmd, err)
+		}
+	}
+
+	count := atomic.LoadInt64(&promptCount)
+	if count != 1 {
+		t.Errorf("expected interactive password prompt exactly once; got %d prompts", count)
+	}
 }
