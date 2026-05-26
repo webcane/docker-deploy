@@ -26,6 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 13: Small Code Fixes** - Resolve `deploy.yaml` relative to cwd; `docker deploy version` subcommand via ldflags
 - [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
 - [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
+- [ ] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body
 
 ## Phase Details
 
@@ -347,6 +348,19 @@ Plans:
   1. Users can set `health_timeout` and `health_interval` per target in `deploy.yaml` and the values are respected during polling
   2. Omitting the keys falls back to the existing global defaults without breaking existing configs
 
+### Phase 16: Release Tooling Enhancement
+**Goal**: Extend `/gsd:release-tag` so a release is one command: update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push
+**Depends on**: Phase 9
+**Requirements**: TBD
+**Plans**: 2 plans
+
+**Success Criteria** (what must be TRUE):
+  1. `STATE.md` is updated with the new version and release date as part of every `/gsd:release-tag` run
+  2. The release commit message body is derived from the REQ summary, not a generic "bump version" line
+
+Plans:
+- [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step + commit message generation from SUMMARY.md
+
 ## Progress
 
 **Execution Order:**
@@ -368,6 +382,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 13. Small Code Fixes | 0/2 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
+| 16. Release Tooling Enhancement | 0/1 | Not started | - |
 
 ## Backlog
 

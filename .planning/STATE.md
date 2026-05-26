@@ -94,7 +94,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-_(none — version support todo folded into Phase 13: 13-02-PLAN.md)_
+_(none — version support todo folded into Phase 13; release-tag todo folded into Phase 16)_
 
 ### Blockers/Concerns
 
