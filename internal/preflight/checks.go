@@ -276,6 +276,13 @@ func checkDockerGroup(client SSHRunner, cfg config.Config) (CheckResult, error) 
 		}, fmt.Errorf("preflight: could not determine group membership for user %s", cfg.Host.User)
 	}
 
+	if cfg.Verbose {
+		sudoLOut, sudoLErr := runOutput(client, "sudo -l")
+		if sudoLErr == nil {
+			fmt.Fprintf(os.Stderr, "[sudo -l]\n%s\n", strings.TrimSpace(string(sudoLOut)))
+		}
+	}
+
 	groups := strings.Fields(string(out))
 	for _, g := range groups {
 		if g == "docker" {
