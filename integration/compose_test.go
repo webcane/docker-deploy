@@ -16,6 +16,11 @@ import (
 	"github.com/webcane/docker-deploy/internal/health"
 )
 
+// TODO: pin nginx:alpine and busybox to fixed digest or version tag (e.g. nginx:1.27-alpine,
+// busybox:1.36) so CI does not pull "latest" on every run. Alternatively, pre-pull images
+// into the testcontainers base image or add a pull-cache layer to the CI workflow so the
+// images are reused across runs instead of fetched fresh each time.
+
 // composeHealthyYAML is nginx:alpine with no HEALTHCHECK. The container starts
 // quickly, reaches "running" state, and PollHealth returns nil (HEALTH-01/HEALTH-02).
 // PollHealth polls {{.State.Status}} — "running" is the terminal-success state.
