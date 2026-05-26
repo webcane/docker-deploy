@@ -239,6 +239,87 @@ func TestCheck04_UserNotInDockerGroup_SudoUsermodFails(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// CHECK-04 verbose sudo -l tests
+// ---------------------------------------------------------------------------
+
+// TestCheckDockerGroup_SudoL_VerboseShown: when cfg.Verbose=true and "sudo -l"
+// returns exit 0, stderr contains "[sudo -l]\n<output>".
+func TestCheckDockerGroup_SudoL_VerboseShown(t *testing.T) {
+	client := newClient(
+		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
+		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
+		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
+		fakeCmd{match: "test -w", exitCode: 0},
+		fakeCmd{match: "id -nG", output: []byte("sudo docker adm")},
+		fakeCmd{match: "sudo -l", output: []byte("User root may run the following commands on host:\n    (ALL) NOPASSWD: ALL\n")},
+	)
+	cfg := defaultCfg()
+	cfg.Verbose = true
+	var err error
+	stderr := captureStderr(func() {
+		_, err = preflight.RunPreflightChecks(context.Background(), client, cfg)
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stderr, "[sudo -l]") {
+		t.Errorf("expected '[sudo -l]' in stderr, got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "User root may run") {
+		t.Errorf("expected sudo -l output in stderr, got: %q", stderr)
+	}
+}
+
+// TestCheckDockerGroup_SudoL_FailureSilenced: when cfg.Verbose=true and "sudo -l"
+// returns exit 1 (error), no "[sudo -l]" appears in stderr and checkDockerGroup
+// returns normally.
+func TestCheckDockerGroup_SudoL_FailureSilenced(t *testing.T) {
+	client := newClient(
+		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
+		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
+		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
+		fakeCmd{match: "test -w", exitCode: 0},
+		fakeCmd{match: "id -nG", output: []byte("sudo docker adm")},
+		fakeCmd{match: "sudo -l", exitCode: 1}, // sudo -l fails
+	)
+	cfg := defaultCfg()
+	cfg.Verbose = true
+	var err error
+	stderr := captureStderr(func() {
+		_, err = preflight.RunPreflightChecks(context.Background(), client, cfg)
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(stderr, "[sudo -l]") {
+		t.Errorf("expected no '[sudo -l]' in stderr when sudo -l fails, got: %q", stderr)
+	}
+}
+
+// TestCheckDockerGroup_SudoL_NotVerbose: when cfg.Verbose=false, "sudo -l" is
+// never invoked (mock session receives no "sudo -l" command).
+func TestCheckDockerGroup_SudoL_NotVerbose(t *testing.T) {
+	client := newClient(
+		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
+		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
+		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
+		fakeCmd{match: "test -w", exitCode: 0},
+		fakeCmd{match: "id -nG", output: []byte("sudo docker adm")},
+	)
+	cfg := defaultCfg()
+	cfg.Verbose = false
+	_, err := preflight.RunPreflightChecks(context.Background(), client, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, cmd := range client.matched {
+		if strings.Contains(cmd, "sudo -l") {
+			t.Errorf("sudo -l should not be invoked when cfg.Verbose=false, but was called: %q", cmd)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // CHECK-05: sudo access — conditional
 // ---------------------------------------------------------------------------
 
