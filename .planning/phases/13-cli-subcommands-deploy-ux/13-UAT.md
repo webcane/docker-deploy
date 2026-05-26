@@ -1,5 +1,5 @@
 ---
-status: complete
+status: resolved
 phase: 13-cli-subcommands-deploy-ux
 source: [13-01-SUMMARY.md, 13-02-SUMMARY.md, 13-03-SUMMARY.md, 13-04-SUMMARY.md, 13-05-SUMMARY.md, 13-06-SUMMARY.md, 13-07-SUMMARY.md]
 started: 2026-05-26T00:00:00Z
@@ -58,7 +58,7 @@ blocked: 0
 ## Gaps
 
 - truth: "dev/untagged build output omits 'Built:' line — only tagged builds show it"
-  status: failed
+  status: resolved
   reason: "User reported: docker deploy version shows 'Built: 2026-05-26T12:09:30Z' in a dev build. make build always injects buildTime so it appears even for untagged builds."
   severity: minor
   test: 2
@@ -70,7 +70,7 @@ blocked: 0
     - "Change condition: if buildTime != \"unknown\" && version != \"dev\""
 
 - truth: "Verbose pre-confirm diff shows file lists once each (Local files N, Remote files M) before the confirm prompt"
-  status: failed
+  status: resolved
   reason: "User reported: local file list appears twice — once as '-> filename' arrows after the test -w SSH probe, and again in the 'Local files (N):' diff section. Redundant output."
   severity: minor
   test: 5
@@ -82,7 +82,7 @@ blocked: 0
     - "Gate the -> arrow print: if verbose && !(existsBefore check is too late — needs restructure OR suppress arrows when confirm-diff will run)"
 
 - truth: "docker deploy --force on a path requiring sudo for mv (parent dir not user-writable) succeeds using sudo"
-  status: failed
+  status: resolved
   reason: "User reported: mv '/opt/test-deploy' to backup failed with exit status 1. needsSudo probe returned exit 0 on 'test -w /opt/test-deploy' (dir is writable) but mv needs /opt (parent) to be writable — sudo was incorrectly bypassed."
   severity: major
   test: 6
