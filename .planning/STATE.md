@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 12 UAT complete — 5/5 passed, phase verified
-last_updated: "2026-05-25T11:55:00Z"
-last_activity: 2026-05-25 -- Phase 12 UAT complete (5/5 passed)
+status: planning
+stopped_at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
+last_updated: "2026-05-26T12:06:57.993Z"
+last_activity: 2026-05-24 -- Phase 12 complete (4/4 plans, verification passed)
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 9
-  total_plans: 40
-  completed_plans: 38
-  percent: 53
+  total_plans: 43
+  completed_plans: 39
+  percent: 91
 ---
 
 # Project State
@@ -32,7 +32,7 @@ Status: Ready to plan/execute
 Last activity: 2026-05-24 -- Phase 12 complete (4/4 plans, verification passed)
 Resume file: None
 
-Progress: [█████████░] 97%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█████████░] 97%
 - Trend: 03-03 longer due to real-host verification and 3 deviations applied
 
 *Updated after each plan completion*
+| Phase 13-cli-subcommands-deploy-ux P01 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,7 @@ Recent decisions affecting current work:
 - 04-02: RunCompose() uses session.Start() not session.Run(); wg.Wait() before session.Wait() in non-TTY path ensures pipe drain before exit check; composeFile NOT ShellQuote'd (basename validated by callers per T-04-01-01)
 - 04-03: RunCompose() writes its own stderr failure line; runDeploy() returns error without double-printing; basename validation (filepath.Base check) in runDeploy() per T-04-03-01; context.Background() passed to RunCompose (compose up -d is detached)
 - 05-04: preflight.NewSSHRunner(client) used at call site — RunPreflightChecks accepts SSHRunner interface, not *gossh.Client directly; CheckResult slice discarded in Phase 5 (Phase 7 will use for verbose output)
+- [Phase ?]: 13-01: LoadFile already correct no config.go change needed TestLoadFile_CwdRelative added as explicit regression anchor
 
 ### Roadmap Evolution
 
@@ -126,7 +128,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-23T00:00:00Z
+Last session: 2026-05-26T12:06:52.959Z
 Stopped at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
 Resume file: None
 Last activity: 2026-05-24 - Quick task 260524-brw: fix brew install symlink warning — add sandbox_allowlist? to formula and goreleaser template
