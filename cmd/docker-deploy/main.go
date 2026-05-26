@@ -97,7 +97,7 @@ func buildVersionCmd() *cobra.Command {
 }
 
 // runVersion writes version info to os.Stdout.
-// Tagged builds (buildTime != "unknown") include the Built: line (D-01).
+// Tagged builds (version != "dev" and buildTime populated) include the Built: line (D-01).
 // Dev builds omit it (D-03). OS/Arch is derived at runtime.
 func runVersion() error {
 	return runVersionTo(os.Stdout)
@@ -106,7 +106,7 @@ func runVersion() error {
 // runVersionTo writes version info to w. Extracted for testability.
 func runVersionTo(w io.Writer) error {
 	osArch := runtime.GOOS + "/" + runtime.GOARCH
-	if buildTime != "unknown" {
+	if version != "dev" && buildTime != "unknown" {
 		fmt.Fprintf(w, "Docker Deploy Version %s\n", version)
 		fmt.Fprintf(w, "  Git commit:  %s\n", gitCommit)
 		fmt.Fprintf(w, "  Built:       %s\n", buildTime)
