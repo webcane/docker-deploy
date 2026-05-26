@@ -379,23 +379,32 @@ Plans:
   2. Omitting the keys falls back to the existing global defaults without breaking existing configs
 
 ### Phase 16: Release Tooling Enhancement
-**Goal**: Extend `/gsd:release-tag` so a release is one command: update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
+**Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 **Success Criteria** (what must be TRUE):
 
+**Wave 0 — Pre-release checks**
+  1. `go test ./...` passes with no failures before any release commit is made
+  2. `go test -tags integration ./...` (test-ci) passes before tag+push
+  3. Linter (`golangci-lint run`) reports no errors before tag+push
+  4. Any check failure aborts the release with a clear error message — no partial release
+
 **Wave 1 — Release tag tooling**
-  1. `STATE.md` is updated with the new version and release date as part of every `/gsd:release-tag` run
-  2. The release commit message body is derived from the REQ summary, not a generic "bump version" line
+  5. `STATE.md` is updated with the new version and release date as part of every `/gsd:release-tag` run
+  6. The release commit message body is derived from the REQ summary, not a generic "bump version" line
 
 **Wave 2 — Terminal demo for README**
-  3. A terminal session demo (e.g. via `vhs` or `asciinema`) showing a full `docker deploy` run is recorded and embedded in README.md
-  4. The demo covers at minimum: config resolution, file copy, and compose up output
-  5. The recording is reproducible — a script or `vhs` tape file is committed to the repo
+  7. A terminal session demo (e.g. via `vhs` or `asciinema`) showing a full `docker deploy` run is recorded and embedded in README.md
+  8. The demo covers at minimum: config resolution, file copy, and compose up output
+  9. The recording is reproducible — a script or `vhs` tape file is committed to the repo
 
 Plans:
+
+**Wave 0**
+- [ ] 16-00-PLAN.md — Pre-release checks: gate tag+push on `go test ./...`, `go test -tags integration ./...`, and `golangci-lint run`
 
 **Wave 1**
 - [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step + commit message generation from SUMMARY.md

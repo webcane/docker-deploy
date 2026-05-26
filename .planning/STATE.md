@@ -106,6 +106,7 @@ Recent decisions affecting current work:
 - Phase 9 added: Documentation (README.md — motivation, install, use-cases, comparison table, prerequisites, troubleshooting, badges, feedback section)
 - Phase 10 added: add phase autosuggestion
 - Phase 13 edited: renamed from "Small Code Fixes" to "CLI Subcommands & Deploy UX" (edited fields: title)
+- Phase 16 edited: added Wave 0 pre-release checks (go test, test-ci, golangci-lint) gating tag+push; updated goal, renumbered criteria 1-9, added 16-00-PLAN.md
 
 ### Pending Todos
 
