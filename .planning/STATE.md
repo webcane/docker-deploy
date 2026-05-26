@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 13, Plan 03 complete — validate subcommand added (buildValidateCmd + runValidate, no SSH)
-last_updated: "2026-05-26T12:30:00Z"
-last_activity: 2026-05-26 -- Phase 13 Plan 03 complete (validate subcommand)
+stopped_at: Phase 13, Plan 04 complete — SudoCreds/SudoExec refactor (exported SudoExec, sshRun unified, *SudoCreds in Upload)
+last_updated: "2026-05-26T13:18:00Z"
+last_activity: 2026-05-26 -- Phase 13 Plan 04 complete (SudoCreds/SudoExec refactor)
 progress:
   total_phases: 18
   completed_phases: 9
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 13 of 15 (CLI Subcommands & Deploy UX) — IN PROGRESS
-Plan: 03 of 7 complete
+Plan: 04 of 7 complete
 Status: In progress
-Last activity: 2026-05-26 -- Plan 03 complete (validate subcommand)
+Last activity: 2026-05-26 -- Plan 04 complete (SudoCreds/SudoExec refactor)
 Resume file: None
 
 Progress: [█████████░] 91%
@@ -60,6 +60,7 @@ Progress: [█████████░] 91%
 | Phase 13-cli-subcommands-deploy-ux P01 | 5 | 1 tasks | 1 files |
 | Phase 13-cli-subcommands-deploy-ux P02 | 8 | 2 tasks | 4 files |
 | Phase 13-cli-subcommands-deploy-ux P03 | 8 | 1 tasks (TDD) | 2 files |
+| Phase 13-cli-subcommands-deploy-ux P04 | 7 | 2 tasks (TDD) | 3 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 13-01: LoadFile already correct no config.go change needed TestLoadFile_CwdRelative added as explicit regression anchor
 - 13-02: runVersionTo(w) extracted for testability; runVersion() wraps to os.Stdout; buildTime!=unknown distinguishes tagged vs dev builds
 - 13-03: validate subcommand uses os.Stat before LoadFile to emit exact "deploy.yaml not found" message; Resolve(FlagOpts{}) validates file-only config; SilenceUsage=true suppresses cobra usage block on error
+- 13-04: SudoCreds stores pw as []byte with Zero() for safe memory wipe; sshRun unifies sshExec+sshExecWithSudoPassword; SudoExec uses D-11 step order (direct→cached→sudo-n→interactive); promptSudoPasswordFunc package var enables test injection; prompt EOF breaks to canonical error; all 8 Upload() call sites use SudoExec (D-15 rollback paths)
 
 ### Roadmap Evolution
 
@@ -132,8 +134,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T12:09:30Z
-Stopped at: Phase 13, Plan 03 complete — validate subcommand (buildValidateCmd + runValidate)
+Last session: 2026-05-26T13:18:00Z
+Stopped at: Phase 13, Plan 04 complete — SudoCreds/SudoExec refactor (exported SudoExec, sshRun unified, *SudoCreds)
 Resume file: None
-Last activity: 2026-05-26 - Phase 13 Plan 03: validate subcommand with TDD (5 tests, 2 commits)
+Last activity: 2026-05-26 - Phase 13 Plan 04: SudoCreds/SudoExec refactor with TDD (5 new tests, 3 commits)
 | 2026-05-24 | fast | add /release-tag skill | ✅ |

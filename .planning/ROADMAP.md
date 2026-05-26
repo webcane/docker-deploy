@@ -331,7 +331,7 @@ Plans:
 - [x] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd (config.LoadFile audit + unit test)
 - [x] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
 - [x] 13-03-PLAN.md — `validate` subcommand (buildValidateCmd + runValidate, no SSH)
-- [ ] 13-04-PLAN.md — SudoExec refactor (exported SudoExec, SudoCreds type, sshRun merge, Upload signature update)
+- [x] 13-04-PLAN.md — SudoExec refactor (exported SudoExec, SudoCreds type, sshRun merge, Upload signature update)
 - [ ] 13-05-PLAN.md — Verbose pre-confirm file diff (move confirm prompt into Upload(), SFTP ReadDir + WalkFiles before prompt)
 - [ ] 13-07-PLAN.md — Verbose `sudo -l` output in CHECK-04 preflight (best-effort, stderr, [sudo -l] prefix)
 
