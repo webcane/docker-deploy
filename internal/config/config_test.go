@@ -761,3 +761,41 @@ path: /opt/myapp
 		}
 	})
 }
+
+// TestLoadFile_CwdRelative verifies that LoadFile constructs the config file path
+// relative to the provided cwd argument, not from os.Getwd() or a hardcoded path.
+// This matters for subcommand callers (e.g. validate) that pass an explicit cwd.
+func TestLoadFile_CwdRelative(t *testing.T) {
+	t.Run("reads deploy.yaml from the provided directory", func(t *testing.T) {
+		dir := t.TempDir()
+		content := `version: 1
+target:
+  host: ssh://user@host.example.com:22
+  path: /opt/testapp
+`
+		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+			t.Fatalf("writing deploy.yaml: %v", err)
+		}
+		fc, err := LoadFile(dir)
+		if err != nil {
+			t.Fatalf("LoadFile(%q) unexpected error: %v", dir, err)
+		}
+		if fc.Version == 0 && fc.Target.Host == "" {
+			t.Errorf("LoadFile(%q) returned zero FileConfig; expected to read deploy.yaml from that directory", dir)
+		}
+		if fc.Target.Host != "ssh://user@host.example.com:22" {
+			t.Errorf("Target.Host = %q, want %q", fc.Target.Host, "ssh://user@host.example.com:22")
+		}
+	})
+
+	t.Run("returns zero FileConfig and nil error when directory has no deploy.yaml", func(t *testing.T) {
+		emptyDir := t.TempDir()
+		fc, err := LoadFile(emptyDir)
+		if err != nil {
+			t.Fatalf("LoadFile(%q) unexpected error for empty dir: %v", emptyDir, err)
+		}
+		if fc.Version != 0 || fc.Target.Host != "" || fc.Target.Path != "" {
+			t.Errorf("expected zero FileConfig for empty dir, got %+v", fc)
+		}
+	})
+}
