@@ -282,7 +282,9 @@ func TestValidateCmd_ValidConfig(t *testing.T) {
 
 	runErr := runValidate()
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
 	os.Stdout = origStdout
 
 	var buf strings.Builder
