@@ -58,6 +58,7 @@ Progress: [█████████░] 91%
 
 *Updated after each plan completion*
 | Phase 13-cli-subcommands-deploy-ux P01 | 5 | 1 tasks | 1 files |
+| Phase 13-cli-subcommands-deploy-ux P02 | 8 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Recent decisions affecting current work:
 - 04-03: RunCompose() writes its own stderr failure line; runDeploy() returns error without double-printing; basename validation (filepath.Base check) in runDeploy() per T-04-03-01; context.Background() passed to RunCompose (compose up -d is detached)
 - 05-04: preflight.NewSSHRunner(client) used at call site — RunPreflightChecks accepts SSHRunner interface, not *gossh.Client directly; CheckResult slice discarded in Phase 5 (Phase 7 will use for verbose output)
 - [Phase ?]: 13-01: LoadFile already correct no config.go change needed TestLoadFile_CwdRelative added as explicit regression anchor
+- 13-02: runVersionTo(w) extracted for testability; runVersion() wraps to os.Stdout; buildTime!=unknown distinguishes tagged vs dev builds
 
 ### Roadmap Evolution
 
@@ -128,8 +130,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26T12:06:52.959Z
-Stopped at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
+Last session: 2026-05-26T12:09:30Z
+Stopped at: Phase 13, Plan 02 complete — version subcommand + ldflags wiring
 Resume file: None
 Last activity: 2026-05-24 - Quick task 260524-brw: fix brew install symlink warning — add sandbox_allowlist? to formula and goreleaser template
 | 2026-05-24 | fast | add /release-tag skill | ✅ |

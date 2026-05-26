@@ -329,7 +329,7 @@ Plans:
 
 **Wave 1** *(run in parallel — 13-01 through 13-05 and 13-07 are independent)*
 - [x] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd (config.LoadFile audit + unit test)
-- [ ] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
+- [x] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
 - [ ] 13-03-PLAN.md — `validate` subcommand (buildValidateCmd + runValidate, no SSH)
 - [ ] 13-04-PLAN.md — SudoExec refactor (exported SudoExec, SudoCreds type, sshRun merge, Upload signature update)
 - [ ] 13-05-PLAN.md — Verbose pre-confirm file diff (move confirm prompt into Upload(), SFTP ReadDir + WalkFiles before prompt)
@@ -421,7 +421,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
-| 13. CLI Subcommands & Deploy UX | 1/7 | In Progress|  |
+| 13. CLI Subcommands & Deploy UX | 2/7 | In Progress|  |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
 | 16. Release Tooling Enhancement | 0/2 | Not started | - |
