@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 )
 
 var version = "dev"
+var gitCommit = "unknown"
+var buildTime = "unknown"
 
 // sshDialTimeout is the maximum time to wait for an SSH connection to establish.
 // This timeout covers the TCP dial phase; SSH protocol negotiation and authentication
@@ -73,7 +76,45 @@ func buildDeployCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&skipEnv, "skip-env", false, "Exclude .env from upload, leaving remote .env unchanged")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Print per-file transfer lines, SSH commands, and pre-flight checklist to stderr")
 
+	cmd.AddCommand(buildVersionCmd())
+
 	return cmd
+}
+
+// buildVersionCmd returns a cobra.Command for the "version" subcommand.
+// It prints build metadata and exits 0. No flags are registered (D-04).
+func buildVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:          "version",
+		Short:        "Print version information",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVersion()
+		},
+	}
+}
+
+// runVersion writes version info to os.Stdout.
+// Tagged builds (buildTime != "unknown") include the Built: line (D-01).
+// Dev builds omit it (D-03). OS/Arch is derived at runtime.
+func runVersion() error {
+	return runVersionTo(os.Stdout)
+}
+
+// runVersionTo writes version info to w. Extracted for testability.
+func runVersionTo(w io.Writer) error {
+	osArch := runtime.GOOS + "/" + runtime.GOARCH
+	if buildTime != "unknown" {
+		fmt.Fprintf(w, "Docker Deploy Version %s\n", version)
+		fmt.Fprintf(w, "  Git commit:  %s\n", gitCommit)
+		fmt.Fprintf(w, "  Built:       %s\n", buildTime)
+		fmt.Fprintf(w, "  OS/Arch:     %s\n", osArch)
+	} else {
+		fmt.Fprintf(w, "Docker Deploy Version %s\n", version)
+		fmt.Fprintf(w, "  Git commit:  %s\n", gitCommit)
+		fmt.Fprintf(w, "  OS/Arch:     %s\n", osArch)
+	}
+	return nil
 }
 
 // rollupMsg returns the warning rollup message shown at the end of runDeploy()
