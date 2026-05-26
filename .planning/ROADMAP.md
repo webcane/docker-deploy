@@ -376,17 +376,29 @@ Plans:
   2. Omitting the keys falls back to the existing global defaults without breaking existing configs
 
 ### Phase 16: Release Tooling Enhancement
-**Goal**: Extend `/gsd:release-tag` so a release is one command: update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push
+**Goal**: Extend `/gsd:release-tag` so a release is one command: update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
+
+**Wave 1 — Release tag tooling**
   1. `STATE.md` is updated with the new version and release date as part of every `/gsd:release-tag` run
   2. The release commit message body is derived from the REQ summary, not a generic "bump version" line
 
+**Wave 2 — Terminal demo for README**
+  3. A terminal session demo (e.g. via `vhs` or `asciinema`) showing a full `docker deploy` run is recorded and embedded in README.md
+  4. The demo covers at minimum: config resolution, file copy, and compose up output
+  5. The recording is reproducible — a script or `vhs` tape file is committed to the repo
+
 Plans:
+
+**Wave 1**
 - [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step + commit message generation from SUMMARY.md
+
+**Wave 2**
+- [ ] 16-02-PLAN.md — Terminal demo: record with vhs/asciinema, embed animated GIF or SVG in README.md
 
 ## Progress
 
@@ -409,7 +421,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 13. Small Code Fixes | 0/6 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
-| 16. Release Tooling Enhancement | 0/1 | Not started | - |
+| 16. Release Tooling Enhancement | 0/2 | Not started | - |
 
 ## Backlog
 
@@ -428,20 +440,3 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 999.2: CI-gated GitHub Release Pipeline (BACKLOG)
-
-**Goal:** Captured for future planning
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.3: Add Terminal Demo for README (BACKLOG)
-
-**Goal:** Captured for future planning
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
