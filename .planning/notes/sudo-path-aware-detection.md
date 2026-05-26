@@ -2,6 +2,8 @@
 title: Sudo only required when target path needs elevation
 date: 2026-05-25
 context: deploy loop / remote file operations
+promoted: true
+promoted_to: .planning/todos/pending/2026-05-26-sudo-path-aware-detection.md
 ---
 
 Sudo is not universally required during deploy — it depends on the target path:
