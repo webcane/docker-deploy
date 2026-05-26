@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -399,6 +400,10 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	defer creds.Zero()
 	warnedOnce := new(bool)
 	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, resolved.Force, warnedOnce, resolved.Verbose)
+	if errors.Is(err, filetransfer.ErrDeployCancelled) {
+		fmt.Fprintln(os.Stderr, "Deploy cancelled.")
+		return nil
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err

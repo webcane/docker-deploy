@@ -3,6 +3,7 @@ package filetransfer
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,11 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
+
+// ErrDeployCancelled is returned by Upload() when the user declines the
+// repeat-deploy confirmation prompt. Callers should treat this as a clean
+// exit (print "Deploy cancelled." and return nil), not as an error.
+var ErrDeployCancelled = errors.New("deploy cancelled by user")
 
 // SudoCreds holds a sudo password as bytes so it can be zeroed after use.
 // The zero value (nil pw) means no password has been captured yet.
@@ -414,12 +420,14 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 		if readErr == io.EOF && strings.TrimSpace(answer) == "" {
 			fmt.Fprintln(os.Stderr, "No input received — deploy cancelled.")
-			return 0, nil
+			_ = sshRun(client, "rm -rf "+ShellQuote(stagingDir), nil)
+			return 0, ErrDeployCancelled
 		}
 		answer = strings.TrimSpace(answer)
 		if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
 			fmt.Fprintln(os.Stderr, "Deploy cancelled.")
-			return 0, nil
+			_ = sshRun(client, "rm -rf "+ShellQuote(stagingDir), nil)
+			return 0, ErrDeployCancelled
 		}
 	}
 
