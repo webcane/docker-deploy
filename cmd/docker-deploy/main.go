@@ -429,9 +429,10 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// sudoPw is populated during interactive auth fallback and reused across operations.
 	// warnedOnce is set to true by Upload when passwordless sudo was unavailable;
 	// in non-verbose mode Upload suppresses the inline print so we add it to the rollup here.
-	sudoPw := new(string)
+	creds := new(filetransfer.SudoCreds)
+	defer creds.Zero()
 	warnedOnce := new(bool)
-	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, sudoPw, warnedOnce, resolved.Verbose)
+	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, warnedOnce, resolved.Verbose)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
 		return err

@@ -16,18 +16,23 @@ import (
 	"golang.org/x/term"
 )
 
-// tryDirectCopy attempts to run a command without privilege escalation.
-// Returns true if successful, false otherwise.
-func tryDirectCopy(client *gossh.Client, cmd string) bool {
-	return sshExec(client, cmd) == nil
+// SudoCreds holds a sudo password as bytes so it can be zeroed after use.
+// The zero value (nil pw) means no password has been captured yet.
+type SudoCreds struct{ pw []byte }
+
+// Zero zeroes the password bytes and nils the slice to prevent it lingering
+// in process memory after Upload() returns (golang.org/x/crypto convention).
+func (c *SudoCreds) Zero() {
+	for i := range c.pw {
+		c.pw[i] = 0
+	}
+	c.pw = nil
 }
 
-// tryPasswordlessSudo attempts to run a command with passwordless sudo (sudo -n).
-// Returns true if successful, false otherwise.
-func tryPasswordlessSudo(client *gossh.Client, cmd string) bool {
-	sudoCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
-	return sshExec(client, sudoCmd) == nil
-}
+// promptSudoPasswordFunc is the function used to obtain a sudo password
+// interactively. It is a package-level variable so tests can replace it
+// without needing a real terminal.
+var promptSudoPasswordFunc = promptSudoPassword
 
 // promptSudoPassword prompts the user for a sudo password and returns it,
 // or an error if the prompt fails or times out.
@@ -39,6 +44,131 @@ func promptSudoPassword() (string, error) {
 		return "", fmt.Errorf("reading sudo password: %w", readErr)
 	}
 	return string(pw), nil
+}
+
+// sshRun runs a command on the remote via a new SSH session.
+//   - pw == nil → session.Run(cmd) with no privilege escalation
+//   - pw != nil → sudo -S -p '' sh -c <cmd> with the password written to stdin
+//
+// Per CLAUDE.md: each SSH exec must use a fresh NewSession() call.
+func sshRun(client *gossh.Client, cmd string, pw []byte) error {
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("creating SSH session: %w", err)
+	}
+	defer session.Close() //nolint:errcheck
+
+	if pw == nil {
+		if err := session.Run(cmd); err != nil {
+			return fmt.Errorf("running %q: %w", cmd, err)
+		}
+		return nil
+	}
+
+	// Password path: pipe password via stdin — keeps credential out of SSH server
+	// logs and /proc process listings (T-13-04-01).
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("opening stdin pipe: %w", err)
+	}
+
+	sudoCmd := fmt.Sprintf("sudo -S -p '' sh -c %s", ShellQuote(cmd))
+	if err := session.Start(sudoCmd); err != nil {
+		return fmt.Errorf("starting sudo command: %w", err)
+	}
+	_, _ = stdin.Write(append(pw, '\n'))
+	_ = stdin.Close()
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("sudo command failed: %w", err)
+	}
+	return nil
+}
+
+// SudoExec runs cmd on the remote with automatic privilege escalation fallback.
+//
+// Step order (D-11):
+//  1. Direct: sshRun(client, cmd, nil) — no sudo
+//  2. Cached: if creds.pw != nil, sshRun with creds.pw
+//  3. Passwordless: sudo -n sh -c <cmd> (NOPASSWD sudoers)
+//  4. Interactive: prompt up to 3 times; on success cache password in creds.pw
+//
+// creds and warnedOnce are in/out params shared across all SudoExec calls
+// within a single Upload() — ensures the interactive prompt fires at most once
+// per deploy (SC-6, D-12).
+func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bool, verbose bool) error {
+	// Step 1: Direct (no privilege escalation).
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
+	}
+	if err := sshRun(client, cmd, nil); err == nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 0\n")
+		}
+		return nil
+	}
+	if verbose {
+		fmt.Fprintf(os.Stderr, "  → exit 1 (direct failed, trying sudo)\n")
+	}
+
+	// Step 2: Cached password from a previous interactive prompt.
+	if creds.pw != nil {
+		if err := sshRun(client, cmd, creds.pw); err == nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  → exit 0 (cached creds)\n")
+			}
+			return nil
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 1 (cached creds failed)\n")
+		}
+	}
+
+	// Step 3: Passwordless sudo (sudo -n, NOPASSWD sudoers entry).
+	sudoNCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] %s\n", sudoNCmd)
+	}
+	if err := sshRun(client, sudoNCmd, nil); err == nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 0 (passwordless sudo)\n")
+		}
+		return nil
+	}
+	if verbose {
+		fmt.Fprintf(os.Stderr, "  → exit 1 (passwordless sudo failed)\n")
+	}
+
+	// Step 4: Interactive password prompt — up to 3 attempts.
+	// Print the warning once regardless of verbose; in non-verbose mode it is
+	// surfaced via the rollup in main.go (D-01, D-02).
+	if !*warnedOnce {
+		*warnedOnce = true
+		if verbose {
+			fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
+		}
+	}
+	for attempt := 1; attempt <= 3; attempt++ {
+		pw, readErr := promptSudoPasswordFunc()
+		if readErr != nil {
+			// Prompt failed (no terminal or EOF) — fall through to final error.
+			break
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted)\n")
+		}
+		if sshRun(client, cmd, []byte(pw)) == nil {
+			creds.pw = []byte(pw)
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  → exit 0\n")
+			}
+			return nil
+		}
+		if attempt < 3 {
+			fmt.Fprintln(os.Stderr, "Sorry, try again.")
+		}
+	}
+
+	return fmt.Errorf("could not write to target directory — no valid auth path available (tried direct copy, passwordless sudo, interactive password)")
 }
 
 // Upload copies all non-excluded files from localDir to a staging directory
@@ -73,7 +203,7 @@ func promptSudoPassword() (string, error) {
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, sudoPw *string, warnedOnce *bool, verbose bool) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, creds *SudoCreds, warnedOnce *bool, verbose bool) (int, error) {
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -171,8 +301,8 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	if uploadErr != nil {
 		// Upload failed mid-way — staging dir is partial/unusable, clean it up.
-		// Silent best-effort cleanup: discard error.
-		_ = sshExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(stagingDir)))
+		// Direct rm of /tmp staging dir — no elevated privileges needed.
+		_ = sshRun(client, fmt.Sprintf("rm -rf %s", ShellQuote(stagingDir)), nil)
 		return 0, uploadErr
 	}
 
@@ -206,7 +336,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 				out, checkErr := sshExecOutput(client, fmt.Sprintf("test -f %s && echo exists || echo absent", ShellQuote(envPath)))
 				if checkErr == nil && strings.HasPrefix(strings.TrimSpace(out), "exists") {
 					envBackupPath = "/tmp/docker-deploy-env-" + timestamp
-					if cpErr := sshExec(client, fmt.Sprintf("cp %s %s", ShellQuote(envPath), ShellQuote(envBackupPath))); cpErr != nil {
+					if cpErr := sshRun(client, fmt.Sprintf("cp %s %s", ShellQuote(envPath), ShellQuote(envBackupPath)), nil); cpErr != nil {
 						fmt.Fprintf(os.Stderr, "WARNING: could not backup remote .env: %v; .env will not be preserved after deploy\n", cpErr)
 						envBackupPath = ""
 					}
@@ -216,79 +346,9 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		}
 	}
 
-	// sudoRunWithFallback implements the structured auth fallback sequence.
-	// It reuses sudoPw across multiple commands to avoid prompting multiple times.
-	// The verbose param is captured from the outer Upload() scope.
-	sudoRunWithFallback := func(cmd string) error {
-		// Step 1: Try direct copy (no privilege escalation).
-		if verbose {
-			fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
-		}
-		ok := tryDirectCopy(client, cmd)
-		if verbose && ok {
-			fmt.Fprintf(os.Stderr, "  → exit 0\n")
-		}
-		if ok {
-			return nil
-		}
-		if verbose {
-			fmt.Fprintf(os.Stderr, "  → exit 1 (direct copy failed, trying sudo)\n")
-		}
-
-		// Step 2: Try passwordless sudo.
-		sudoCmd := fmt.Sprintf("sudo -n sh -c %s", ShellQuote(cmd))
-		if verbose {
-			fmt.Fprintf(os.Stderr, "[ssh] %s\n", sudoCmd)
-		}
-		ok = tryPasswordlessSudo(client, cmd)
-		if verbose && ok {
-			fmt.Fprintf(os.Stderr, "  → exit 0\n")
-		}
-		if ok {
-			return nil
-		}
-		if verbose {
-			fmt.Fprintf(os.Stderr, "  → exit 1 (passwordless sudo failed)\n")
-		}
-
-		// Step 3: Prompt for sudo password interactively (up to 3 attempts).
-		// Print once regardless of verbose. In verbose mode the line goes inline;
-		// in non-verbose mode it is suppressed here and surfaced via the rollup in
-		// main.go (D-01, D-02).
-		if !*warnedOnce {
-			*warnedOnce = true
-			if verbose {
-				fmt.Fprintf(os.Stderr, "WARNING: passwordless sudo not configured; you may be prompted for a password\n")
-			}
-		}
-		for attempt := 1; attempt <= 3; attempt++ {
-			pw, readErr := promptSudoPassword()
-			if readErr != nil {
-				return readErr
-			}
-			if verbose {
-				fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted)\n")
-			}
-			// Pass password via stdin pipe instead of command string to avoid
-			// credential exposure in SSH server logs and process listings (CR-04).
-			if sshExecWithSudoPassword(client, pw, cmd) == nil {
-				*sudoPw = pw
-				if verbose {
-					fmt.Fprintf(os.Stderr, "  → exit 0\n")
-				}
-				return nil
-			}
-			if attempt < 3 {
-				fmt.Fprintln(os.Stderr, "Sorry, try again.")
-			}
-		}
-
-		// Step 4: All paths exhausted.
-		return fmt.Errorf("could not write to target directory — no valid auth path available (tried direct copy, passwordless sudo, interactive password)")
-	}
-
 	// Step 8: Ensure target directory exists.
-	if err := sudoRunWithFallback(fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase))); err != nil {
+	// D-15: SudoExec (not bare sshRun) — remoteBase may be root-owned.
+	if err := SudoExec(client, fmt.Sprintf("mkdir -p %s", ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
 		remoteHost := client.RemoteAddr().String()
 		fmt.Fprintf(os.Stderr,
 			"Warning: could not create target directory %s.\n"+
@@ -306,6 +366,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	}
 
 	// Step 9: Atomic swap via SSH exec.
+	// D-15: ALL mv/rm operations on remoteBase use SudoExec — remoteBase may be root-owned.
 	if existsBefore {
 		// Repeat deploy — three-step atomic swap:
 		//   1. mv remoteBase to backup
@@ -313,20 +374,20 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		//   3. rm -rf backup (non-fatal on failure)
 		oldDir := remoteBase + "-old-" + timestamp
 
-		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir))); err != nil {
+		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(remoteBase), ShellQuote(oldDir)), creds, warnedOnce, verbose); err != nil {
 			if envBackupPath != "" {
-				_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
+				_ = sshRun(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)), nil)
 			}
 			return 0, fmt.Errorf("renaming existing target to backup: %w", err)
 		}
-		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
-			// Rollback: best-effort restore using the same sudoRunWithFallback closure
-			// so the mv succeeds even when /opt/… requires elevated privileges.
-			rollbackErr := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)))
+		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
+			// Rollback: best-effort restore using SudoExec so the mv succeeds even
+			// when /opt/… requires elevated privileges (D-15, feedback_sudo_rollback.md).
+			rollbackErr := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(oldDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose)
 			// Clean up .env backup on all error paths — the original remoteBase is
 			// being restored, so its .env is already present.
 			if envBackupPath != "" {
-				_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
+				_ = sshRun(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)), nil)
 			}
 			if rollbackErr != nil {
 				return 0, fmt.Errorf(
@@ -341,7 +402,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 					"Original error: %w",
 				err)
 		}
-		if err := sudoRunWithFallback(fmt.Sprintf("rm -rf %s", ShellQuote(oldDir))); err != nil {
+		if err := SudoExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(oldDir)), creds, warnedOnce, verbose); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove backup directory %s: %v\n", oldDir, err)
 		}
 	} else {
@@ -350,23 +411,23 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 		// run `mv stagingDir remoteBase`, Unix mv moves stagingDir *inside*
 		// remoteBase (because the destination exists) instead of renaming it.
 		// Remove the empty placeholder first so that mv performs a clean rename.
-		if err := sudoRunWithFallback(fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase))); err != nil {
+		if err := SudoExec(client, fmt.Sprintf("rm -rf %s", ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
 			return 0, fmt.Errorf("removing target placeholder before first deploy: %w", err)
 		}
-		if err := sudoRunWithFallback(fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase))); err != nil {
+		if err := SudoExec(client, fmt.Sprintf("mv %s %s", ShellQuote(stagingDir), ShellQuote(remoteBase)), creds, warnedOnce, verbose); err != nil {
 			return 0, fmt.Errorf("moving staging dir to target: %w", err)
 		}
 	}
 
 	// Restore backed-up .env into the new remoteBase now that the swap is complete.
-	// sudoRunWithFallback is used for the copy because remoteBase may require elevated
-	// permissions (the same path that handled the mv/rm steps above).
+	// SudoExec is used for the copy because remoteBase may require elevated
+	// permissions (the same path that handled the mv/rm steps above) — D-15.
 	if envBackupPath != "" {
 		envDest := path.Join(remoteBase, ".env")
-		if restoreErr := sudoRunWithFallback(fmt.Sprintf("cp %s %s", ShellQuote(envBackupPath), ShellQuote(envDest))); restoreErr != nil {
+		if restoreErr := SudoExec(client, fmt.Sprintf("cp %s %s", ShellQuote(envBackupPath), ShellQuote(envDest)), creds, warnedOnce, verbose); restoreErr != nil {
 			fmt.Fprintf(os.Stderr, "WARNING: deploy succeeded but could not restore remote .env: %v\n", restoreErr)
 		}
-		_ = sshExec(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)))
+		_ = sshRun(client, fmt.Sprintf("rm -f %s", ShellQuote(envBackupPath)), nil)
 	}
 
 	return len(files), nil
@@ -387,48 +448,6 @@ func remoteExists(client *gossh.Client, remotePath string) (bool, error) {
 	}
 }
 
-// sshExec runs a command on the remote via a new SSH session.
-// Per CLAUDE.md: each SSH exec must use a fresh NewSession() call.
-func sshExec(client *gossh.Client, cmd string) error {
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("creating SSH session: %w", err)
-	}
-	defer session.Close() //nolint:errcheck
-
-	if err := session.Run(cmd); err != nil {
-		return fmt.Errorf("running %q: %w", cmd, err)
-	}
-	return nil
-}
-
-// sshExecWithSudoPassword runs cmd under sudo, supplying pw via stdin pipe
-// rather than embedding it in the command string. This keeps the credential
-// out of SSH server logs and /proc process listings.
-func sshExecWithSudoPassword(client *gossh.Client, pw, cmd string) error {
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("creating SSH session: %w", err)
-	}
-	defer session.Close() //nolint:errcheck
-
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("opening stdin pipe: %w", err)
-	}
-
-	sudoCmd := fmt.Sprintf("sudo -S -p '' sh -c %s", ShellQuote(cmd))
-	if err := session.Start(sudoCmd); err != nil {
-		return fmt.Errorf("starting sudo command: %w", err)
-	}
-	_, _ = fmt.Fprintln(stdin, pw)
-	_ = stdin.Close()
-	if err := session.Wait(); err != nil {
-		return fmt.Errorf("sudo command failed: %w", err)
-	}
-	return nil
-}
-
 // sshExecOutput runs a command and returns its combined stdout as a string.
 func sshExecOutput(client *gossh.Client, cmd string) (string, error) {
 	session, err := client.NewSession()
@@ -445,7 +464,7 @@ func sshExecOutput(client *gossh.Client, cmd string) (string, error) {
 }
 
 // ShellQuote wraps s in single quotes for safe use in shell commands,
-// escaping any embedded single quotes using the '\” technique.
+// escaping any embedded single quotes using the '\" technique.
 // This handles paths derived from validated config values (remoteBase is from
 // Resolve() which validates via ParseHost; staging dir name uses only
 // alphanumerics + timestamp integer — T-03-05).
