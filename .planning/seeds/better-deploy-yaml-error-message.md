@@ -2,6 +2,8 @@
 name: Better error when deploy.yaml exists but produces no host
 description: Improve the "no host configured" error to distinguish file-not-found from file-found-but-empty-host
 type: seed
+status: promoted
+promoted_to: Phase 14 Wave 2
 trigger_condition: Phase 7 (Leftovers) or when --verbose flag is added
 planted_date: 2026-05-17
 ---

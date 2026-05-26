@@ -336,15 +336,26 @@ Plans:
 - [ ] 13-06-PLAN.md — Path-aware sudo detection (`needsSudo` flag from `test -w` probe, skip Step 1 in sudoRunWithFallback)
 
 ### Phase 14: SSH Config Host Alias Resolution
-**Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL
+**Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL; also improve deploy.yaml error messages so users can tell whether their config file is being read at all
 **Depends on**: Phase 9
 **Requirements**: TBD
 **Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
+
+**Wave 1 — SSH config alias resolution**
   1. `--host minipc` resolves via `~/.ssh/config` and connects successfully when a matching `Host` block exists
   2. `HostName`, `User`, and `Port` directives are all honoured; missing directives fall back to defaults
   3. An unmatched alias produces a clear error distinguishing "alias not found in ssh config" from a dial failure
+
+**Wave 2 — Better deploy.yaml error messages**
+  4. When no `deploy.yaml` exists and no `--host` flag is given, the error message says the file was not found
+  5. When `deploy.yaml` exists but `target.host` is empty or unparseable, the error message names the file and the missing/invalid field
+  6. Both error paths are covered by unit tests in the config package; no SSH connection is attempted in either case
+
+Plans:
+- [ ] 14-01-PLAN.md — SSH config alias resolution (`~/.ssh/config` parser, HostName/User/Port lookup, fallback to defaults)
+- [ ] 14-02-PLAN.md — Distinguish file-not-found vs host-not-set in config.Resolve() / runDeploy error path
 
 ### Phase 15: Deploy Healthcheck Config Format
 **Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults
