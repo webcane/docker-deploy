@@ -1088,7 +1088,7 @@ func TestSudoExec_SinglePromptMultiFile(t *testing.T) {
 		"mkdir -p /opt/myapp",
 		"mv /opt/myapp /opt/myapp-old-123",
 		"mv /tmp/docker-deploy-123 /opt/myapp",
-		"mv /opt/myapp-old-123 /opt/myapp",    // rollback (simulated)
+		"mv /opt/myapp-old-123 /opt/myapp", // rollback (simulated)
 		"rm -rf /opt/myapp-old-123",
 		"rm -rf /opt/myapp",
 		"mv /tmp/docker-deploy-456 /opt/myapp", // first-deploy mv
