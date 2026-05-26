@@ -94,7 +94,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-1. Add `docker deploy --version` support (tooling, 2026-05-23)
+_(none — version support todo folded into Phase 13: 13-02-PLAN.md)_
 
 ### Blockers/Concerns
 
