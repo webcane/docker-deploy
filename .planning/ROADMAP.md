@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
 - [x] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall (completed 2026-05-23)
 - [x] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link (completed 2026-05-24)
-- [ ] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection
+- [x] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection (completed 2026-05-26)
 - [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
 - [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
 - [ ] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body
@@ -421,7 +421,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
-| 13. CLI Subcommands & Deploy UX | 2/7 | In Progress|  |
+| 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
 | 16. Release Tooling Enhancement | 0/2 | Not started | - |

@@ -1,5 +1,5 @@
 ---
-status: partial
+status: approved
 phase: 13-cli-subcommands-deploy-ux
 source: [13-VERIFICATION.md]
 started: 2026-05-26T00:00:00Z
@@ -29,14 +29,14 @@ The plan's own spec (D-03) explicitly defines this 3-line dev format with a sepa
 **Question:** Does the ROADMAP SC-3 intent mean (a) the hash must appear somewhere in the output, or (b) the version field itself must show the commit hash for dev builds?
 
 expected: Human confirms that showing the hash on the "Git commit:" line satisfies SC-3, OR requests that the version field show the commit hash for untagged builds
-result: [pending]
+result: approved — hash on "Git commit:" line satisfies SC-3; "dev" version string is intentional per D-03
 
 ## Summary
 
 total: 1
-passed: 0
+passed: 1
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
