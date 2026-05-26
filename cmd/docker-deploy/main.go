@@ -426,10 +426,12 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 8. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
-	// sudoPw is populated during interactive auth fallback and reused across operations.
+	// creds (SudoCreds) captures the sudo password if the interactive fallback fires and
+	// reuses it across all SudoExec calls — single prompt per deploy (SC-6).
+	// defer creds.Zero() ensures the password bytes are wiped from memory after Upload returns.
 	// warnedOnce is set to true by Upload when passwordless sudo was unavailable;
 	// in non-verbose mode Upload suppresses the inline print so we add it to the rollup here.
-	creds := new(filetransfer.SudoCreds)
+	creds := new(filetransfer.SudoCreds) // SudoCreds captures sudo password for reuse across ops
 	defer creds.Zero()
 	warnedOnce := new(bool)
 	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, warnedOnce, resolved.Verbose)
