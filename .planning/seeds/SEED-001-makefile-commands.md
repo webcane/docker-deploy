@@ -1,6 +1,6 @@
 ---
 id: SEED-001
-status: dormant
+status: completed
 planted: 2026-05-23
 planted_during: v1.0 milestone (phase 9 shipped)
 trigger_when: when relevant
