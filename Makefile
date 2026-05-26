@@ -2,7 +2,10 @@
 
 build:
 	mkdir -p bin
-	go build -ldflags "-X main.version=dev" -o bin/docker-deploy ./cmd/docker-deploy/
+	go build -ldflags "-X main.version=dev \
+		-X main.gitCommit=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+		-X main.buildTime=$(shell date -u +%FT%TZ 2>/dev/null || echo unknown)" \
+		-o bin/docker-deploy ./cmd/docker-deploy/
 
 install: build
 	mkdir -p $(HOME)/.docker/cli-plugins
