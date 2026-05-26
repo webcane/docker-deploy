@@ -51,10 +51,9 @@ func TestCompose_Healthy_NoHealthcheck(t *testing.T) {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
-	sudoPw := ""
 	warned := false
 	if _, err := filetransfer.Upload(context.Background(), client, localDir, remoteBase,
-		[]string{}, &sudoPw, &warned, false); err != nil {
+		[]string{}, new(filetransfer.SudoCreds), false, &warned, false); err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
 
@@ -92,10 +91,9 @@ func TestCompose_Unhealthy_ReturnError(t *testing.T) {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
-	sudoPw := ""
 	warned := false
 	if _, err := filetransfer.Upload(context.Background(), client, localDir, remoteBase,
-		[]string{}, &sudoPw, &warned, false); err != nil {
+		[]string{}, new(filetransfer.SudoCreds), false, &warned, false); err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
 

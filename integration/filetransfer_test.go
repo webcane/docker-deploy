@@ -40,7 +40,6 @@ func TestUpload_HappyPath(t *testing.T) {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
-	sudoPw := ""
 	warned := false
 	n, err := filetransfer.Upload(
 		context.Background(),
@@ -48,7 +47,8 @@ func TestUpload_HappyPath(t *testing.T) {
 		localDir,
 		"/opt/testapp-upload-happy",
 		[]string{},
-		&sudoPw,
+		new(filetransfer.SudoCreds),
+		false,
 		&warned,
 		false,
 	)
@@ -94,9 +94,8 @@ func TestUpload_AtomicCancel(t *testing.T) {
 		cancel()
 	}()
 
-	sudoPw := ""
 	warned := false
-	_, err := filetransfer.Upload(ctx, client, localDir, remoteBase, []string{}, &sudoPw, &warned, false)
+	_, err := filetransfer.Upload(ctx, client, localDir, remoteBase, []string{}, new(filetransfer.SudoCreds), false, &warned, false)
 
 	// If Upload returns nil, the cancel fired too late (all files transferred before context was cancelled).
 	if err == nil {
@@ -133,7 +132,6 @@ func TestUpload_SkipEnv(t *testing.T) {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
-	sudoPw := ""
 	warned := false
 	_, err := filetransfer.Upload(
 		context.Background(),
@@ -141,7 +139,8 @@ func TestUpload_SkipEnv(t *testing.T) {
 		localDir,
 		remoteBase,
 		[]string{".env"},
-		&sudoPw,
+		new(filetransfer.SudoCreds),
+		false,
 		&warned,
 		false,
 	)
