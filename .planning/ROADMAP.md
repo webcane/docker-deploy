@@ -336,7 +336,7 @@ Plans:
 - [x] 13-07-PLAN.md — Verbose `sudo -l` output in CHECK-04 preflight (best-effort, stderr, [sudo -l] prefix)
 
 **Wave 2** *(blocked on 13-04 completion — calls exported SudoExec)*
-- [ ] 13-06-PLAN.md — Path-aware sudo detection (`test -w` probe → needsSudo flag, bypass SudoExec on writable paths)
+- [x] 13-06-PLAN.md — Path-aware sudo detection (`test -w` probe → needsSudo flag, bypass SudoExec on writable paths)
 
 ### Phase 14: SSH Config Host Alias Resolution
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL; also improve deploy.yaml error messages so users can tell whether their config file is being read at all
