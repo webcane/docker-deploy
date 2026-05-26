@@ -1121,7 +1121,7 @@ func TestUpload_PathAwareSudo_WritablePath(t *testing.T) {
 
 	// First deploy: remoteBase does NOT exist.
 	srv := newMockSSHServer(nil)
-	// test -w returns exit 0 (writable) for all commands.
+	// test -w probe on parent returns exit 0 (parent writable) — no sudo needed.
 	// All non-probe commands also succeed (exit 0) — direct sshRun path.
 	client := startMockSSHServer(t, srv)
 
@@ -1230,19 +1230,17 @@ func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) {
 	}
 }
 
-// TestUpload_PathAwareSudo_ParentWritable verifies that when test -w remoteBase
-// fails but test -w parent succeeds (OR probe exits 0 overall), needsSudo=false
-// and all remoteBase operations bypass SudoExec.
+// TestUpload_PathAwareSudo_ParentWritable verifies that when the parent of
+// remoteBase is writable (test -w parent exits 0), needsSudo=false and all
+// remoteBase operations bypass SudoExec.
 func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
 	// remoteBase does not exist yet; parent is writable.
-	// The probe is: test -w remoteBase || test -w path.Dir(remoteBase)
-	// When remoteBase doesn't exist, `test -w remoteBase` returns exit 1,
-	// but `test -w parent` returns exit 0 — the OR means the shell exits 0.
-	// So needsSudo should be false (probe exit 0 → writable).
+	// The probe is: test -w path.Dir(remoteBase)
+	// All commands succeed (exit 0) — parent is writable, so needsSudo=false.
 	remoteBase := "/home/deploy/newproject"
 
 	srv := newMockSSHServer(nil)
-	// All commands succeed (exit 0) — the OR probe exits 0 (parent writable).
+	// All commands succeed (exit 0) — parent writable, probe exits 0.
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
@@ -1261,16 +1259,16 @@ func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
 	cmds := srv.getCommands()
 	t.Logf("commands executed: %v", cmds)
 
-	// Verify probe uses || (both remoteBase and its parent).
-	hasOrProbe := false
+	// Verify probe is a single 'test -w <parent>' without OR clause.
+	hasParentProbe := false
 	for _, cmd := range cmds {
-		if strings.Contains(cmd, "test -w") && strings.Contains(cmd, "||") {
-			hasOrProbe = true
+		if strings.Contains(cmd, "test -w") && !strings.Contains(cmd, "||") {
+			hasParentProbe = true
 			break
 		}
 	}
-	if !hasOrProbe {
-		t.Errorf("expected 'test -w ... || test -w ...' probe; got: %v", cmds)
+	if !hasParentProbe {
+		t.Errorf("expected single 'test -w <parent>' probe without OR; got: %v", cmds)
 	}
 
 	// Since probe exits 0 (parent writable), no sudo should fire.
@@ -1279,5 +1277,81 @@ func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
 			(strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf")) {
 			t.Errorf("parent-writable: unexpected sudo command for remoteBase operation: %q", cmd)
 		}
+	}
+}
+
+// TestUpload_PathAwareSudo_OwnsTargetButParentElevated is the UAT regression
+// test for the case where the user owns the target directory but cannot write
+// to the parent.
+//
+// Scenario: remoteBase = /opt/test-deploy
+//   - The user OWNS /opt/test-deploy (test -w /opt/test-deploy exits 0)
+//   - But /opt is root-owned (test -w /opt exits 1)
+//   - OLD behaviour (OR probe): test -w /opt/test-deploy exits 0 → OR
+//     short-circuits → needsSudo=false → mv /opt/test-deploy … fails (WRONG)
+//   - NEW behaviour (parent-only probe): test -w /opt exits 1 → needsSudo=true
+//     → SudoExec is used → mv succeeds (CORRECT)
+func TestUpload_PathAwareSudo_OwnsTargetButParentElevated(t *testing.T) {
+	remoteBase := "/opt/test-deploy"
+
+	srv := newMockSSHServer(nil)
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		// test -w probe on parent (/opt) returns exit 1 — root-owned.
+		if strings.Contains(cmd, "test -w") {
+			return 1
+		}
+		// sudo -n succeeds (NOPASSWD sudoers).
+		if strings.Contains(cmd, "sudo -n") {
+			return 0
+		}
+		// Direct mkdir/mv/rm fail — root-owned directory, no direct write access.
+		if strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf") {
+			return 1
+		}
+		return 0
+	}
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	// Upload may succeed or fail depending on mock behaviour — we only care
+	// that SudoExec was invoked (i.e. the probe correctly set needsSudo=true).
+	_, _ = Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
+
+	cmds := srv.getCommands()
+	t.Logf("commands executed: %v", cmds)
+
+	// Verify probe was issued.
+	hasProbe := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "test -w") {
+			hasProbe = true
+			break
+		}
+	}
+	if !hasProbe {
+		t.Errorf("expected test -w probe in commands; got: %v", cmds)
+	}
+
+	// Key assertion: SudoExec was invoked — sudo -n appears for a remoteBase
+	// operation. This confirms needsSudo=true (parent-only probe correctly
+	// detected that /opt is not writable, despite the user owning /opt/test-deploy).
+	hasSudoForBase := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "sudo -n") &&
+			(strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm")) {
+			hasSudoForBase = true
+			break
+		}
+	}
+	if !hasSudoForBase {
+		t.Errorf("owns-target-but-parent-elevated: expected sudo -n for remoteBase mkdir/mv/rm; got: %v\n"+
+			"This means needsSudo was false (wrong) — the parent-only probe should have returned exit 1", cmds)
 	}
 }
