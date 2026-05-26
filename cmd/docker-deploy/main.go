@@ -77,6 +77,7 @@ func buildDeployCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Print per-file transfer lines, SSH commands, and pre-flight checklist to stderr")
 
 	cmd.AddCommand(buildVersionCmd())
+	cmd.AddCommand(buildValidateCmd())
 
 	return cmd
 }
@@ -114,6 +115,61 @@ func runVersionTo(w io.Writer) error {
 		fmt.Fprintf(w, "  Git commit:  %s\n", gitCommit)
 		fmt.Fprintf(w, "  OS/Arch:     %s\n", osArch)
 	}
+	return nil
+}
+
+// buildValidateCmd returns a cobra.Command for the "validate" subcommand.
+// It validates deploy.yaml locally without making any SSH connection (D-08).
+// SilenceUsage is set to true to suppress the usage block on error (Pitfall 4).
+func buildValidateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:          "validate",
+		Short:        "Validate deploy.yaml configuration without connecting to remote",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runValidate()
+		},
+	}
+}
+
+// runValidate validates deploy.yaml from the current working directory without
+// making any SSH connection (D-08). It reuses the same cwd-relative config loading
+// sequence as runDeploy/runDryRun. On success it prints "✓ deploy.yaml is valid"
+// to stdout (D-09). On error it prints the error to stderr and returns it (D-07).
+func runValidate() error {
+	// 1. Determine cwd.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	// 2. Check that deploy.yaml exists before calling LoadFile (D-07).
+	// os.Stat is used rather than LoadFile so we can distinguish "missing" from
+	// "malformed" and emit the exact "deploy.yaml not found" message.
+	if _, err := os.Stat(filepath.Join(cwd, "deploy.yaml")); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stderr, "deploy.yaml not found")
+		return fmt.Errorf("deploy.yaml not found")
+	}
+
+	// 3. Derive project name from cwd basename.
+	projectName := filepath.Base(cwd)
+
+	// 4. Load deploy.yaml.
+	fileConfig, err := config.LoadFile(cwd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return err
+	}
+
+	// 5. Resolve config with zero FlagOpts — validate flag values only come from the file.
+	_, err = config.Resolve(config.FlagOpts{}, fileConfig, projectName, cwd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return err
+	}
+
+	// 6. All checks passed — print success (D-09).
+	fmt.Fprintln(os.Stdout, "✓ deploy.yaml is valid")
 	return nil
 }
 
