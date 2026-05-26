@@ -121,6 +121,87 @@ func TestFormatCheckResultFormatsAllStatusValues(t *testing.T) {
 	}
 }
 
+// TestVersionCmd_Registered verifies that buildDeployCmd() has a subcommand with Use=="version".
+func TestVersionCmd_Registered(t *testing.T) {
+	cmd := buildDeployCmd()
+	for _, sub := range cmd.Commands() {
+		if sub.Use == "version" {
+			return
+		}
+	}
+	t.Fatal("deploy command has no 'version' subcommand registered")
+}
+
+// TestVersionCmd_DevOutput verifies that when buildTime=="unknown", runVersion() prints
+// "Docker Deploy Version dev" and does NOT include a "Built:" line (D-03).
+func TestVersionCmd_DevOutput(t *testing.T) {
+	origVersion := version
+	origGitCommit := gitCommit
+	origBuildTime := buildTime
+	defer func() {
+		version = origVersion
+		gitCommit = origGitCommit
+		buildTime = origBuildTime
+	}()
+
+	version = "dev"
+	gitCommit = "abc1234"
+	buildTime = "unknown"
+
+	var buf strings.Builder
+	if err := runVersionTo(&buf); err != nil {
+		t.Fatalf("runVersionTo() returned error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Docker Deploy Version dev") {
+		t.Errorf("output does not contain 'Docker Deploy Version dev'; got:\n%s", out)
+	}
+	if strings.Contains(out, "Built:") {
+		t.Errorf("dev output must not include 'Built:' line; got:\n%s", out)
+	}
+}
+
+// TestVersionCmd_TaggedOutput verifies that when buildTime is not "unknown",
+// runVersion() includes a "Built:" line in its output (D-01).
+func TestVersionCmd_TaggedOutput(t *testing.T) {
+	origVersion := version
+	origGitCommit := gitCommit
+	origBuildTime := buildTime
+	defer func() {
+		version = origVersion
+		gitCommit = origGitCommit
+		buildTime = origBuildTime
+	}()
+
+	version = "v0.6.3"
+	gitCommit = "de40ad0"
+	buildTime = "2026-04-20T14:57:44Z"
+
+	var buf strings.Builder
+	if err := runVersionTo(&buf); err != nil {
+		t.Fatalf("runVersionTo() returned error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Docker Deploy Version v0.6.3") {
+		t.Errorf("output does not contain 'Docker Deploy Version v0.6.3'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Built:") {
+		t.Errorf("tagged output must include 'Built:' line; got:\n%s", out)
+	}
+}
+
+// TestVersionCmd_ExitZero verifies that buildVersionCmd().RunE returns nil (exit 0).
+func TestVersionCmd_ExitZero(t *testing.T) {
+	cmd := buildVersionCmd()
+	if cmd.RunE == nil {
+		t.Fatal("buildVersionCmd() RunE is nil")
+	}
+	err := cmd.RunE(cmd, nil)
+	if err != nil {
+		t.Errorf("buildVersionCmd().RunE returned non-nil error: %v", err)
+	}
+}
+
 // TestFormatHostTarget verifies deploy complete message formatting for default and custom ports.
 func TestFormatHostTarget(t *testing.T) {
 	tests := []struct {
