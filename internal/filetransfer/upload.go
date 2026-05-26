@@ -291,6 +291,9 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	// Step 6: Upload each file into the staging directory.
 	// On any upload error: clean up the partial staging dir (unusable) and return.
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Uploading %d files...\n", len(files))
+	}
 	uploadErr := func() error {
 		for _, relPath := range files {
 			if err := ctx.Err(); err != nil {
@@ -343,10 +346,6 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 				return fmt.Errorf("setting permissions on remote file %s: %w", remotePath, err)
 			}
 
-			// Per-file line: written to stderr only when verbose=true (D-01, D-03).
-			if verbose {
-				fmt.Fprintf(os.Stderr, "  -> %s\n", relPath)
-			}
 		}
 		return nil
 	}()

@@ -413,10 +413,10 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 	}
 }
 
-// TestUploadVerbose_PerFileStderr verifies that when verbose=true, per-file lines
-// are written to stderr (not suppressed). When verbose=false, per-file lines are suppressed.
-// This test uses a captured stderr to detect the "  -> " lines.
-func TestUploadVerbose_PerFileStderr(t *testing.T) {
+// TestUploadVerbose_SummaryLine verifies that when verbose=true, a single "Uploading N files..."
+// summary line is written to stderr (not per-file arrows). When verbose=false, no per-file lines
+// are written. This test uses a captured stderr to detect the output.
+func TestUploadVerbose_SummaryLine(t *testing.T) {
 	remoteBase := "/opt/test-deploy"
 
 	t.Run("verbose_true_perfile_to_stderr", func(t *testing.T) {
@@ -448,8 +448,11 @@ func TestUploadVerbose_PerFileStderr(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Upload(verbose=true) returned error: %v", err)
 		}
-		if !strings.Contains(captured, "  -> compose.yaml") {
-			t.Errorf("verbose=true: expected '  -> compose.yaml' in stderr; got: %q", captured)
+		if !strings.Contains(captured, "Uploading 1 files...") {
+			t.Errorf("verbose=true: expected 'Uploading 1 files...' summary in stderr; got: %q", captured)
+		}
+		if strings.Contains(captured, "  -> compose.yaml") {
+			t.Errorf("verbose=true: unexpected per-file arrow line in stderr; got: %q", captured)
 		}
 	})
 
