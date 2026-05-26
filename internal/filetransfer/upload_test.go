@@ -1104,3 +1104,177 @@ func TestSudoExec_SinglePromptMultiFile(t *testing.T) {
 		t.Errorf("expected interactive password prompt exactly once; got %d prompts", count)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Path-aware sudo detection tests (Plan 13-06)
+// ---------------------------------------------------------------------------
+
+// TestUpload_PathAwareSudo_WritablePath verifies that when the test -w probe
+// succeeds (the target path is user-writable), Upload() does NOT call SudoExec
+// for any remoteBase operation — all mkdir/mv/rm commands use direct sshRun
+// (exit 0 without sudo -S or sudo -n).
+func TestUpload_PathAwareSudo_WritablePath(t *testing.T) {
+	remoteBase := "/home/deploy/myproject"
+
+	// First deploy: remoteBase does NOT exist.
+	srv := newMockSSHServer(nil)
+	// test -w returns exit 0 (writable) for all commands.
+	// All non-probe commands also succeed (exit 0) — direct sshRun path.
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
+	if err != nil {
+		t.Fatalf("Upload returned unexpected error: %v", err)
+	}
+
+	cmds := srv.getCommands()
+	t.Logf("commands executed: %v", cmds)
+
+	// Verify the probe was issued.
+	hasProbe := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "test -w") {
+			hasProbe = true
+			break
+		}
+	}
+	if !hasProbe {
+		t.Errorf("expected test -w probe in commands; got: %v", cmds)
+	}
+
+	// Verify no sudo command was issued for remoteBase operations.
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "sudo") &&
+			(strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf")) {
+			t.Errorf("writable path: unexpected sudo command for remoteBase operation: %q", cmd)
+		}
+	}
+}
+
+// TestUpload_PathAwareSudo_ElevatedPath verifies that when the test -w probe
+// fails (exit 1), Upload() uses SudoExec for remoteBase operations (i.e. the
+// commands pass through the SudoExec step sequence — direct → sudo -n → etc.).
+func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) {
+	remoteBase := "/opt/myapp"
+
+	// First deploy: remoteBase does NOT exist.
+	srv := newMockSSHServer(nil)
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		// test -w probe fails (path requires elevation).
+		if strings.Contains(cmd, "test -w") {
+			return 1
+		}
+		// Direct mkdir/mv/rm also fail (simulating root-owned path).
+		if strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf") {
+			return 1
+		}
+		// sudo -n succeeds (NOPASSWD sudoers).
+		if strings.Contains(cmd, "sudo -n") {
+			return 0
+		}
+		return 0
+	}
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
+	if err != nil {
+		t.Fatalf("Upload returned unexpected error: %v", err)
+	}
+
+	cmds := srv.getCommands()
+	t.Logf("commands executed: %v", cmds)
+
+	// Verify the probe was issued.
+	hasProbe := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "test -w") {
+			hasProbe = true
+			break
+		}
+	}
+	if !hasProbe {
+		t.Errorf("expected test -w probe in commands; got: %v", cmds)
+	}
+
+	// Verify SudoExec was invoked: look for sudo -n (step 3 of SudoExec) for
+	// at least one remoteBase operation (mkdir/mv/rm).
+	hasSudoForBase := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "sudo -n") &&
+			(strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm")) {
+			hasSudoForBase = true
+			break
+		}
+	}
+	if !hasSudoForBase {
+		t.Errorf("elevated path: expected sudo -n for a remoteBase mkdir/mv/rm operation; got: %v", cmds)
+	}
+}
+
+// TestUpload_PathAwareSudo_ParentWritable verifies that when test -w remoteBase
+// fails but test -w parent succeeds (OR probe exits 0 overall), needsSudo=false
+// and all remoteBase operations bypass SudoExec.
+func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
+	// remoteBase does not exist yet; parent is writable.
+	// The probe is: test -w remoteBase || test -w path.Dir(remoteBase)
+	// When remoteBase doesn't exist, `test -w remoteBase` returns exit 1,
+	// but `test -w parent` returns exit 0 — the OR means the shell exits 0.
+	// So needsSudo should be false (probe exit 0 → writable).
+	remoteBase := "/home/deploy/newproject"
+
+	srv := newMockSSHServer(nil)
+	// All commands succeed (exit 0) — the OR probe exits 0 (parent writable).
+	client := startMockSSHServer(t, srv)
+
+	localDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	creds := new(SudoCreds)
+	defer creds.Zero()
+	warnedOnce := new(bool)
+	_, err := Upload(context.Background(), client, localDir, remoteBase, nil, creds, false, warnedOnce, false)
+	if err != nil {
+		t.Fatalf("Upload returned unexpected error: %v", err)
+	}
+
+	cmds := srv.getCommands()
+	t.Logf("commands executed: %v", cmds)
+
+	// Verify probe uses || (both remoteBase and its parent).
+	hasOrProbe := false
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "test -w") && strings.Contains(cmd, "||") {
+			hasOrProbe = true
+			break
+		}
+	}
+	if !hasOrProbe {
+		t.Errorf("expected 'test -w ... || test -w ...' probe; got: %v", cmds)
+	}
+
+	// Since probe exits 0 (parent writable), no sudo should fire.
+	for _, cmd := range cmds {
+		if strings.Contains(cmd, "sudo") &&
+			(strings.Contains(cmd, "mkdir") || strings.Contains(cmd, "mv") || strings.Contains(cmd, "rm -rf")) {
+			t.Errorf("parent-writable: unexpected sudo command for remoteBase operation: %q", cmd)
+		}
+	}
+}
