@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -146,7 +147,7 @@ func runValidate() error {
 	// 2. Check that deploy.yaml exists before calling LoadFile (D-07).
 	// os.Stat is used rather than LoadFile so we can distinguish "missing" from
 	// "malformed" and emit the exact "deploy.yaml not found" message.
-	if _, err := os.Stat(filepath.Join(cwd, "deploy.yaml")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cwd, "deploy.yaml")); errors.Is(err, fs.ErrNotExist) {
 		fmt.Fprintln(os.Stderr, "deploy.yaml not found")
 		return fmt.Errorf("deploy.yaml not found")
 	}
