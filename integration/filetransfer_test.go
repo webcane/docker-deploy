@@ -140,7 +140,7 @@ func TestUpload_SkipEnv(t *testing.T) {
 		remoteBase,
 		[]string{".env"},
 		new(filetransfer.SudoCreds),
-		false,
+		true,
 		&warned,
 		false,
 	)
