@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 11 complete — all 4 plans executed, code review applied, VERIFICATION.md status=pass
-last_updated: "2026-05-26T12:06:57.993Z"
-last_activity: 2026-05-24 -- Phase 12 complete (4/4 plans, verification passed)
+stopped_at: Phase 13, Plan 03 complete — validate subcommand added (buildValidateCmd + runValidate, no SSH)
+last_updated: "2026-05-26T12:30:00Z"
+last_activity: 2026-05-26 -- Phase 13 Plan 03 complete (validate subcommand)
 progress:
   total_phases: 18
   completed_phases: 9
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 13 of 15 (CLI Subcommands & Deploy UX) — NOT STARTED
-Plan: 00 of TBD complete
-Status: Ready to plan/execute
-Last activity: 2026-05-24 -- Phase 12 complete (4/4 plans, verification passed)
+Phase: 13 of 15 (CLI Subcommands & Deploy UX) — IN PROGRESS
+Plan: 03 of 7 complete
+Status: In progress
+Last activity: 2026-05-26 -- Plan 03 complete (validate subcommand)
 Resume file: None
 
 Progress: [█████████░] 91%
@@ -59,6 +59,7 @@ Progress: [█████████░] 91%
 *Updated after each plan completion*
 | Phase 13-cli-subcommands-deploy-ux P01 | 5 | 1 tasks | 1 files |
 | Phase 13-cli-subcommands-deploy-ux P02 | 8 | 2 tasks | 4 files |
+| Phase 13-cli-subcommands-deploy-ux P03 | 8 | 1 tasks (TDD) | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting current work:
 - 05-04: preflight.NewSSHRunner(client) used at call site — RunPreflightChecks accepts SSHRunner interface, not *gossh.Client directly; CheckResult slice discarded in Phase 5 (Phase 7 will use for verbose output)
 - [Phase ?]: 13-01: LoadFile already correct no config.go change needed TestLoadFile_CwdRelative added as explicit regression anchor
 - 13-02: runVersionTo(w) extracted for testability; runVersion() wraps to os.Stdout; buildTime!=unknown distinguishes tagged vs dev builds
+- 13-03: validate subcommand uses os.Stat before LoadFile to emit exact "deploy.yaml not found" message; Resolve(FlagOpts{}) validates file-only config; SilenceUsage=true suppresses cobra usage block on error
 
 ### Roadmap Evolution
 
@@ -131,7 +133,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-26T12:09:30Z
-Stopped at: Phase 13, Plan 02 complete — version subcommand + ldflags wiring
+Stopped at: Phase 13, Plan 03 complete — validate subcommand (buildValidateCmd + runValidate)
 Resume file: None
-Last activity: 2026-05-24 - Quick task 260524-brw: fix brew install symlink warning — add sandbox_allowlist? to formula and goreleaser template
+Last activity: 2026-05-26 - Phase 13 Plan 03: validate subcommand with TDD (5 tests, 2 commits)
 | 2026-05-24 | fast | add /release-tag skill | ✅ |
