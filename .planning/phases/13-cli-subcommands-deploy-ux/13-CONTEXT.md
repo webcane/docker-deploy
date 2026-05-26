@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Six self-contained Go changes delivered as independent plans:
+Seven self-contained Go changes delivered as independent plans:
 
 1. **deploy.yaml cwd resolution** — `deploy.yaml` resolved relative to `os.Getwd()` in all subcommands; no hardcoded absolute paths in config resolution logic
 2. **`version` subcommand** — `docker deploy version` prints Docker CLI-style version info (version, git commit, build time, OS/arch) and exits 0; ldflags injection via GoReleaser/Makefile
@@ -14,8 +14,9 @@ Six self-contained Go changes delivered as independent plans:
 4. **SudoExec refactor** — extract `sudoRunWithFallback` closure into exported `filetransfer.SudoExec()` function; merge `sshExec`/`sshExecWithSudoPassword` into `sshRun`; change password storage from `*string` to `*SudoCreds` (`[]byte`)
 5. **Verbose pre-confirm file diff** — in `--verbose` mode, list remote and local files before the "Replace all contents?" prompt so operators can see what will change
 6. **Path-aware sudo detection** — probe `test -w <path>` before `SudoExec` calls; skip all sudo scaffolding entirely on user-writable paths
+7. **Verbose `sudo -l` output** — in `--verbose` mode, run `sudo -l` on the remote and print the output during the passwordless sudo preflight check (CHECK-04); best-effort only, never blocks the deploy
 
-**Wave structure (deviation from ROADMAP.md):** ROADMAP.md lists all six plans as Wave 1 (parallel). Plans 13-04 and 13-06 have a dependency: Plan 13-04 (SudoExec refactor) must complete before Plan 13-06 (path-aware detection), because 13-06's `needsSudo` gate calls `SudoExec`. The planner must adjust to Wave 1 (13-01, 13-02, 13-03, 13-04, 13-05 independent) → Wave 2 (13-06 blocked on 13-04).
+**Wave structure (deviation from ROADMAP.md):** ROADMAP.md lists all six plans as Wave 1 (parallel). Plans 13-04 and 13-06 have a dependency: Plan 13-04 (SudoExec refactor) must complete before Plan 13-06 (path-aware detection), because 13-06's `needsSudo` gate calls `SudoExec`. The planner must adjust to Wave 1 (13-01, 13-02, 13-03, 13-04, 13-05, 13-07 independent) → Wave 2 (13-06 blocked on 13-04).
 
 This phase adds NO new network protocols, no new config keys, and no new dependencies.
 
@@ -79,6 +80,13 @@ This phase adds NO new network protocols, no new config keys, and no new depende
 - **D-19:** First deploy (no remote dir yet): show `Remote files: (none)` — always show both sections for consistency.
 - **D-20:** Remote file list uses SFTP `ReadDir` on `remoteBase`; local list from `WalkFiles`. Both already available at the point in `Upload()` where the confirm prompt fires.
 
+### Verbose `sudo -l` output (Plan 13-07)
+
+- **D-26:** When `--verbose` is active, run `sudo -l` on the remote during the passwordless sudo preflight check (CHECK-04 in `internal/preflight/checks.go`) and print the output to stderr.
+- **D-27:** Best-effort only — if `sudo -l` returns non-zero or fails for any reason, silently skip the output. Never block or fail the deploy.
+- **D-28:** Output goes to stderr, consistent with all other verbose output. Prefix with a label so it's visually distinct (e.g. `[sudo -l]`).
+- **D-29:** Plan 13-07 is independent of 13-04/13-06 (touches `preflight/checks.go`, not `filetransfer/upload.go`).
+
 ### Path-aware sudo detection (Plan 13-06 — depends on Plan 13-04)
 
 - **D-21:** Probe `test -w <remoteBase>` (or SFTP-based equivalent) at the start of `Upload()`, before any `SudoExec` calls.
@@ -104,6 +112,7 @@ This phase adds NO new network protocols, no new config keys, and no new depende
 - `cmd/docker-deploy/main.go` — `buildDeployCmd()`, `runDeploy()`, `runDryRun()`, `var version = "dev"` (extend with `gitCommit`, `buildTime`); add `buildVersionCmd()` and `buildValidateCmd()` subcommands here
 - `internal/config/config.go` — `LoadFile()`, `Resolve()`, `FlagOpts`, `Config`, `TargetConfig`; `validate` subcommand calls these directly
 - `internal/filetransfer/upload.go` — `Upload()`, `sudoRunWithFallback` (to become `SudoExec`), `sshExec`, `sshExecWithSudoPassword` (to merge into `sshRun`); the primary file for Plans 13-04, 13-05, 13-06
+- `internal/preflight/checks.go` — `RunPreflightChecks()`, CHECK-04 (passwordless sudo check); Plan 13-07 adds `sudo -l` output here in the verbose path
 
 ### Todo specs (agent MUST read before implementing Plans 13-04 and 13-06)
 
@@ -131,6 +140,7 @@ This phase adds NO new network protocols, no new config keys, and no new depende
 - `sudoRunWithFallback` closure (`upload.go:222–288`) — becomes `SudoExec`; step order is preserved with cached-password step inserted between direct and `sudo -n`
 - `sshExec` (`upload.go:392–403`) + `sshExecWithSudoPassword` (`upload.go:408–430`) — merged into `sshRun(client, cmd string, pw []byte) error`
 - `WalkFiles` (`internal/filetransfer/filter.go`) — already returns the local file list needed for verbose pre-confirm diff (D-20)
+- CHECK-04 in `internal/preflight/checks.go` — the passwordless sudo check; Plan 13-07 adds a `sudo -l` SSH exec call in the verbose branch of this check
 
 ### Established Patterns
 
