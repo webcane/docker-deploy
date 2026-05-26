@@ -313,7 +313,7 @@ Plans:
 **Goal**: Fix six self-contained Go issues: resolve `deploy.yaml` relative to cwd, add `docker deploy version` and `docker deploy validate` subcommands, consolidate remote sudo calls into a single SSH session, add a verbose pre-confirm file diff, and add path-aware sudo detection to skip guaranteed-to-fail direct copy attempts on elevated paths
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 7 plans
 
 **Success Criteria** (what must be TRUE):
   1. `deploy.yaml` is resolved relative to cwd; no hardcoded absolute paths in config resolution logic
@@ -327,13 +327,16 @@ Plans:
 
 Plans:
 
-**Wave 1** *(run in parallel — no shared files)*
-- [ ] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd
+**Wave 1** *(run in parallel — 13-01 through 13-05 and 13-07 are independent)*
+- [ ] 13-01-PLAN.md — Resolve deploy.yaml relative to cwd (config.LoadFile audit + unit test)
 - [ ] 13-02-PLAN.md — `version` subcommand + ldflags wiring in GoReleaser/Makefile
-- [ ] 13-03-PLAN.md — `validate` subcommand (cmd/validate.go + structured errors from Resolve())
-- [ ] 13-04-PLAN.md — Consolidate sudo ops into one SSH session (`sudo bash -c "mv … && chown … && rm …"`)
-- [ ] 13-05-PLAN.md — Verbose pre-confirm file diff (SFTP ReadDir remote + WalkFiles local, display before replace prompt)
-- [ ] 13-06-PLAN.md — Path-aware sudo detection (`needsSudo` flag from `test -w` probe, skip Step 1 in sudoRunWithFallback)
+- [ ] 13-03-PLAN.md — `validate` subcommand (buildValidateCmd + runValidate, no SSH)
+- [ ] 13-04-PLAN.md — SudoExec refactor (exported SudoExec, SudoCreds type, sshRun merge, Upload signature update)
+- [ ] 13-05-PLAN.md — Verbose pre-confirm file diff (move confirm prompt into Upload(), SFTP ReadDir + WalkFiles before prompt)
+- [ ] 13-07-PLAN.md — Verbose `sudo -l` output in CHECK-04 preflight (best-effort, stderr, [sudo -l] prefix)
+
+**Wave 2** *(blocked on 13-04 completion — calls exported SudoExec)*
+- [ ] 13-06-PLAN.md — Path-aware sudo detection (`test -w` probe → needsSudo flag, bypass SudoExec on writable paths)
 
 ### Phase 14: SSH Config Host Alias Resolution
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL; also improve deploy.yaml error messages so users can tell whether their config file is being read at all
@@ -418,7 +421,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 10. Add Phase Autosuggestion | 0/? | Not started | - |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
-| 13. CLI Subcommands & Deploy UX | 0/6 | Not started | - |
+| 13. CLI Subcommands & Deploy UX | 0/7 | Not started | - |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
 | 16. Release Tooling Enhancement | 0/2 | Not started | - |
