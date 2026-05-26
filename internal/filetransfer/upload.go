@@ -234,14 +234,15 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	defer sftpClient.Close() //nolint:errcheck
 
 	// Step 3b: Probe whether the target path requires elevation.
-	// Use `test -w` with an OR fallback for the first-deploy case where the
-	// path does not yet exist — check path itself first, then its parent.
+	// Check ONLY the parent directory: mkdir, mv, and rm all operate on entries
+	// WITHIN the parent — they require the parent to be writable, not the target
+	// dir itself. Checking remoteBase directly is wrong: a user-owned /opt/myapp
+	// would pass "test -w /opt/myapp" but "mv /opt/myapp /opt/myapp-old" still
+	// fails because /opt (the parent) is root-owned.
 	// path.Dir is used (not filepath.Dir) because the remote is always Linux.
 	// sshRun with nil password: probe is read-only and never needs elevation.
-	// If the shell exits 0, needsSudo=false (path is user-writable); if exit 1
-	// (permission denied or path absent and parent not writable), needsSudo=true.
-	probeCmd := fmt.Sprintf("test -w %s || test -w %s",
-		ShellQuote(remoteBase), ShellQuote(path.Dir(remoteBase)))
+	// Exit 0 → parent writable → needsSudo=false; exit 1 → needsSudo=true.
+	probeCmd := fmt.Sprintf("test -w %s", ShellQuote(path.Dir(remoteBase)))
 	if verbose {
 		fmt.Fprintf(os.Stderr, "[ssh] %s\n", probeCmd)
 	}
