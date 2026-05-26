@@ -333,7 +333,7 @@ Plans:
 - [x] 13-03-PLAN.md — `validate` subcommand (buildValidateCmd + runValidate, no SSH)
 - [x] 13-04-PLAN.md — SudoExec refactor (exported SudoExec, SudoCreds type, sshRun merge, Upload signature update)
 - [ ] 13-05-PLAN.md — Verbose pre-confirm file diff (move confirm prompt into Upload(), SFTP ReadDir + WalkFiles before prompt)
-- [ ] 13-07-PLAN.md — Verbose `sudo -l` output in CHECK-04 preflight (best-effort, stderr, [sudo -l] prefix)
+- [x] 13-07-PLAN.md — Verbose `sudo -l` output in CHECK-04 preflight (best-effort, stderr, [sudo -l] prefix)
 
 **Wave 2** *(blocked on 13-04 completion — calls exported SudoExec)*
 - [ ] 13-06-PLAN.md — Path-aware sudo detection (`test -w` probe → needsSudo flag, bypass SudoExec on writable paths)
