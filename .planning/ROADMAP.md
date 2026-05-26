@@ -353,9 +353,17 @@ Plans:
   5. When `deploy.yaml` exists but `target.host` is empty or unparseable, the error message names the file and the missing/invalid field
   6. Both error paths are covered by unit tests in the config package; no SSH connection is attempted in either case
 
+**Wave 3 — macOS Keychain / system keyring sudo credential caching**
+  7. On the first deploy requiring sudo, the user is prompted for the password and offered "Save to system keyring? [y/N]"
+  8. Stored credentials are keyed per `docker-deploy:<host>:<user>` and retrieved silently on subsequent deploys
+  9. `--clear-credentials` removes stored keyring entries for the current target
+  10. Falls back gracefully to interactive prompt when the keyring is unavailable; credential is never logged or exposed
+  11. Only activates on paths that require sudo; user-writable paths are unaffected
+
 Plans:
 - [ ] 14-01-PLAN.md — SSH config alias resolution (`~/.ssh/config` parser, HostName/User/Port lookup, fallback to defaults)
 - [ ] 14-02-PLAN.md — Distinguish file-not-found vs host-not-set in config.Resolve() / runDeploy error path
+- [ ] 14-03-PLAN.md — Keyring integration (`go-keyring` or `99designs/keyring`, prompt-and-save flow, `--clear-credentials`, graceful fallback)
 
 ### Phase 15: Deploy Healthcheck Config Format
 **Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults

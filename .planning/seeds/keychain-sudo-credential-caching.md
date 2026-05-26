@@ -2,6 +2,8 @@
 title: macOS Keychain / system keyring integration for sudo credential caching
 trigger_condition: After single-prompt sudo consolidation ships and UX feedback confirms password prompting is still friction
 planted_date: 2026-05-25
+status: promoted
+promoted_to: Phase 14 Wave 3
 ---
 
 ## Idea
