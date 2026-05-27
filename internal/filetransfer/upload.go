@@ -55,7 +55,7 @@ func promptSudoPassword() (string, error) {
 
 // sshRun runs a command on the remote via a new SSH session.
 //   - pw == nil → session.Run(cmd) with no privilege escalation
-//   - pw != nil → sudo -S -p '' sh -c <cmd> with the password written to stdin
+//   - pw != nil → sudo with password piped via stdin (-S flag, empty prompt)
 //
 // Per CLAUDE.md: each SSH exec must use a fresh NewSession() call.
 func sshRun(client *gossh.Client, cmd string, pw []byte) error {
