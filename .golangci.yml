@@ -6,6 +6,18 @@ linters:
     - errcheck
     - govet
     - staticcheck
+    - gosec
+    - ineffassign
+    - unused
+    - bodyclose
+    - noctx
+    - gocritic
+    - revive
+    - errorlint
+    - wrapcheck
+    - gocognit
+    - nestif
+    - prealloc
   settings:
     errcheck:
       exclude-functions:
@@ -16,6 +28,16 @@ linters:
         - (*github.com/pkg/sftp.Client).Close
         - (*golang.org/x/crypto/ssh.Client).Close
         - (*golang.org/x/crypto/ssh.Session).Close
+    gocognit:
+      min-complexity: 15
+    nestif:
+      min-complexity: 5
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
 
 formatters:
   enable:
