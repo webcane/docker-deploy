@@ -1,3 +1,5 @@
+// Package main is the entry point for the docker-deploy CLI plugin.
+// It registers the plugin with the Docker CLI and wires all subcommands.
 package main
 
 import (
@@ -35,7 +37,7 @@ var buildTime = "unknown"
 const sshDialTimeout = 10 * time.Second
 
 func main() {
-	plugin.Run(func(dockerCli command.Cli) *cobra.Command {
+	plugin.Run(func(_ command.Cli) *cobra.Command {
 		return buildDeployCmd()
 	}, metadata.Metadata{
 		SchemaVersion:    "0.1.0",
@@ -60,7 +62,7 @@ func buildDeployCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a docker-compose project to a remote host",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			if dryRun {
 				return runDryRun(host, path, excludes, force, composeFile, skipEnv, verbose)
 			}
@@ -90,7 +92,7 @@ func buildVersionCmd() *cobra.Command {
 		Use:          "version",
 		Short:        "Print version information",
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runVersion()
 		},
 	}
@@ -127,7 +129,7 @@ func buildValidateCmd() *cobra.Command {
 		Use:          "validate",
 		Short:        "Validate deploy.yaml configuration without connecting to remote",
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runValidate()
 		},
 	}
@@ -159,14 +161,14 @@ func runValidate() error {
 	fileConfig, err := config.LoadFile(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return err
+		return fmt.Errorf("loading deploy.yaml: %w", err)
 	}
 
 	// 5. Resolve config with zero FlagOpts — validate flag values only come from the file.
 	_, err = config.Resolve(config.FlagOpts{}, fileConfig, projectName, cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return err
+		return fmt.Errorf("resolving config: %w", err)
 	}
 
 	// 6. All checks passed — print success (D-09).
@@ -206,7 +208,7 @@ func formatHostTarget(hostname string, port int, path string) string {
 // The composeFile parameter is accepted for API symmetry with runDeploy but is not
 // used during dry-run, since dry-run only verifies SSH connectivity and config resolution
 // (IN-02).
-func runDryRun(host, path string, excludes []string, force bool, composeFile string, skipEnv bool, verbose bool) error {
+func runDryRun(host, path string, excludes []string, force bool, _ string, skipEnv bool, verbose bool) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -259,7 +261,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 	client, err := sshpkg.Dial(context.Background(), dialCfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
-		return err
+		return fmt.Errorf("SSH dial: %w", err)
 	}
 	defer client.Close() //nolint:errcheck
 
@@ -282,7 +284,7 @@ func runDryRun(host, path string, excludes []string, force bool, composeFile str
 
 // runDeploy implements the full deploy flow:
 // Resolve() -> Dial() -> exists-check -> prompt-or-skip -> Upload() -> RunCompose() -> success.
-func runDeploy(host, path string, excludes []string, force bool, composeFile string, skipEnv bool, verbose bool) error {
+func runDeploy(host, path string, excludes []string, force bool, composeFile string, skipEnv bool, verbose bool) error { //nolint:gocognit // orchestrates full deploy pipeline (resolve→dial→preflight→upload→compose→health) with verbose branching and warning collection
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -344,7 +346,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	client, err := sshpkg.Dial(context.Background(), dialCfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
-		return err
+		return fmt.Errorf("SSH dial: %w", err)
 	}
 	defer client.Close() //nolint:errcheck
 
@@ -370,7 +372,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	results, err := preflight.RunPreflightChecks(context.Background(), preflight.NewSSHRunner(client), resolved)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Pre-flight failed: %v\n", err)
-		return err
+		return fmt.Errorf("pre-flight checks: %w", err)
 	}
 
 	// 6d. Render pre-flight checklist and collect pre-flight warnings.
@@ -407,7 +409,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Deploy failed: %v\n", err)
-		return err
+		return fmt.Errorf("upload: %w", err)
 	}
 	if *warnedOnce {
 		warnings = append(warnings, "WARNING: passwordless sudo not configured; you may be prompted for a password")
@@ -417,12 +419,12 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// RunCompose() writes the failure line to os.Stderr on non-zero exit; no
 	// additional wrapping is needed here.
 	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile, resolved.Verbose); err != nil {
-		return err
+		return fmt.Errorf("compose up: %w", err)
 	}
 
 	// 9b. Poll container health after compose up completes.
 	if err := health.PollHealth(context.Background(), client, projectName, resolved); err != nil {
-		return err
+		return fmt.Errorf("health poll: %w", err)
 	}
 
 	// 10. Warning rollup (D-02, T-07-02-02).

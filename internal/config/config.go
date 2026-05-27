@@ -151,7 +151,7 @@ func ParseHost(rawURL string) (Host, error) {
 // than panicking (T-02-01).
 func LoadFile(dir string) (FileConfig, error) {
 	path := filepath.Join(dir, "deploy.yaml")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path is filepath.Join(dir, "deploy.yaml") where dir comes from os.Getwd(), a trusted location
 	if err != nil {
 		if os.IsNotExist(err) {
 			return FileConfig{}, nil
@@ -232,7 +232,7 @@ func mergeExcludes(fileExcludes, flagExcludes []string, skipEnv bool) []string {
 // filepath.Base(ComposeFile) == ComposeFile before constructing remote commands.
 // T-05-01-01: Zero and negative values for health fields are treated as "not set"
 // (> 0 check gates both flag and file values), so defaults always apply.
-func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string) (Config, error) {
+func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string) (Config, error) { //nolint:gocognit // complexity from layered flag>file>default precedence for 10+ config fields — splitting by field group would require multiple return values and hurt readability
 	var cfg Config
 
 	switch {

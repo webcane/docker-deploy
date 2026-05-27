@@ -4,6 +4,7 @@ package sshconfig
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,8 +40,8 @@ func LoadSigners(configPath, hostname string) []gossh.Signer {
 // parseIdentityFiles returns the IdentityFile paths declared in configPath
 // for the matching Host blocks. It handles both exact hostname matches and
 // wildcard patterns (e.g. "Host *").
-func parseIdentityFiles(configPath, hostname string) []string {
-	f, err := os.Open(configPath)
+func parseIdentityFiles(configPath, hostname string) []string { //nolint:gocognit // line-by-line ssh config parser with Host block tracking and wildcard matching — complexity is inherent to the format
+	f, err := os.Open(configPath) //nolint:gosec // configPath is ~/.ssh/config, a user-controlled trusted path
 	if err != nil {
 		return nil
 	}
@@ -126,13 +127,13 @@ func defaultIdentityFiles() []string {
 // loadSigner reads a PEM-encoded private key from path and returns an ssh.Signer.
 // Returns an error if the file cannot be read or the key cannot be parsed.
 func loadSigner(path string) (gossh.Signer, error) {
-	pemBytes, err := os.ReadFile(path)
+	pemBytes, err := os.ReadFile(path) //nolint:gosec // path is from user-controlled SSH config, acceptable
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading private key %q: %w", path, err)
 	}
 	signer, err := gossh.ParsePrivateKey(pemBytes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing private key %q: %w", path, err)
 	}
 	return signer, nil
 }

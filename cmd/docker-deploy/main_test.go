@@ -259,7 +259,7 @@ func TestValidateCmd_ValidConfig(t *testing.T) {
 	dir := t.TempDir()
 	// Write a minimal valid deploy.yaml with an explicit compose_file so Resolve()
 	// does not need to auto-detect a local compose file.
-	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte("version: 1\ntarget:\n  host: ssh://user@example.com\n  compose_file: docker-compose.yml\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte("version: 1\ntarget:\n  host: ssh://user@example.com\n  compose_file: docker-compose.yml\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -328,7 +328,7 @@ func TestValidateCmd_MissingFile(t *testing.T) {
 // invalid YAML returns a non-nil error.
 func TestValidateCmd_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(":::invalid yaml:::\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(":::invalid yaml:::\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

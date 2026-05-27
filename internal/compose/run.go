@@ -48,7 +48,7 @@ import (
 // before quoting (T-04-02-02) — filepath.Base() at the call site prevents path
 // separators, but does not strip shell-active characters like ';', '|', '$',
 // or '`'.
-func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string, verbose bool) error {
+func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFile string, verbose bool) error { //nolint:gocognit // complexity comes from TTY vs non-TTY branching and signal handling — splitting would require passing shared state across helper funcs
 	// Allowlist validation: reject any character that is not alphanumeric, '-',
 	// '_', or '.'. This guards against injection even before ShellQuote is
 	// applied, providing defence-in-depth (T-04-02-02).
@@ -78,7 +78,7 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		session.Close() //nolint:errcheck
+		session.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	}()
 	// Defer cleanup in the correct order: cancel context first, then wait for goroutine.
 	// This prevents deadlock where wg.Wait() blocks before ctx.Done() is signaled.
@@ -103,7 +103,7 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 	// TTY detection: decide between PTY allocation and goroutine pipe drains.
 	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
-	if isTTY {
+	if isTTY { //nolint:nestif // TTY and non-TTY paths share session lifecycle — extracting would require significant shared-state plumbing
 		// PTY path: allocate a pseudo-terminal so compose renders colours.
 		w, h, sizeErr := term.GetSize(int(os.Stdout.Fd()))
 		if sizeErr != nil {
@@ -149,11 +149,11 @@ func RunCompose(ctx context.Context, client *gossh.Client, remotePath, composeFi
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			io.Copy(os.Stdout, stdoutPipe) //nolint:errcheck
+			io.Copy(os.Stdout, stdoutPipe) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}()
 		go func() {
 			defer wg.Done()
-			io.Copy(os.Stderr, stderrPipe) //nolint:errcheck
+			io.Copy(os.Stderr, stderrPipe) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}()
 		// Wait for both drains to complete before calling session.Wait() to
 		// ensure all output is flushed (prevents truncated log lines in CI).

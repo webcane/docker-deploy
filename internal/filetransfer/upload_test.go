@@ -71,14 +71,6 @@ func (m *mockSSHServer) recordStdin(data []byte) {
 	m.mu.Unlock()
 }
 
-func (m *mockSSHServer) getStdinReceived() [][]byte {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cp := make([][]byte, len(m.stdinReceived))
-	copy(cp, m.stdinReceived)
-	return cp
-}
-
 // startMockSSHServer starts an in-process SSH server and returns a connected
 // *gossh.Client. All exec commands are recorded; SFTP subsystem is served via
 // pkg/sftp's in-memory handler.
@@ -96,20 +88,20 @@ func startMockSSHServer(t *testing.T, srv *mockSSHServer) *gossh.Client {
 	}
 
 	serverCfg := &gossh.ServerConfig{
-		PasswordCallback: func(c gossh.ConnMetadata, pass []byte) (*gossh.Permissions, error) {
+		PasswordCallback: func(_ gossh.ConnMetadata, _ []byte) (*gossh.Permissions, error) {
 			return nil, nil
 		},
-		PublicKeyCallback: func(c gossh.ConnMetadata, key gossh.PublicKey) (*gossh.Permissions, error) {
+		PublicKeyCallback: func(_ gossh.ConnMetadata, _ gossh.PublicKey) (*gossh.Permissions, error) {
 			return nil, nil // accept any public key
 		},
 	}
 	serverCfg.AddHostKey(hostSigner)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	t.Cleanup(func() { ln.Close() }) //nolint:errcheck
+	t.Cleanup(func() { ln.Close() }) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 	go func() {
 		for {
@@ -141,7 +133,7 @@ func startMockSSHServer(t *testing.T, srv *mockSSHServer) *gossh.Client {
 	if err != nil {
 		t.Fatalf("dial mock SSH server: %v", err)
 	}
-	t.Cleanup(func() { client.Close() }) //nolint:errcheck
+	t.Cleanup(func() { client.Close() }) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	return client
 }
 
@@ -150,7 +142,7 @@ func handleMockConn(conn net.Conn, cfg *gossh.ServerConfig, srv *mockSSHServer) 
 	if err != nil {
 		return
 	}
-	defer sshConn.Close() //nolint:errcheck
+	defer sshConn.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	go gossh.DiscardRequests(reqs)
 
 	for newChan := range chans {
@@ -162,29 +154,29 @@ func handleMockConn(conn net.Conn, cfg *gossh.ServerConfig, srv *mockSSHServer) 
 			}
 			go handleMockSession(ch, requests, srv)
 		default:
-			newChan.Reject(gossh.UnknownChannelType, "unsupported") //nolint:errcheck
+			newChan.Reject(gossh.UnknownChannelType, "unsupported") //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}
 	}
 }
 
-func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mockSSHServer) {
-	defer ch.Close() //nolint:errcheck
+func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mockSSHServer) { //nolint:gocognit // mock SSH server handler dispatches exec, subsystem (SFTP), and signal requests — complexity mirrors the SSH protocol surface
+	defer ch.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	for req := range requests {
 		switch req.Type {
 		case "exec":
 			if len(req.Payload) < 4 {
-				req.Reply(false, nil) //nolint:errcheck
+				req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 				continue
 			}
 			cmdLen := int(req.Payload[0])<<24 | int(req.Payload[1])<<16 |
 				int(req.Payload[2])<<8 | int(req.Payload[3])
 			if 4+cmdLen > len(req.Payload) {
-				req.Reply(false, nil) //nolint:errcheck
+				req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 				continue
 			}
 			cmd := string(req.Payload[4 : 4+cmdLen])
 			srv.record(cmd)
-			req.Reply(true, nil) //nolint:errcheck
+			req.Reply(true, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 			// Handle `test -d` by writing "exists" or "absent" to stdout.
 			if strings.Contains(cmd, "test -d") {
@@ -199,7 +191,7 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 				if matched {
 					output = "exists\n"
 				}
-				ch.Write([]byte(output)) //nolint:errcheck
+				ch.Write([]byte(output)) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 			}
 
 			// Handle `test -f` by writing "exists" or "absent" to stdout.
@@ -215,7 +207,7 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 				if matched {
 					output = "exists\n"
 				}
-				ch.Write([]byte(output)) //nolint:errcheck
+				ch.Write([]byte(output)) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 			}
 
 			// Read stdin data (for sudo -S commands that pipe a password).
@@ -223,7 +215,7 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 			var stdinBuf bytes.Buffer
 			done := make(chan struct{})
 			go func() {
-				io.Copy(&stdinBuf, ch) //nolint:errcheck
+				io.Copy(&stdinBuf, ch) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 				close(done)
 			}()
 
@@ -251,10 +243,10 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 
 			if exitCode == 0 {
 				exitMsg := gossh.Marshal(struct{ Code uint32 }{0})
-				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 			} else {
 				exitMsg := gossh.Marshal(struct{ Code uint32 }{exitCode})
-				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+				ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 			}
 			return
 
@@ -265,21 +257,21 @@ func handleMockSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mo
 				if 4+subLen <= len(req.Payload) {
 					sub := string(req.Payload[4 : 4+subLen])
 					if sub == "sftp" {
-						req.Reply(true, nil) //nolint:errcheck
+						req.Reply(true, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 						handlers := sftp.InMemHandler()
 						rs := sftp.NewRequestServer(struct {
 							io.Reader
 							io.WriteCloser
 						}{ch, ch}, handlers)
-						rs.Serve() //nolint:errcheck
+						rs.Serve() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 						return
 					}
 				}
 			}
-			req.Reply(false, nil) //nolint:errcheck
+			req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 		default:
-			req.Reply(false, nil) //nolint:errcheck
+			req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}
 	}
 }
@@ -292,7 +284,7 @@ func TestUploadAuthFallback_DirectCopy(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -313,7 +305,7 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -370,7 +362,7 @@ func TestUploadFirstDeploy_RmBeforeMv(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -424,7 +416,7 @@ func TestUploadVerbose_SummaryLine(t *testing.T) {
 		client := startMockSSHServer(t, srv)
 
 		localDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -442,7 +434,7 @@ func TestUploadVerbose_SummaryLine(t *testing.T) {
 		os.Stderr = oldStderr
 
 		var buf strings.Builder
-		io.Copy(&buf, r) //nolint:errcheck
+		io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		captured := buf.String()
 
 		if err != nil {
@@ -461,7 +453,7 @@ func TestUploadVerbose_SummaryLine(t *testing.T) {
 		client := startMockSSHServer(t, srv)
 
 		localDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -479,7 +471,7 @@ func TestUploadVerbose_SummaryLine(t *testing.T) {
 		os.Stderr = oldStderr
 
 		var buf strings.Builder
-		io.Copy(&buf, r) //nolint:errcheck
+		io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		captured := buf.String()
 
 		if err != nil {
@@ -499,7 +491,7 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -516,7 +508,7 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -533,7 +525,7 @@ func TestUploadVerbose_SSHCommandLogging(t *testing.T) {
 // TestUploadRepeatDeploy_ThreeStepSwapUnchanged verifies that the repeat-deploy
 // path (remoteBase already exists) uses the three-step atomic swap and does NOT
 // add an extra rm -rf on remoteBase itself.
-func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
+func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) { //nolint:gocognit // test exercises atomic swap sequence — complexity from asserting command ordering across multiple mock SSH interactions
 	remoteBase := "/opt/test-deploy"
 
 	// Repeat deploy: remoteBase EXISTS.
@@ -541,7 +533,7 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -603,7 +595,7 @@ func TestUploadRepeatDeploy_ThreeStepSwapUnchanged(t *testing.T) {
 // list and the remote target already has a .env file, Upload() backs it up before the
 // atomic swap and restores it afterward — so the remote .env survives even though it
 // was not part of the upload (e.g. via --skip-env).
-func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
+func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) { //nolint:gocognit // test exercises .env backup-and-restore across multiple subtests with different mock server states
 	remoteBase := "/opt/test-deploy"
 	remoteEnv := remoteBase + "/.env"
 
@@ -614,7 +606,7 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		client := startMockSSHServer(t, srv)
 
 		localDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -676,7 +668,7 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		client := startMockSSHServer(t, srv)
 
 		localDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -703,7 +695,7 @@ func TestUploadSkipEnvPreservesRemoteEnv(t *testing.T) {
 		client := startMockSSHServer(t, srv)
 
 		localDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -750,7 +742,7 @@ func TestSudoCreds_Zero(t *testing.T) {
 		}
 	})
 
-	t.Run("new_SudoCreds_zero_does_not_panic", func(t *testing.T) {
+	t.Run("new_SudoCreds_zero_does_not_panic", func(_ *testing.T) {
 		c := new(SudoCreds)
 		c.Zero()
 	})
@@ -785,7 +777,7 @@ func TestSudoExec_DirectSuccess(t *testing.T) {
 
 // TestSudoExec_CachedCreds verifies that SudoExec uses creds.pw on step 2 when
 // direct fails and creds.pw != nil, without prompting interactively.
-func TestSudoExec_CachedCreds(t *testing.T) {
+func TestSudoExec_CachedCreds(t *testing.T) { //nolint:gocognit // tests credential caching across multiple SudoExec calls with mock server state tracking
 	const correctPassword = "cached-password"
 
 	srv := newMockSSHServer(nil)
@@ -843,7 +835,7 @@ func TestSudoExec_CachedCreds(t *testing.T) {
 func TestSudoExec_AllStepsExhausted(t *testing.T) {
 	srv := newMockSSHServer(nil)
 	// All commands fail.
-	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+	srv.cmdExitCode = func(_ string, _ []byte) uint32 {
 		return 1
 	}
 	client := startMockSSHServer(t, srv)
@@ -881,7 +873,7 @@ func TestUploadVerbose_PreConfirmDiff(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -894,8 +886,8 @@ func TestUploadVerbose_PreConfirmDiff(t *testing.T) {
 	oldStdin := os.Stdin
 	pr, pw2, _ := os.Pipe()
 	os.Stdin = pr
-	pw2.WriteString("y\n") //nolint:errcheck
-	pw2.Close()            //nolint:errcheck
+	pw2.WriteString("y\n") //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
+	pw2.Close()            //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 	creds := new(SudoCreds)
 	defer creds.Zero()
@@ -908,7 +900,7 @@ func TestUploadVerbose_PreConfirmDiff(t *testing.T) {
 	_ = pr.Close()
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -932,7 +924,7 @@ func TestUpload_ForceSkipsPrompt(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -951,7 +943,7 @@ func TestUpload_ForceSkipsPrompt(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -972,7 +964,7 @@ func TestUploadVerbose_FirstDeploy_NoRemote(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -991,7 +983,7 @@ func TestUploadVerbose_FirstDeploy_NoRemote(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -1015,7 +1007,7 @@ func TestUploadVerbose_Truncation(t *testing.T) {
 	// Create 25 files to trigger truncation at 20.
 	for i := 0; i < 25; i++ {
 		fname := filepath.Join(localDir, fmt.Sprintf("file%02d.txt", i))
-		if err := os.WriteFile(fname, []byte("data"), 0644); err != nil {
+		if err := os.WriteFile(fname, []byte("data"), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1033,7 +1025,7 @@ func TestUploadVerbose_Truncation(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -1126,7 +1118,7 @@ func TestUpload_PathAwareSudo_WritablePath(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1165,12 +1157,12 @@ func TestUpload_PathAwareSudo_WritablePath(t *testing.T) {
 // TestUpload_PathAwareSudo_ElevatedPath verifies that when the test -w probe
 // fails (exit 1), Upload() uses SudoExec for remoteBase operations (i.e. the
 // commands pass through the SudoExec step sequence — direct → sudo -n → etc.).
-func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) {
+func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) { //nolint:gocognit // path-aware sudo test branches across elevated vs writable paths with multiple mock command matchers
 	remoteBase := "/opt/myapp"
 
 	// First deploy: remoteBase does NOT exist.
 	srv := newMockSSHServer(nil)
-	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+	srv.cmdExitCode = func(cmd string, _ []byte) uint32 {
 		// test -w probe fails (path requires elevation).
 		if strings.Contains(cmd, "test -w") {
 			return 1
@@ -1188,7 +1180,7 @@ func TestUpload_PathAwareSudo_ElevatedPath(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1244,7 +1236,7 @@ func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1291,11 +1283,11 @@ func TestUpload_PathAwareSudo_ParentWritable(t *testing.T) {
 //     short-circuits → needsSudo=false → mv /opt/test-deploy … fails (WRONG)
 //   - NEW behaviour (parent-only probe): test -w /opt exits 1 → needsSudo=true
 //     → SudoExec is used → mv succeeds (CORRECT)
-func TestUpload_PathAwareSudo_OwnsTargetButParentElevated(t *testing.T) {
+func TestUpload_PathAwareSudo_OwnsTargetButParentElevated(t *testing.T) { //nolint:gocognit // tests parent-directory elevation fallback with multiple command matchers for owned target, writable parent, and elevated parent scenarios
 	remoteBase := "/opt/test-deploy"
 
 	srv := newMockSSHServer(nil)
-	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+	srv.cmdExitCode = func(cmd string, _ []byte) uint32 {
 		// test -w probe on parent (/opt) returns exit 1 — root-owned.
 		if strings.Contains(cmd, "test -w") {
 			return 1
@@ -1313,7 +1305,7 @@ func TestUpload_PathAwareSudo_OwnsTargetButParentElevated(t *testing.T) {
 	client := startMockSSHServer(t, srv)
 
 	localDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localDir, "compose.yaml"), []byte("version: '3'"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

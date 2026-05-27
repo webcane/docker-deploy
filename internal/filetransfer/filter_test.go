@@ -91,7 +91,7 @@ func TestWalkFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create files: .git/config, README.md, compose.yaml, app.log
-	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0750); err != nil {
 		t.Fatal(err)
 	}
 	files := map[string]string{
@@ -102,7 +102,7 @@ func TestWalkFiles(t *testing.T) {
 	}
 	for rel, content := range files {
 		path := filepath.Join(dir, filepath.FromSlash(rel))
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -130,10 +130,10 @@ func TestWalkFiles(t *testing.T) {
 func TestWalkFilesSkipsDirs(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "subdir"), 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "subdir", "file.go"), []byte("package main"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "subdir", "file.go"), []byte("package main"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

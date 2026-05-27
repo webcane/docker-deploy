@@ -102,7 +102,7 @@ func sshRun(client *gossh.Client, cmd string, pw []byte) error {
 // creds and warnedOnce are in/out params shared across all SudoExec calls
 // within a single Upload() — ensures the interactive prompt fires at most once
 // per deploy (SC-6, D-12).
-func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bool, verbose bool) error {
+func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bool, verbose bool) error { //nolint:gocognit // 4-step fallback chain (direct→cached→sudo-n→interactive) with credential caching — splitting steps into helper functions would require threading creds/warnedOnce through each
 	// Step 1: Direct (no privilege escalation).
 	if verbose {
 		fmt.Fprintf(os.Stderr, "[ssh] %s\n", cmd)
@@ -213,7 +213,7 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 // SFTP wraps the existing *gossh.Client — no second TCP connection.
 //
 // Returns the number of files actually transferred on success.
-func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, creds *SudoCreds, force bool, warnedOnce *bool, verbose bool) (int, error) {
+func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase string, excludes []string, creds *SudoCreds, force bool, warnedOnce *bool, verbose bool) (int, error) { //nolint:gocognit // orchestrates 8+ atomic steps (probe, stage, copy, swap, rollback) sharing sftp client — each step is tightly coupled via common error path and cleanup logic
 	// Step 1: Enumerate files to upload.
 	files, err := WalkFiles(localDir, excludes)
 	if err != nil {
@@ -317,7 +317,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 			}
 
 			// Open local file for reading.
-			localFile, err := os.Open(localPath)
+			localFile, err := os.Open(localPath) //nolint:gosec // localPath is constructed from localDir (os.Getwd()) + relative path from WalkFiles, a controlled source
 			if err != nil {
 				return fmt.Errorf("opening local file %s: %w", localPath, err)
 			}
@@ -379,7 +379,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// Pre-confirm diff + confirm prompt.
 	// Runs only when !force and the remote target already exists (repeat deploy).
 	// On first deploy no prompt is shown (nothing to overwrite).
-	if !force && existsBefore {
+	if !force && existsBefore { //nolint:nestif // confirm prompt logic requires shared access to files, remote listing, and force flag — extracting as a helper would require passing all these
 		// Verbose pre-confirm diff block (D-17, D-18, D-19).
 		// Print local and remote file lists to stderr before the prompt so the
 		// operator can verify what will change.
@@ -450,7 +450,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// would silently delete the remote .env even though the operator excluded it
 	// intentionally (e.g. via --skip-env). The backup is restored after the swap.
 	envBackupPath := ""
-	if existsBefore {
+	if existsBefore { //nolint:nestif // .env backup logic must check all excludes and conditionally copy — splitting into a helper would need the same parameters
 		for _, exc := range excludes {
 			if exc == ".env" {
 				envPath := path.Join(remoteBase, ".env")
@@ -488,7 +488,7 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 
 	// Step 9: Atomic swap via SSH exec.
 	// D-15: ALL mv/rm operations on remoteBase use SudoExec — remoteBase may be root-owned.
-	if existsBefore {
+	if existsBefore { //nolint:nestif // atomic swap with rollback is inherently branchy — first-deploy and repeat-deploy share the same staging dir and cleanup
 		// Repeat deploy — three-step atomic swap:
 		//   1. mv remoteBase to backup
 		//   2. mv staging to remoteBase

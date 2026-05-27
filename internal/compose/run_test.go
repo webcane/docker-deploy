@@ -67,16 +67,16 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) (*gossh.Cli
 	}
 
 	serverCfg := &gossh.ServerConfig{
-		PasswordCallback: func(c gossh.ConnMetadata, pass []byte) (*gossh.Permissions, error) {
+		PasswordCallback: func(_ gossh.ConnMetadata, _ []byte) (*gossh.Permissions, error) {
 			return nil, nil
 		},
-		PublicKeyCallback: func(c gossh.ConnMetadata, key gossh.PublicKey) (*gossh.Permissions, error) {
+		PublicKeyCallback: func(_ gossh.ConnMetadata, _ gossh.PublicKey) (*gossh.Permissions, error) {
 			return nil, nil
 		},
 	}
 	serverCfg.AddHostKey(hostSigner)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := new(net.ListenConfig).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -112,8 +112,8 @@ func startMockComposeSSHServer(t *testing.T, srv *mockComposeServer) (*gossh.Cli
 	}
 
 	closer := func() {
-		client.Close() //nolint:errcheck
-		ln.Close()     //nolint:errcheck
+		client.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
+		ln.Close()     //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	}
 
 	return client, closer
@@ -124,7 +124,7 @@ func handleComposeConn(conn net.Conn, cfg *gossh.ServerConfig, srv *mockComposeS
 	if err != nil {
 		return
 	}
-	defer sshConn.Close() //nolint:errcheck
+	defer sshConn.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	go gossh.DiscardRequests(reqs)
 
 	for newChan := range chans {
@@ -137,44 +137,44 @@ func handleComposeConn(conn net.Conn, cfg *gossh.ServerConfig, srv *mockComposeS
 			srv.incrementSession()
 			go handleComposeSession(ch, requests, srv)
 		default:
-			newChan.Reject(gossh.UnknownChannelType, "unsupported") //nolint:errcheck
+			newChan.Reject(gossh.UnknownChannelType, "unsupported") //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}
 	}
 }
 
 func handleComposeSession(ch gossh.Channel, requests <-chan *gossh.Request, srv *mockComposeServer) {
-	defer ch.Close() //nolint:errcheck
+	defer ch.Close() //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	for req := range requests {
 		switch req.Type {
 		case "pty-req":
 			// Accept PTY request without doing anything special in the mock.
-			req.Reply(true, nil) //nolint:errcheck
+			req.Reply(true, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 		case "exec":
 			if len(req.Payload) < 4 {
-				req.Reply(false, nil) //nolint:errcheck
+				req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 				continue
 			}
 			cmdLen := int(req.Payload[0])<<24 | int(req.Payload[1])<<16 |
 				int(req.Payload[2])<<8 | int(req.Payload[3])
 			if 4+cmdLen > len(req.Payload) {
-				req.Reply(false, nil) //nolint:errcheck
+				req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 				continue
 			}
 			cmd := string(req.Payload[4 : 4+cmdLen])
 			srv.record(cmd)
-			req.Reply(true, nil) //nolint:errcheck
+			req.Reply(true, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 			// Write a small output message to stdout.
-			io.WriteString(ch, "mock compose output\n") //nolint:errcheck
+			io.WriteString(ch, "mock compose output\n") //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 
 			// Send the configured exit code.
 			exitMsg := gossh.Marshal(struct{ Code uint32 }{srv.exitCode})
-			ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck
+			ch.SendRequest("exit-status", false, exitMsg) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 			return
 
 		default:
-			req.Reply(false, nil) //nolint:errcheck
+			req.Reply(false, nil) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 		}
 	}
 }
@@ -292,7 +292,7 @@ func TestRunCompose_VerboseSSHCommandLogging(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {
@@ -323,7 +323,7 @@ func TestRunCompose_VerboseNoSSHLoggingWhenFalse(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf strings.Builder
-	io.Copy(&buf, r) //nolint:errcheck
+	io.Copy(&buf, r) //nolint:errcheck,gosec // G104: intentionally unhandled — error is informational or cleanup
 	captured := buf.String()
 
 	if err != nil {

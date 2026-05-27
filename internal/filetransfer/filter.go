@@ -2,6 +2,7 @@
 package filetransfer
 
 import (
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -17,7 +18,7 @@ import (
 //     the directory name (to handle deep paths like "a/node_modules/b").
 //   - Other patterns use filepath.Match semantics against both the basename
 //     and the full path.
-func ShouldExclude(relPath string, excludes []string) bool {
+func ShouldExclude(relPath string, excludes []string) bool { //nolint:gocognit // complexity from three-level match logic (exact, prefix, component) for both directory and glob patterns
 	// Normalize to forward slashes for consistent matching.
 	relPath = filepath.ToSlash(relPath)
 
@@ -75,7 +76,7 @@ func WalkFiles(localDir string, excludes []string) ([]string, error) {
 		// Compute the relative path.
 		rel, err := filepath.Rel(localDir, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("computing relative path: %w", err)
 		}
 		// Normalize to forward slashes for consistent exclude matching.
 		relFwd := filepath.ToSlash(rel)
@@ -96,7 +97,7 @@ func WalkFiles(localDir string, excludes []string) ([]string, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("walking directory: %w", err)
 	}
 
 	sort.Strings(result)

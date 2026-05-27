@@ -196,7 +196,7 @@ func TestResolveInvalidHostReturnsError(t *testing.T) {
 // TestResolveExcludes verifies that Config.Excludes follows the
 // defaultExcludes + file.Target.Exclude + flagExcludes merge model with
 // deduplication (insertion-order preserved, later duplicates dropped).
-func TestResolveExcludes(t *testing.T) {
+func TestResolveExcludes(t *testing.T) { //nolint:gocognit // tests exclude merge logic across many cases (flag-only, file-only, merged, dedup) — each assertion is load-bearing
 	// builtInPatterns is the expected set of 16 built-in defaults (original 6 + 10 new).
 	// We do not access the unexported defaultExcludes var directly;
 	// instead we verify through Resolve() output.
@@ -300,7 +300,7 @@ func TestResolveExcludes(t *testing.T) {
 
 // TestResolveSkipEnv verifies that SkipEnv (from flag or file) appends ".env"
 // to cfg.Excludes exactly once, and that ".env" is not present when SkipEnv is false.
-func TestResolveSkipEnv(t *testing.T) {
+func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env interaction with excludes across flag/file/both/neither combinations
 	countOf := func(got []string, target string) int {
 		n := 0
 		for _, g := range got {
@@ -693,7 +693,7 @@ func TestResolveHealthConfig(t *testing.T) {
 
 // --- LoadFile tests ---
 
-func TestLoadFile(t *testing.T) {
+func TestLoadFile(t *testing.T) { //nolint:gocognit // comprehensive load-file test covering missing, malformed, and all supported YAML fields
 	t.Run("no deploy.yaml returns zero config no error", func(t *testing.T) {
 		dir := t.TempDir()
 		fc, err := LoadFile(dir)

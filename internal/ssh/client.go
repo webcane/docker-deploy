@@ -3,6 +3,7 @@ package ssh
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -55,7 +56,7 @@ type DialConfig struct {
 //   - Auth chain: SSH agent first, then key files from ~/.ssh/config; no password fallback.
 //   - Unknown host: TOFU prompt — show fingerprint, ask user, append on "yes".
 //   - Changed fingerprint: hard fail with loud warning + ssh-keygen -R command.
-func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) {
+func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint:gocognit // SSH dial handles: timeout, known-hosts verification, TOFU, key-mismatch — each branch is a distinct security property
 	if cfg.Port == 0 {
 		cfg.Port = 22
 	}
@@ -102,15 +103,17 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) {
 			return nil
 		}
 
-		switch typed := cbErr.(type) {
-		case *UnknownHostError:
-			return handleTOFU(cfg.Stdin, cfg.Stdout, knownHostsPath, hostname, remote, key, typed)
-
-		case *KeyMismatchError:
-			return handleKeyMismatch(cfg.Stdout, cfg.Hostname, typed)
-
-		default:
-			return cbErr
+		{
+			var typed *UnknownHostError
+			var typed1 *KeyMismatchError
+			switch {
+			case errors.As(cbErr, &typed):
+				return handleTOFU(cfg.Stdin, cfg.Stdout, knownHostsPath, hostname, remote, key, typed)
+			case errors.As(cbErr, &typed1):
+				return handleKeyMismatch(cfg.Stdout, cfg.Hostname, typed1)
+			default:
+				return cbErr
+			}
 		}
 	}
 
@@ -159,7 +162,7 @@ func buildAuthMethods(hostname, user string) ([]gossh.AuthMethod, error) {
 
 	// Try SSH agent first.
 	if agentSock := os.Getenv("SSH_AUTH_SOCK"); agentSock != "" {
-		conn, err := net.Dial("unix", agentSock)
+		conn, err := (&net.Dialer{}).DialContext(context.Background(), "unix", agentSock) //nolint:gosec // G704: agentSock comes from $SSH_AUTH_SOCK, the standard env var for the user's SSH agent socket
 		if err == nil {
 			agentClient := agent.NewClient(conn)
 			methods = append(methods, gossh.PublicKeysCallback(agentClient.Signers))

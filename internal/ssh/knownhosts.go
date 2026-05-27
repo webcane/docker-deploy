@@ -50,7 +50,7 @@ func (e *KeyMismatchError) Error() string {
 //   - Any other error: returned as-is.
 func buildHostKeyCallback(knownHostsPath string) (gossh.HostKeyCallback, error) {
 	// Ensure the file exists so knownhosts.New does not fail on a fresh install.
-	f, err := os.OpenFile(knownHostsPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(knownHostsPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) //nolint:gosec // knownHostsPath is derived from os.UserHomeDir(), a trusted location
 	if err != nil {
 		return nil, fmt.Errorf("opening known_hosts %s: %w", knownHostsPath, err)
 	}
@@ -102,8 +102,8 @@ func asKeyError(err error, target **knownhosts.KeyError) bool {
 
 // appendKnownHost writes a valid known_hosts line for the given host and key
 // to knownHostsPath, appending to any existing content.
-func appendKnownHost(knownHostsPath string, hostname string, remote net.Addr, key gossh.PublicKey) error {
-	f, err := os.OpenFile(knownHostsPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+func appendKnownHost(knownHostsPath string, hostname string, _ net.Addr, key gossh.PublicKey) error {
+	f, err := os.OpenFile(knownHostsPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600) //nolint:gosec // knownHostsPath is derived from os.UserHomeDir(), a trusted location
 	if err != nil {
 		return fmt.Errorf("opening known_hosts for append: %w", err)
 	}

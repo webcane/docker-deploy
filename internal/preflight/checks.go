@@ -48,7 +48,11 @@ type sshClientRunner struct {
 }
 
 func (r *sshClientRunner) NewSession() (Session, error) {
-	return r.c.NewSession()
+	sess, err := r.c.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("creating SSH session: %w", err)
+	}
+	return sess, nil
 }
 
 // NewSSHRunner wraps a *gossh.Client as an SSHRunner for use as the client
@@ -320,7 +324,11 @@ func runOutput(client SSHRunner, cmd string) ([]byte, error) {
 		return nil, fmt.Errorf("creating SSH session: %w", err)
 	}
 	defer session.Close() //nolint:errcheck
-	return session.Output(cmd)
+	out, err := session.Output(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("running SSH command %q: %w", cmd, err)
+	}
+	return out, nil
 }
 
 // runCmd opens a new session and runs cmd for its side effect. Non-zero exit
@@ -331,5 +339,8 @@ func runCmd(client SSHRunner, cmd string) error {
 		return fmt.Errorf("creating SSH session: %w", err)
 	}
 	defer session.Close() //nolint:errcheck
-	return session.Run(cmd)
+	if err := session.Run(cmd); err != nil {
+		return fmt.Errorf("running SSH command %q: %w", cmd, err)
+	}
+	return nil
 }

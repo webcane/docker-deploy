@@ -57,11 +57,18 @@ type sshSessionWrapper struct {
 }
 
 func (w *sshSessionWrapper) Output() ([]byte, error) {
-	return w.session.Output(w.cmd)
+	out, err := w.session.Output(w.cmd)
+	if err != nil {
+		return nil, fmt.Errorf("running SSH command: %w", err)
+	}
+	return out, nil
 }
 
 func (w *sshSessionWrapper) Close() error {
-	return w.session.Close()
+	if err := w.session.Close(); err != nil {
+		return fmt.Errorf("closing SSH session: %w", err)
+	}
+	return nil
 }
 
 // PollHealth enumerates containers belonging to the given compose project and
@@ -95,7 +102,7 @@ func PollHealth(ctx context.Context, client *gossh.Client, projectName string, c
 
 // pollHealthWithRunner is the testable core of PollHealth. It accepts a
 // sessionOpener interface so tests can inject a fake without a real SSH server.
-func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName string, cfg config.Config) error {
+func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName string, cfg config.Config) error { //nolint:gocognit // poll loop handles 4 terminal states + timeout + context cancel — complexity is inherent to polling logic
 	// Step 1: Enumerate containers by compose project label.
 	containers, err := listContainers(runner, projectName)
 	if err != nil {
