@@ -22,6 +22,62 @@ This is the **sole entry point** for creating releases. Do not tag manually outs
 
 <process>
 
+## Wave 0 — Pre-release checks
+
+These checks run **before** any user-facing prompts or file changes. All three must pass before proceeding to Step 1.
+
+### Wave 0 Step A — Unit tests
+
+```bash
+echo "▶ go test ./..."
+make test
+```
+
+If `make test` exits non-zero: print `ABORT: unit tests failed — fix failures before releasing` and stop with no file changes.
+
+If `make test` passes: print `PASS` and continue to Step B.
+
+### Wave 0 Step B — Linter with auto-fix retry gate
+
+```bash
+echo "▶ golangci-lint run ./..."
+make lint
+```
+
+If `make lint` exits cleanly: print `PASS` and continue to Step C.
+
+If `make lint` exits non-zero:
+
+```bash
+echo "  Auto-fixing..."
+make lint-fix
+make lint
+```
+
+Re-run `make lint` after the auto-fix. If lint still exits non-zero: print all remaining issues, then print `ABORT: lint issues remain after auto-fix — resolve manually before releasing` and stop with no file changes.
+
+If the second `make lint` passes: print `PASS (auto-fixed)` and continue to Step C.
+
+### Wave 0 Step C — Integration tests with Docker auto-detect
+
+```bash
+echo "▶ test-ci (integration tests)"
+```
+
+Check for a Docker socket:
+
+```bash
+[ -S /var/run/docker.sock ] || [ -S $HOME/.colima/default/docker.sock ]
+```
+
+If no socket is found: print `  WARNING: Docker not detected — skipping integration tests` and continue (non-blocking).
+
+If a socket is found: run `make test-ci`. If `make test-ci` fails: print `ABORT: integration tests failed` and stop with no file changes. If it passes: print `PASS`.
+
+---
+
+After all three sub-steps pass, print `All checks passed — proceeding with release` then continue to Step 1.
+
 ## Step 1 — Detect latest tag
 
 ```bash
