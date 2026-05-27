@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 Phase: 14 of 15 (SSH Config Host Alias Resolution) — NOT STARTED
 Plan: 00 of TBD complete
 Status: Ready to plan/execute
-Last activity: 2026-05-27 - Completed quick task 260527-brw: Fix brew install missing ~/.docker/cli-plugins symlink
+Last activity: 2026-05-27 - Completed quick task 260527-bsi: Add Apple Silicon Homebrew note to INSTALL.md
 Resume file: None
 
 Progress: [█████████░] 91%
@@ -135,6 +135,7 @@ None yet.
 | 260523-lnt | Fix linting — migrate golangci-lint config to v2, fix errcheck/staticcheck/goimports across 12 files | 2026-05-23 | f6837ee | — |
 | 260524-brw | Fix brew install symlink — lib/docker/cli-plugins symlink in install + system ln -sf in post_install for ~/.docker/cli-plugins | 2026-05-24 | 61a6513 | [260524-brw-fix-brew-install-symlink](./quick/260524-brw-fix-brew-install-symlink/) |
 | 260527-brw | Fix brew install missing ~/.docker/cli-plugins symlink — restore post_install + sandbox_allowlist? = true (correctly combined) | 2026-05-27 | 8b4ef05 | [260527-brw-brew-symlink-post-install](./quick/260527-brw-brew-symlink-post-install/) |
+| 260527-bsi | Add Apple Silicon Homebrew note to INSTALL.md — Docker does not search /opt/homebrew path by default, document symlink and cliPluginsExtraDirs options | 2026-05-27 | ff6ab48 | [260527-bsi-brew-silicon-install-note](./quick/260527-bsi-brew-silicon-install-note/) |
 
 ## Deferred Items
 

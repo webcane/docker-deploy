@@ -25,6 +25,23 @@ brew tap webcane/docker-deploy
 brew install docker-deploy
 ```
 
+### Apple Silicon note
+
+Docker does not search `/opt/homebrew/lib/docker/cli-plugins` by default. After installing, make the plugin visible via one of:
+
+**Option 1 — symlink into your CLI plugins directory:**
+
+```bash
+mkdir -p ~/.docker/cli-plugins
+ln -sf /opt/homebrew/opt/docker-deploy/bin/docker-deploy ~/.docker/cli-plugins/docker-deploy
+```
+
+**Option 2 — add Homebrew's plugin directory to `~/.docker/config.json`:**
+
+```json
+"cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]
+```
+
 ## Manual binary
 
 1. Go to the [releases page](https://github.com/webcane/docker-deploy/releases) and download the archive for your OS and architecture (e.g. `docker-deploy_linux_amd64.tar.gz`).
