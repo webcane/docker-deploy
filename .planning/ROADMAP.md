@@ -232,7 +232,7 @@ Cross-cutting constraints:
 ### Phase 9: Distribution & Documentation
 **Goal**: docker-deploy is installable via three progressively convenient methods (manual binary, install script, Homebrew tap) and README.md is the single authoritative resource for new users — explaining why the tool exists, how to install it, how to use it across all scenarios, and how to get help when things go wrong
 **Depends on**: Phase 8
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -261,7 +261,7 @@ Plans:
 ### Phase 10: Add Phase Autosuggestion
 **Goal**: add phase autosuggestion
 **Depends on**: Phase 8
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
   1. TBD
@@ -270,7 +270,7 @@ Plans:
 **Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
   1. Coverage reports are uploaded to Codecov and a badge displays current coverage in README
@@ -293,7 +293,7 @@ Plans:
 **Goal**: Tighten all user-facing documentation in one pass — fix the plugin help text, sharpen the README value proposition, move install instructions to a dedicated INSTALL.md, and add a feedback link to COMPARISON.md
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --help` shows an accurate, well-formed description of the plugin
@@ -342,7 +342,7 @@ Plans:
 **Goal**: Parse `~/.ssh/config` so that short host aliases (e.g. `minipc`) resolve to the real `HostName`, `User`, and `Port` without requiring a full SSH URL; also improve deploy.yaml error messages so users can tell whether their config file is being read at all
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -372,7 +372,7 @@ Plans:
 **Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
   1. Users can set `health_timeout` and `health_interval` per target in `deploy.yaml` and the values are respected during polling
@@ -382,7 +382,7 @@ Plans:
 **Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 4 plans
+**Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -412,17 +412,11 @@ Plans:
 
 Plans:
 
-**Wave 0**
-- [ ] 16-00-PLAN.md — Pre-release checks: gate tag+push on `go test ./...`, `go test -tags integration ./...`, and `golangci-lint run`
-
-**Wave 1**
-- [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step, commit message generation from SUMMARY.md, and lint→lint-fix→lint retry gate in pre-release checks
-
-**Wave 2**
-- [ ] 16-02-PLAN.md — Terminal demo: record with vhs/asciinema, embed animated GIF or SVG in README.md
-
-**Wave 3** *(independent — only touches .golangci.yml and any findings it surfaces)*
+**Wave 1** *(both plans run in parallel — independent files)*
+- [ ] 16-00-PLAN.md — Pre-release checks + STATE.md update + commit body: extend `release-tag.md` with Wave 0 checks (go test, lint+fix-retry, test-ci Docker auto-detect) and Wave 1 changes (STATE.md last_updated/last_activity, git log-derived commit body)
 - [ ] 16-03-PLAN.md — Extend golangci-lint config: add gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc; tune errcheck excludes and wrapcheck ignore-sigs; fix any new findings
+
+**Wave 2 — SKIPPED** *(terminal demo deferred per D-14)*
 
 ## Progress
 
