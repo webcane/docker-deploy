@@ -382,7 +382,7 @@ Plans:
 **Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 **Success Criteria** (what must be TRUE):
 
@@ -401,6 +401,15 @@ Plans:
   8. The demo covers at minimum: config resolution, file copy, and compose up output
   9. The recording is reproducible — a script or `vhs` tape file is committed to the repo
 
+**Wave 3 — Extended linter coverage**
+  10. golangci-lint runs gosec, ineffassign, unused, bodyclose, and noctx (security and resource-leak linters)
+  11. gocritic, revive, errorlint, and wrapcheck (code quality linters) run and pass
+  12. gocognit (min-complexity: 15) and nestif (min-complexity: 5) enforce complexity bounds
+  13. prealloc flags slice pre-allocation opportunities in loops
+  14. errcheck excludes `fmt.Fprintf`, `fmt.Fprintln`, `fmt.Fprint`, and SSH/SFTP `.Close()` calls from reporting
+  15. wrapcheck ignores `.Errorf(`, `errors.New(`, and `errors.Unwrap(` — no wrapping noise on stdlib error constructors
+  16. All new linters pass with zero issues on the existing codebase (or each finding is fixed before the plan closes)
+
 Plans:
 
 **Wave 0**
@@ -411,6 +420,9 @@ Plans:
 
 **Wave 2**
 - [ ] 16-02-PLAN.md — Terminal demo: record with vhs/asciinema, embed animated GIF or SVG in README.md
+
+**Wave 3** *(independent — only touches .golangci.yml and any findings it surfaces)*
+- [ ] 16-03-PLAN.md — Extend golangci-lint config: add gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc; tune errcheck excludes and wrapcheck ignore-sigs; fix any new findings
 
 ## Progress
 
@@ -433,7 +445,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
-| 16. Release Tooling Enhancement | 0/2 | Not started | - |
+| 16. Release Tooling Enhancement | 0/4 | Not started | - |
 
 ## Backlog
 
