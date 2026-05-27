@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection (completed 2026-05-26)
 - [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
 - [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
-- [ ] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body
+- [x] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body (completed 2026-05-27)
 
 ## Phase Details
 
@@ -414,7 +414,7 @@ Plans:
 
 **Wave 1** *(both plans run in parallel — independent files)*
 - [x] 16-00-PLAN.md — Pre-release checks + STATE.md update + commit body: extend `release-tag.md` with Wave 0 checks (go test, lint+fix-retry, test-ci Docker auto-detect) and Wave 1 changes (STATE.md last_updated/last_activity, git log-derived commit body)
-- [ ] 16-03-PLAN.md — Extend golangci-lint config: add gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc; tune errcheck excludes and wrapcheck ignore-sigs; fix any new findings
+- [x] 16-03-PLAN.md — Extend golangci-lint config: add gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc; tune errcheck excludes and wrapcheck ignore-sigs; fix any new findings
 
 **Wave 2 — SKIPPED** *(terminal demo deferred per D-14)*
 
@@ -439,7 +439,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
-| 16. Release Tooling Enhancement | 1/2 | In Progress|  |
+| 16. Release Tooling Enhancement | 2/2 | Complete   | 2026-05-27 |
 
 ## Backlog
 
@@ -447,7 +447,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 **Goal:** A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
 **Requirements:** INIT-01, INIT-02, INIT-03, INIT-04
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials
