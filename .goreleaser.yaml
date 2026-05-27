@@ -17,7 +17,7 @@ builds:
       - arm64
 
 archives:
-  - formats: ["tar.gz"]
+  - format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -74,4 +74,4 @@ release:
   draft: false
 
 snapshot:
-  version_template: "{{ .Tag }}-next"
+  name_template: "{{ .Tag }}-next"
