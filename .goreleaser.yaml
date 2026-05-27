@@ -52,10 +52,16 @@ brews:
       bin.install "docker-deploy"
       (lib/"docker/cli-plugins").install_symlink bin/"docker-deploy"
     caveats: |
-      docker-deploy is a Docker CLI plugin.
+      To make Docker recognize this plugin, add Homebrew's plugin directory
+      to your global Docker configuration (~/.docker/config.json):
 
-      Docker Desktop (Mac) finds the plugin automatically via #{HOMEBREW_PREFIX}/lib/docker/cli-plugins.
-      For other Docker setups (colima, Docker Engine), link it manually:
+      {
+        "cliPluginsExtraDirs": [
+            "#{HOMEBREW_PREFIX}/lib/docker/cli-plugins"
+        ]
+      }
+
+      Alternatively, you can link it manually into your home profile:
         mkdir -p ~/.docker/cli-plugins
         ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy
     test: |
