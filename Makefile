@@ -1,4 +1,4 @@
-.PHONY: build install test test-ci lint fmt
+.PHONY: build install test test-ci lint lint-fix fmt
 
 build:
 	mkdir -p bin
@@ -26,6 +26,9 @@ test-ci:
 
 lint:
 	golangci-lint run ./...
+
+lint-fix:
+	golangci-lint run --fix ./...
 
 fmt:
 	find . -name '*.go' | xargs goimports -w -local github.com/webcane/docker-deploy
