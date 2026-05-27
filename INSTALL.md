@@ -7,13 +7,13 @@ Choose the method that best fits your environment.
 Pin to a release tag (recommended — avoids fetching from an unpinned `master` branch):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v0.9.2/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v0.9.3/install.sh | sh
 ```
 
 Or to select a specific version at install time:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | INSTALL_VERSION=v0.9.2 sh
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/master/install.sh | INSTALL_VERSION=v0.9.3 sh
 ```
 
 ## Homebrew
