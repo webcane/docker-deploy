@@ -389,8 +389,8 @@ Plans:
 **Wave 0 — Pre-release checks**
   1. `go test ./...` passes with no failures before any release commit is made
   2. `go test -tags integration ./...` (test-ci) passes before tag+push
-  3. Linter (`golangci-lint run`) reports no errors before tag+push
-  4. Any check failure aborts the release with a clear error message — no partial release
+  3. Linter (`golangci-lint run`) runs before tag+push; if it reports issues, `make lint-fix` is run automatically to apply auto-fixable corrections
+  4. After `make lint-fix`, lint runs a second time; only non-auto-fixable issues abort the release with a clear error message — no partial release
 
 **Wave 1 — Release tag tooling**
   5. `STATE.md` is updated with the new version and release date as part of every `/gsd:release-tag` run
@@ -416,7 +416,7 @@ Plans:
 - [ ] 16-00-PLAN.md — Pre-release checks: gate tag+push on `go test ./...`, `go test -tags integration ./...`, and `golangci-lint run`
 
 **Wave 1**
-- [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step + commit message generation from SUMMARY.md
+- [ ] 16-01-PLAN.md — Update `release-tag.md` skill: STATE.md mutation step, commit message generation from SUMMARY.md, and lint→lint-fix→lint retry gate in pre-release checks
 
 **Wave 2**
 - [ ] 16-02-PLAN.md — Terminal demo: record with vhs/asciinema, embed animated GIF or SVG in README.md

@@ -108,6 +108,7 @@ Recent decisions affecting current work:
 - Phase 13 edited: renamed from "Small Code Fixes" to "CLI Subcommands & Deploy UX" (edited fields: title)
 - Phase 16 edited: added Wave 0 pre-release checks (go test, test-ci, golangci-lint) gating tag+push; updated goal, renumbered criteria 1-9, added 16-00-PLAN.md
 - Phase 16 edited: added Wave 3 — extend linter coverage (gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc); added 16-03-PLAN.md; criteria 10-16
+- Phase 16 edited: Wave 0 lint gate now runs lint-fix on failure then re-checks; only non-auto-fixable issues abort; 16-01-PLAN.md scope updated
 
 ### Pending Todos
 
