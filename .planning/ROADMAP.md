@@ -413,7 +413,7 @@ Plans:
 Plans:
 
 **Wave 1** *(both plans run in parallel — independent files)*
-- [ ] 16-00-PLAN.md — Pre-release checks + STATE.md update + commit body: extend `release-tag.md` with Wave 0 checks (go test, lint+fix-retry, test-ci Docker auto-detect) and Wave 1 changes (STATE.md last_updated/last_activity, git log-derived commit body)
+- [x] 16-00-PLAN.md — Pre-release checks + STATE.md update + commit body: extend `release-tag.md` with Wave 0 checks (go test, lint+fix-retry, test-ci Docker auto-detect) and Wave 1 changes (STATE.md last_updated/last_activity, git log-derived commit body)
 - [ ] 16-03-PLAN.md — Extend golangci-lint config: add gosec, ineffassign, unused, bodyclose, noctx, gocritic, revive, errorlint, wrapcheck, gocognit, nestif, prealloc; tune errcheck excludes and wrapcheck ignore-sigs; fix any new findings
 
 **Wave 2 — SKIPPED** *(terminal demo deferred per D-14)*
@@ -439,7 +439,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
 | 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
-| 16. Release Tooling Enhancement | 0/4 | Not started | - |
+| 16. Release Tooling Enhancement | 1/2 | In Progress|  |
 
 ## Backlog
 
@@ -447,7 +447,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 **Goal:** A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
 **Requirements:** INIT-01, INIT-02, INIT-03, INIT-04
-**Plans:** 4/4 plans complete
+**Plans:** 1/2 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials

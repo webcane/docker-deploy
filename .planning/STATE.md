@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 16 planned
-last_updated: "2026-05-27T05:30:00.000Z"
-last_activity: 2026-05-27 -- Phase 16 planned (2 plans, verification passed)
+stopped_at: Phase 16 context gathered
+last_updated: "2026-05-27T05:04:40.298Z"
+last_activity: 2026-05-26 -- Phase 13 complete (7/7 plans, verification passed)
 progress:
   total_phases: 16
   completed_phases: 10
-  total_plans: 46
-  completed_plans: 48
-  percent: 100
+  total_plans: 48
+  completed_plans: 49
+  percent: 63
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Phase: 14 of 15 (SSH Config Host Alias Resolution) — NOT STARTED
 Plan: 00 of TBD complete
 Status: Ready to plan/execute
 Last activity: 2026-05-26 -- Phase 13 complete (7/7 plans, verification passed)
-Resume file: .planning/phases/16-release-tooling-enhancement/16-CONTEXT.md
+Resume file: None
 
 Progress: [█████████░] 91%
 
@@ -134,6 +134,7 @@ None yet.
 | 260523-hkr | Fix CI DinD SSH host key capture race condition — retry loop for sshd readiness | 2026-05-23 | cd98298 | [260523-hkr-fix-ci-dind-host-key-capture](./quick/260523-hkr-fix-ci-dind-host-key-capture/) |
 | 260523-lnt | Fix linting — migrate golangci-lint config to v2, fix errcheck/staticcheck/goimports across 12 files | 2026-05-23 | f6837ee | — |
 | 260524-brw | Fix brew install symlink — lib/docker/cli-plugins symlink in install + system ln -sf in post_install for ~/.docker/cli-plugins | 2026-05-24 | 61a6513 | [260524-brw-fix-brew-install-symlink](./quick/260524-brw-fix-brew-install-symlink/) |
+| 260527-brw | Fix brew install missing ~/.docker/cli-plugins symlink — restore post_install + sandbox_allowlist? = true (correctly combined) | 2026-05-27 | 8b4ef05 | [260527-brw-brew-symlink-post-install](./quick/260527-brw-brew-symlink-post-install/) |
 
 ## Deferred Items
 
@@ -143,7 +144,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-27T04:37:45.339Z
+Last session: 2026-05-27T05:04:40.292Z
 Stopped at: Phase 16 context gathered
 Resume file: None
 Last activity: 2026-05-26 - Phase 13 Plan 06: path-aware sudo probe; writable paths bypass SudoExec entirely
