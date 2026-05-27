@@ -125,7 +125,9 @@ Proceed? [y/N]
 
 If the user says no, abort with no changes made.
 
-## Step 5 — Update README.md and INSTALL.md
+## Step 5 — Update README.md, INSTALL.md, and STATE.md
+
+### Update README.md and INSTALL.md
 
 Read both files. Replace **all** occurrences of the old version string with `$NEXT_TAG` in each.
 
@@ -137,11 +139,59 @@ and inline `INSTALL_VERSION=v0.8.4` env vars.
 
 Use Edit to update each occurrence in both files. Verify no old version string remains after editing.
 
+### Update STATE.md
+
+Read `.planning/STATE.md`. Update **only** the following two YAML frontmatter fields using Edit:
+
+- Set `last_updated:` to the current ISO 8601 timestamp — get the value with:
+  ```bash
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+  ```
+  Result example: `"2026-05-27T14:30:00Z"`
+
+- Set `last_activity:` to the string `{YYYY-MM-DD} -- Released {NEXT_TAG}` — example: `2026-05-27 -- Released v0.9.4`
+
+Do **NOT** change `milestone:` or any other frontmatter field — `milestone:` tracks planning milestones (v1.0), not semver releases.
+
 ## Step 6 — Commit
 
+Generate the commit body from git log:
+
 ```bash
-git add README.md INSTALL.md
+LOG_LINES=$(git log $PREV_TAG..HEAD --oneline)
+```
+
+Where `$PREV_TAG` is `$CURRENT_TAG` from Step 1 (the tag that existed before this release).
+
+Filter out lines that start with `chore:` or `chore(` — keep all other prefixes (feat, fix, refactor, docs, test, ci, perf). Store filtered lines as `$BODY_LINES`.
+
+If `$BODY_LINES` is empty (all commits since the previous tag were chores), commit with subject only:
+
+```bash
+git add README.md INSTALL.md .planning/STATE.md
 git commit -m "chore: bump version to $NEXT_TAG"
+```
+
+If `$BODY_LINES` is non-empty, commit with a body listing the changes:
+
+```bash
+git add README.md INSTALL.md .planning/STATE.md
+git commit -m "$(cat <<EOF
+chore: bump version to $NEXT_TAG
+
+Changes since $CURRENT_TAG:
+$(echo "$BODY_LINES" | sed 's/^/- /')
+EOF
+)"
+```
+
+The resulting commit message body format:
+```
+chore: bump version to $NEXT_TAG
+
+Changes since $CURRENT_TAG:
+- feat: add validate subcommand
+- fix: path-aware sudo detection
 ```
 
 ## Step 7 — Tag
@@ -167,6 +217,7 @@ If `git push` fails (e.g. no upstream, auth error):
 Released $NEXT_TAG
   README.md updated
   INSTALL.md updated
+  .planning/STATE.md updated (last_updated, last_activity)
   Commit: {short hash}
   Tag: $NEXT_TAG pushed → GitHub Actions CI/release workflow triggered
 ```
@@ -177,5 +228,5 @@ Released $NEXT_TAG
 - NEVER push without explicit user confirmation in Step 4
 - NEVER create a tag before the README commit succeeds
 - If push fails, do NOT delete the local tag — leave it for the user to push manually
-- Only README.md and INSTALL.md are modified; no other files change
+- Only README.md, INSTALL.md, and .planning/STATE.md are modified; no other files change
 </guardrails>
