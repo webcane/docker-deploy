@@ -51,15 +51,22 @@ brews:
     install: |
       bin.install "docker-deploy"
       (lib/"docker/cli-plugins").install_symlink bin/"docker-deploy"
-    caveats: |
-      To use `docker deploy`, make Docker aware of this plugin via one of:
+    custom_block: |
+      def caveats
+        return if Hardware::CPU.intel?
 
-      Option 1 — symlink into your CLI plugins directory:
-        mkdir -p ~/.docker/cli-plugins
-        ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy
+        <<~EOS
+          Apple Silicon: Docker does not search #{HOMEBREW_PREFIX}/lib/docker/cli-plugins by default.
+          Make the plugin visible via one of:
 
-      Option 2 — add Homebrew's plugin directory to ~/.docker/config.json:
-        "cliPluginsExtraDirs": ["#{HOMEBREW_PREFIX}/lib/docker/cli-plugins"]
+          Option 1 — symlink into your CLI plugins directory:
+            mkdir -p ~/.docker/cli-plugins
+            ln -sf #{opt_bin}/docker-deploy ~/.docker/cli-plugins/docker-deploy
+
+          Option 2 — add Homebrew's plugin directory to ~/.docker/config.json:
+            "cliPluginsExtraDirs": ["#{HOMEBREW_PREFIX}/lib/docker/cli-plugins"]
+        EOS
+      end
     test: |
       system "#{bin}/docker-deploy", "docker-cli-plugin-metadata"
 
