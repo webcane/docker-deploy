@@ -25,78 +25,16 @@ For Homebrew, manual binary download, and `go install`, see [INSTALL.md](INSTALL
 ### Quick Start
 
 ```bash
+# Using an SSH URL
 docker deploy --host ssh://sshuser@vps.example.com
+
+# Using an SSH config alias (host defined in ~/.ssh/config)
+docker deploy --host minipc
 ```
 
 This copies your project files to `/opt/<project-dir-name>` on the remote host, runs `docker compose up -d`, and reports the deployment health status.
 
-### Scenario 1: Recommended setup — non-root SSH user (sshuser)
-
-Deploying as a non-root user is the recommended approach. Root deploys trigger a warning and violate least-privilege principles. Create a dedicated SSH user on your VPS (`sshuser`) with Docker group membership, then deploy:
-
-```bash
-docker deploy --host ssh://sshuser@vps.example.com
-```
-
-Add a `deploy.yaml` to your project directory to avoid typing the host on every run:
-
-```yaml
-version: 1
-target:
-  host: ssh://sshuser@vps.example.com
-  path: /opt/myapp          # defaults to /opt/<project-dir-name>
-```
-
-Once `deploy.yaml` is present, just run:
-
-```bash
-docker deploy
-```
-
-See [PREREQUISITES.md](PREREQUISITES.md) for SSH key setup and passwordless sudo configuration.
-
-### Scenario 2: Flags-only (no deploy.yaml)
-
-Use flags for one-off deploys, CI environments, or when testing a new host without committing a config file:
-
-```bash
-docker deploy \
-  --host ssh://sshuser@vps.example.com \
-  --path /opt/myapp \
-  --force \
-  --compose-file docker-compose.prod.yml
-```
-
-`--force` skips the "target exists, replace?" confirmation prompt on repeat deploys. All flags take precedence over `deploy.yaml` values when both are present.
-
-### Scenario 3: Config-driven deploy (deploy.yaml)
-
-Use `deploy.yaml` for repeat deploys from the same directory. This example shows all supported fields:
-
-```yaml
-version: 1
-target:
-  host: ssh://sshuser@vps.example.com
-  path: /opt/myapp
-  compose_file: docker-compose.prod.yml
-  force: true
-  skip_env: false           # set true to preserve remote .env unchanged
-  health_timeout: 90        # seconds to wait for healthy status (default: 60)
-  health_interval: 10       # seconds between health polls (default: 5)
-  exclude:
-    - "tests/"
-    - "*.md"
-```
-
-Then deploy:
-
-```bash
-docker deploy
-```
-
-Use `--verbose` to see each file transferred and each SSH command executed during the deploy.
-
-See [DEPLOY_CONFIG.md](DEPLOY_CONFIG.md) for the full configuration reference.
+See [PREREQUISITES.md](PREREQUISITES.md) for SSH key setup and passwordless sudo configuration. For all usage scenarios — `deploy.yaml` config, custom paths, excludes, the `validate` subcommand, and more — see [USAGE.md](USAGE.md).
 
 ## Learn More
 
