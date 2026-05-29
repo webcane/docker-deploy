@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-stopped_at: Phase 16 complete
-last_updated: "2026-05-27T09:00:00Z"
-last_activity: 2026-05-27 -- Phase 16 complete (release-tooling-enhancement — Wave 0 checks, linter coverage)
+status: planned
+stopped_at: Phase 14 planned
+last_updated: "2026-05-29T00:00:00Z"
+last_activity: 2026-05-29 -- Phase 14 planned (ssh-config-host-alias-resolution — 2 plans, 1 wave)
 progress:
   total_phases: 16
   completed_phases: 12
-  total_plans: 50
+  total_plans: 52
   completed_plans: 52
   percent: 75
 ---
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 14 of 15 (SSH Config Host Alias Resolution) — NOT STARTED
-Plan: 00 of TBD complete
-Status: Ready to plan/execute
+Phase: 14 of 15 (SSH Config Host Alias Resolution) — PLANNED
+Plan: 00 of 2 complete
+Status: Ready to execute
 Last activity: 2026-05-27 - Completed quick task 260527-bsi: Add Apple Silicon Homebrew note to INSTALL.md
 Resume file: None
 
