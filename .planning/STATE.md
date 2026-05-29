@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planned
-stopped_at: Phase 14 planned
+status: complete
+stopped_at: Phase 14 complete
 last_updated: "2026-05-29T00:00:00Z"
-last_activity: 2026-05-29 -- Phase 14 planned (ssh-config-host-alias-resolution — 2 plans, 1 wave)
+last_activity: 2026-05-29 -- Phase 14 complete (ssh-config-host-alias-resolution — 2/2 plans, verification passed)
 progress:
   total_phases: 16
-  completed_phases: 12
-  total_plans: 52
-  completed_plans: 52
-  percent: 75
+  completed_phases: 13
+  total_plans: 54
+  completed_plans: 54
+  percent: 81
 ---
 
 # Project State
@@ -22,17 +22,17 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
 **Current focus:** Phase 14 — SSH Config Host Alias Resolution
-**Shipped:** Phase 16 — Release Tooling Enhancement complete 2026-05-27
+**Shipped:** Phase 14 — SSH Config Host Alias Resolution complete 2026-05-29
 
 ## Current Position
 
-Phase: 14 of 15 (SSH Config Host Alias Resolution) — PLANNED
-Plan: 00 of 2 complete
-Status: Ready to execute
-Last activity: 2026-05-27 - Completed quick task 260527-bsi: Add Apple Silicon Homebrew note to INSTALL.md
+Phase: 14 of 15 (SSH Config Host Alias Resolution) — COMPLETE
+Plan: 2 of 2 complete
+Status: Verification passed; ready for Phase 15
+Last activity: 2026-05-29 - Phase 14 complete — SSH config alias resolution + context-aware deploy.yaml errors
 Resume file: None
 
-Progress: [█████████░] 91%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 

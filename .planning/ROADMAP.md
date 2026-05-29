@@ -24,7 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall (completed 2026-05-23)
 - [x] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link (completed 2026-05-24)
 - [x] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection (completed 2026-05-26)
-- [ ] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL
+- [x] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL — completed 2026-05-29
 - [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
 - [x] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body (completed 2026-05-27)
 
@@ -364,8 +364,8 @@ Plans:
   11. Only activates on paths that require sudo; user-writable paths are unaffected
 
 Plans:
-- [ ] 14-01-PLAN.md — SSH config alias resolution (`~/.ssh/config` parser, HostName/User/Port lookup, fallback to defaults)
-- [ ] 14-02-PLAN.md — Distinguish file-not-found vs host-not-set in config.Resolve() / runDeploy error path
+- [x] 14-01-PLAN.md — SSH config alias resolution (`~/.ssh/config` parser, HostName/User/Port lookup, fallback to defaults)
+- [x] 14-02-PLAN.md — Distinguish file-not-found vs host-not-set in config.Resolve() / runDeploy error path
 - [ ] 14-03-PLAN.md — Keyring integration (`go-keyring` or `99designs/keyring`, prompt-and-save flow, `--clear-credentials`, graceful fallback)
 
 ### Phase 15: Deploy Healthcheck Config Format
