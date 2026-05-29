@@ -20,5 +20,18 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
+# Pre-pull test images so docker compose up finds them cached (avoids Docker Hub
+# rate limits and pull timeouts during test execution). Retry up to 3 times to
+# handle transient registry errors.
+for image in nginx:alpine busybox; do
+    for attempt in 1 2 3; do
+        if docker pull "$image"; then
+            break
+        fi
+        echo "WARNING: pull $image attempt $attempt failed, retrying..." >&2
+        sleep 5
+    done
+done
+
 # Start sshd in foreground
 exec /usr/sbin/sshd -D -e
