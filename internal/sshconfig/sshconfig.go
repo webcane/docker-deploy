@@ -117,6 +117,10 @@ func LookupHost(configPath, alias string) (HostEntry, bool) { //nolint:gocognit 
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return HostEntry{}, false
+	}
+
 	// Handle the last block in the file (no subsequent "host" keyword to trigger found).
 	if active && !found {
 		found = true
