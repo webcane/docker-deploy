@@ -762,6 +762,74 @@ path: /opt/myapp
 	})
 }
 
+// --- Alias resolution tests (14-01) ---
+
+// TestResolve_AliasResolved verifies that resolveHostString resolves a bare
+// alias (no ssh:// prefix) via LookupHost to the real HostName/User/Port.
+func TestResolve_AliasResolved(t *testing.T) {
+	cfg := `Host minipc
+  HostName 192.168.1.50
+  User alice
+  Port 2222
+`
+	dir := t.TempDir()
+	tmpCfg := filepath.Join(dir, "ssh_config")
+	if err := os.WriteFile(tmpCfg, []byte(cfg), 0600); err != nil {
+		t.Fatalf("writing ssh config: %v", err)
+	}
+
+	h, err := resolveHostString("minipc", tmpCfg)
+	if err != nil {
+		t.Fatalf("resolveHostString() unexpected error: %v", err)
+	}
+	if h.Hostname != "192.168.1.50" {
+		t.Errorf("Hostname = %q, want %q", h.Hostname, "192.168.1.50")
+	}
+	if h.User != "alice" {
+		t.Errorf("User = %q, want %q", h.User, "alice")
+	}
+	if h.Port != 2222 {
+		t.Errorf("Port = %d, want 2222", h.Port)
+	}
+}
+
+// TestResolve_AliasNotFound verifies that resolveHostString returns an error
+// containing "alias %q not found in" when the alias has no match.
+func TestResolve_AliasNotFound(t *testing.T) {
+	dir := t.TempDir()
+	tmpCfg := filepath.Join(dir, "ssh_config")
+	// Empty config file — no Host blocks.
+	if err := os.WriteFile(tmpCfg, []byte(""), 0600); err != nil {
+		t.Fatalf("writing ssh config: %v", err)
+	}
+
+	_, err := resolveHostString("ghost", tmpCfg)
+	if err == nil {
+		t.Fatal("resolveHostString() expected error for unknown alias, got nil")
+	}
+	if !strings.Contains(err.Error(), `alias "ghost" not found`) {
+		t.Errorf("error = %q, want it to contain 'alias \"ghost\" not found'", err.Error())
+	}
+}
+
+// TestResolve_SSHURLUnchanged verifies that an ssh:// URL is passed directly
+// to ParseHost without calling LookupHost (existing behaviour unchanged).
+func TestResolve_SSHURLUnchanged(t *testing.T) {
+	h, err := resolveHostString("ssh://bob@myhost.example.com:22", "/nonexistent/config")
+	if err != nil {
+		t.Fatalf("resolveHostString() unexpected error: %v", err)
+	}
+	if h.User != "bob" {
+		t.Errorf("User = %q, want %q", h.User, "bob")
+	}
+	if h.Hostname != "myhost.example.com" {
+		t.Errorf("Hostname = %q, want %q", h.Hostname, "myhost.example.com")
+	}
+	if h.Port != 22 {
+		t.Errorf("Port = %d, want 22", h.Port)
+	}
+}
+
 // TestLoadFile_CwdRelative verifies that LoadFile constructs the config file path
 // relative to the provided cwd argument, not from os.Getwd() or a hardcoded path.
 // This matters for subcommand callers (e.g. validate) that pass an explicit cwd.
