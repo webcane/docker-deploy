@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,10 +46,11 @@ func LookupHost(configPath, alias string) (HostEntry, bool) { //nolint:gocognit 
 	defer f.Close() //nolint:errcheck
 
 	var (
-		entry   HostEntry
-		active  bool
-		found   bool
-		scanner = bufio.NewScanner(f)
+		entry            HostEntry
+		active           bool
+		found            bool
+		rawIdentityFiles []string
+		scanner          = bufio.NewScanner(f)
 	)
 
 scan:
@@ -112,7 +114,7 @@ scan:
 			}
 		case "identityfile":
 			if active && !found {
-				entry.IdentityFiles = append(entry.IdentityFiles, expandPath(value))
+				rawIdentityFiles = append(rawIdentityFiles, value)
 			}
 		}
 	}
@@ -133,6 +135,20 @@ scan:
 	// Per D-07: if no HostName directive was found, use the alias label itself.
 	if entry.HostName == "" {
 		entry.HostName = alias
+	}
+
+	// Expand IdentityFile paths now that HostName and User are fully resolved.
+	home, _ := os.UserHomeDir()
+	localUser := ""
+	if u, err := user.Current(); err == nil {
+		localUser = u.Username
+	}
+	portStr := "22"
+	if entry.Port != 0 {
+		portStr = strconv.Itoa(entry.Port)
+	}
+	for _, raw := range rawIdentityFiles {
+		entry.IdentityFiles = append(entry.IdentityFiles, expandPath(raw, home, localUser, entry.HostName, entry.User, portStr))
 	}
 
 	return entry, true
@@ -177,16 +193,21 @@ func hostMatches(pattern, hostname string) bool {
 	return err == nil && matched
 }
 
-// expandPath expands ~ to the user home directory in SSH config paths.
-func expandPath(path string) string {
+// expandPath expands ~ and OpenSSH %-tokens in an SSH config path.
+// Tokens: %d=homeDir, %u=localUser, %h=hostname, %r=remoteUser, %p=port, %%=literal %.
+func expandPath(path, homeDir, localUser, hostname, remoteUser, port string) string {
 	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
+		path = filepath.Join(homeDir, path[2:])
 	}
-	return path
+	r := strings.NewReplacer(
+		"%%", "%",
+		"%d", homeDir,
+		"%u", localUser,
+		"%h", hostname,
+		"%r", remoteUser,
+		"%p", port,
+	)
+	return r.Replace(path)
 }
 
 // defaultIdentityFiles returns the default SSH private key paths that OpenSSH
