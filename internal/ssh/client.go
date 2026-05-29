@@ -149,7 +149,7 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint
 		// TCP connection leaks indefinitely (CLAUDE.md Rule 2 / CR-01).
 		go func() {
 			if r := <-ch; r.client != nil {
-				r.client.Close()
+				_ = r.client.Close()
 			}
 		}()
 		return nil, fmt.Errorf("SSH connection cancelled: %w", ctx.Err())
@@ -158,7 +158,7 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint
 		// when (if) it eventually completes the dial.
 		go func() {
 			if r := <-ch; r.client != nil {
-				r.client.Close()
+				_ = r.client.Close()
 			}
 		}()
 		return nil, fmt.Errorf("SSH connection timed out after %v", timeout)

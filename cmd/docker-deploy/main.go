@@ -239,7 +239,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, skipE
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
-		return config.NoHostError(fileExisted, cwd)
+		return fmt.Errorf("%w", config.NoHostError(fileExisted, cwd))
 	}
 
 	// 5. Build ssh.DialConfig from the resolved config.
@@ -248,11 +248,11 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, skipE
 		port = 22
 	}
 	dialCfg := sshpkg.DialConfig{
-		User:     resolved.Host.User,
-		Hostname: resolved.Host.Hostname,
-		Port:     port,
-		Timeout:  sshDialTimeout,
-		Stdin:    os.Stdin,
+		User:       resolved.Host.User,
+		Hostname:   resolved.Host.Hostname,
+		Port:       port,
+		Timeout:    sshDialTimeout,
+		Stdin:      os.Stdin,
 		UserOutput: os.Stderr,
 	}
 
@@ -314,7 +314,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
-		return config.NoHostError(fileExisted, cwd)
+		return fmt.Errorf("%w", config.NoHostError(fileExisted, cwd))
 	}
 
 	// 4b. Validate that ComposeFile contains no path separators (T-04-03-01).
@@ -333,11 +333,11 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		port = 22
 	}
 	dialCfg := sshpkg.DialConfig{
-		User:     resolved.Host.User,
-		Hostname: resolved.Host.Hostname,
-		Port:     port,
-		Timeout:  sshDialTimeout,
-		Stdin:    os.Stdin,
+		User:       resolved.Host.User,
+		Hostname:   resolved.Host.Hostname,
+		Port:       port,
+		Timeout:    sshDialTimeout,
+		Stdin:      os.Stdin,
 		UserOutput: os.Stderr,
 	}
 

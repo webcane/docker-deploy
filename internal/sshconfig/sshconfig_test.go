@@ -122,7 +122,7 @@ func TestLookupHost_WildcardBlock(t *testing.T) {
 // TestLoadSigners_DelegatesLookupHost verifies that LoadSigners still loads
 // signers after the refactor to use LookupHost internally.
 // This test writes a real (generated) key so it verifies end-to-end loading.
-func TestLoadSigners_DelegatesLookupHost(t *testing.T) {
+func TestLoadSigners_DelegatesLookupHost(_ *testing.T) {
 	// Use a non-existent config path; LoadSigners should fall back to
 	// defaultIdentityFiles() gracefully — we just verify no panic.
 	signers := LoadSigners("/nonexistent/path", "anyhost")
