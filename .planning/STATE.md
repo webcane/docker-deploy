@@ -150,3 +150,5 @@ Stopped at: Phase 16 context gathered
 Resume file: None
 Last activity: 2026-05-26 - Phase 13 Plan 06: path-aware sudo probe; writable paths bypass SudoExec entirely
 | 2026-05-24 | fast | add /release-tag skill | ✅ |
+| 2026-05-29 | fast | fix DinD DNS - add 8.8.8.8/1.1.1.1 to daemon.json to resolve registry pull timeouts | ✅ |
+| 2026-05-29 | fast | pre-pull nginx:alpine and busybox in entrypoint to avoid Docker Hub rate limits during IT | ✅ |
