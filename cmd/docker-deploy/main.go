@@ -158,7 +158,7 @@ func runValidate() error {
 	projectName := filepath.Base(cwd)
 
 	// 4. Load deploy.yaml.
-	fileConfig, err := config.LoadFile(cwd)
+	fileConfig, _, err := config.LoadFile(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return fmt.Errorf("loading deploy.yaml: %w", err)
@@ -217,7 +217,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, skipE
 	projectName := filepath.Base(cwd)
 
 	// 2. Load deploy.yaml from the current working directory.
-	fileConfig, err := config.LoadFile(cwd)
+	fileConfig, fileExisted, err := config.LoadFile(cwd)
 	if err != nil {
 		return fmt.Errorf("loading deploy.yaml: %w", err)
 	}
@@ -240,7 +240,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, skipE
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
-		return fmt.Errorf("no host configured: use --host flag or set target.host in deploy.yaml")
+		return config.NoHostError(fileExisted, cwd)
 	}
 
 	// 5. Build ssh.DialConfig from the resolved config.
@@ -293,7 +293,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	projectName := filepath.Base(cwd)
 
 	// 2. Load deploy.yaml from the current working directory.
-	fileConfig, err := config.LoadFile(cwd)
+	fileConfig, fileExisted, err := config.LoadFile(cwd)
 	if err != nil {
 		return fmt.Errorf("loading deploy.yaml: %w", err)
 	}
@@ -315,7 +315,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 4. Validate that a host was resolved.
 	if resolved.Host.Hostname == "" {
-		return fmt.Errorf("no host configured: use --host flag or set target.host in deploy.yaml")
+		return config.NoHostError(fileExisted, cwd)
 	}
 
 	// 4b. Validate that ComposeFile contains no path separators (T-04-03-01).
