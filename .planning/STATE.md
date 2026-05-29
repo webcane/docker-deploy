@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Phase 14 complete
-last_updated: "2026-05-29T00:00:00Z"
-last_activity: 2026-05-29 -- Phase 14 complete (ssh-config-host-alias-resolution — 2/2 plans, verification passed)
+last_updated: "2026-05-29T13:35:19Z"
+last_activity: 2026-05-29 -- Released v0.11.0
 progress:
   total_phases: 16
   completed_phases: 13
