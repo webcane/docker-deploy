@@ -149,25 +149,42 @@ func ParseHost(rawURL string) (Host, error) {
 	}, nil
 }
 
-// LoadFile reads deploy.yaml from dir. If no deploy.yaml exists, it returns a
-// zero FileConfig with no error. A malformed YAML file returns an error rather
-// than panicking (T-02-01).
-func LoadFile(dir string) (FileConfig, error) {
+// LoadFile reads deploy.yaml from dir. The returned bool reports whether the file
+// was found on disk (true = file existed, false = file absent or unreadable for
+// a non-NotExist reason). A malformed YAML file returns (FileConfig{}, true, error).
+// If no deploy.yaml exists, it returns (FileConfig{}, false, nil).
+// Non-NotExist read errors (e.g. permission denied) return (FileConfig{}, false, error)
+// — treating the file as absent is conservative; callers emit the not-found message
+// variant which is less misleading than a partial state message.
+func LoadFile(dir string) (FileConfig, bool, error) {
 	path := filepath.Join(dir, "deploy.yaml")
 	data, err := os.ReadFile(path) //nolint:gosec // path is filepath.Join(dir, "deploy.yaml") where dir comes from os.Getwd(), a trusted location
 	if err != nil {
 		if os.IsNotExist(err) {
-			return FileConfig{}, nil
+			return FileConfig{}, false, nil
 		}
-		return FileConfig{}, fmt.Errorf("reading deploy.yaml: %w", err)
+		return FileConfig{}, false, fmt.Errorf("reading deploy.yaml: %w", err)
 	}
 
 	var fc FileConfig
 	if err := yaml.Unmarshal(data, &fc); err != nil {
-		return FileConfig{}, fmt.Errorf("parsing deploy.yaml: %w", err)
+		return FileConfig{}, true, fmt.Errorf("parsing deploy.yaml: %w", err)
 	}
 
-	return fc, nil
+	return fc, true, nil
+}
+
+// NoHostError returns a context-specific error for when no SSH host is configured.
+// When fileExisted is false (deploy.yaml was not found), the error indicates the
+// file is missing and suggests using the --host flag. When fileExisted is true
+// (the file was read but target.host is empty), the error points to the deploy.yaml
+// field that must be set. The dir parameter is included in the not-found message
+// so users know which directory was searched.
+func NoHostError(fileExisted bool, dir string) error {
+	if !fileExisted {
+		return fmt.Errorf("no deploy.yaml found in %s and no --host flag provided", dir)
+	}
+	return fmt.Errorf("deploy.yaml: target.host is not set")
 }
 
 // mergeExcludes builds the final exclude list by starting with the built-in

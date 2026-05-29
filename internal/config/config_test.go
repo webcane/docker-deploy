@@ -696,7 +696,7 @@ func TestResolveHealthConfig(t *testing.T) {
 func TestLoadFile(t *testing.T) { //nolint:gocognit // comprehensive load-file test covering missing, malformed, and all supported YAML fields
 	t.Run("no deploy.yaml returns zero config no error", func(t *testing.T) {
 		dir := t.TempDir()
-		fc, err := LoadFile(dir)
+		fc, _, err := LoadFile(dir)
 		if err != nil {
 			t.Fatalf("LoadFile() unexpected error: %v", err)
 		}
@@ -715,7 +715,7 @@ target:
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		fc, err := LoadFile(dir)
+		fc, _, err := LoadFile(dir)
 		if err != nil {
 			t.Fatalf("LoadFile() unexpected error: %v", err)
 		}
@@ -735,7 +735,7 @@ target:
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(":\t:bad yaml:::"), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		_, err := LoadFile(dir)
+		_, _, err := LoadFile(dir)
 		if err == nil {
 			t.Fatal("LoadFile() with malformed YAML should return error")
 		}
@@ -751,7 +751,7 @@ path: /opt/myapp
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		fc, err := LoadFile(dir)
+		fc, _, err := LoadFile(dir)
 		if err != nil {
 			t.Fatalf("LoadFile() unexpected error: %v", err)
 		}
@@ -760,6 +760,87 @@ path: /opt/myapp
 			t.Errorf("flat 'host' key should not populate Target.Host, got %q", fc.Target.Host)
 		}
 	})
+}
+
+// --- NoHostError / LoadFile bool tests (14-02) ---
+
+// TestLoadFile_Absent verifies that LoadFile returns fileExisted=false and no error
+// when no deploy.yaml is present in the directory.
+func TestLoadFile_Absent(t *testing.T) {
+	dir := t.TempDir()
+	_, fileExisted, err := LoadFile(dir)
+	if err != nil {
+		t.Fatalf("LoadFile() unexpected error: %v", err)
+	}
+	if fileExisted {
+		t.Errorf("fileExisted = true, want false for absent deploy.yaml")
+	}
+}
+
+// TestLoadFile_Present verifies that LoadFile returns fileExisted=true, no error,
+// and a populated FileConfig when a valid deploy.yaml is present.
+func TestLoadFile_Present(t *testing.T) {
+	dir := t.TempDir()
+	content := `version: 1
+target:
+  host: ssh://user@myhost.com:22
+  path: /opt/myapp
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	fc, fileExisted, err := LoadFile(dir)
+	if err != nil {
+		t.Fatalf("LoadFile() unexpected error: %v", err)
+	}
+	if !fileExisted {
+		t.Errorf("fileExisted = false, want true when deploy.yaml is present")
+	}
+	if fc.Target.Host != "ssh://user@myhost.com:22" {
+		t.Errorf("Target.Host = %q, want %q", fc.Target.Host, "ssh://user@myhost.com:22")
+	}
+}
+
+// TestLoadFile_Malformed verifies that LoadFile returns fileExisted=true and an error
+// when the deploy.yaml file exists but contains invalid YAML.
+func TestLoadFile_Malformed(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte("not: valid: yaml: ["), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	_, fileExisted, err := LoadFile(dir)
+	if err == nil {
+		t.Fatal("LoadFile() expected error for malformed YAML, got nil")
+	}
+	if !fileExisted {
+		t.Errorf("fileExisted = false, want true when deploy.yaml exists but is malformed")
+	}
+}
+
+// TestNoHostError_FileAbsent verifies that NoHostError with fileExisted=false returns
+// the "no deploy.yaml found in <dir> and no --host flag provided" message.
+func TestNoHostError_FileAbsent(t *testing.T) {
+	err := NoHostError(false, "/some/dir")
+	if err == nil {
+		t.Fatal("NoHostError() returned nil, want non-nil error")
+	}
+	want := "no deploy.yaml found in /some/dir and no --host flag provided"
+	if err.Error() != want {
+		t.Errorf("NoHostError(false, %q) = %q, want %q", "/some/dir", err.Error(), want)
+	}
+}
+
+// TestNoHostError_FilePresent verifies that NoHostError with fileExisted=true returns
+// the "deploy.yaml: target.host is not set" message.
+func TestNoHostError_FilePresent(t *testing.T) {
+	err := NoHostError(true, "/any")
+	if err == nil {
+		t.Fatal("NoHostError() returned nil, want non-nil error")
+	}
+	want := "deploy.yaml: target.host is not set"
+	if err.Error() != want {
+		t.Errorf("NoHostError(true, %q) = %q, want %q", "/any", err.Error(), want)
+	}
 }
 
 // --- Alias resolution tests (14-01) ---
@@ -844,7 +925,7 @@ target:
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		fc, err := LoadFile(dir)
+		fc, _, err := LoadFile(dir)
 		if err != nil {
 			t.Fatalf("LoadFile(%q) unexpected error: %v", dir, err)
 		}
@@ -858,7 +939,7 @@ target:
 
 	t.Run("returns zero FileConfig and nil error when directory has no deploy.yaml", func(t *testing.T) {
 		emptyDir := t.TempDir()
-		fc, err := LoadFile(emptyDir)
+		fc, _, err := LoadFile(emptyDir)
 		if err != nil {
 			t.Fatalf("LoadFile(%q) unexpected error for empty dir: %v", emptyDir, err)
 		}
