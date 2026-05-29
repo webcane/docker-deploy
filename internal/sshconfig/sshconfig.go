@@ -51,6 +51,7 @@ func LookupHost(configPath, alias string) (HostEntry, bool) { //nolint:gocognit 
 		scanner = bufio.NewScanner(f)
 	)
 
+scan:
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
@@ -83,9 +84,8 @@ func LookupHost(configPath, alias string) (HostEntry, bool) { //nolint:gocognit 
 			if active && !found {
 				found = true
 			}
-			// If we already found our block, stop scanning.
 			if found {
-				break
+				break scan // exit the for loop — bare break would only exit the switch
 			}
 			// SSH config allows multiple patterns: "Host a b *.c"
 			active = false
