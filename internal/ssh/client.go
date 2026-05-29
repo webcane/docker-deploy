@@ -43,9 +43,11 @@ type DialConfig struct {
 	// Pass os.Stdin from callers; tests pass a *strings.Reader.
 	Stdin io.Reader
 
-	// Stdout is used to print TOFU prompts and key-mismatch warnings.
-	// Pass os.Stderr from callers; tests may capture this.
-	Stdout io.Writer
+	// UserOutput is used to print TOFU prompts and key-mismatch warnings.
+	// Named UserOutput (not Stdout) to signal it is a user-facing message stream,
+	// not the process stdout. Pass os.Stderr from callers; tests may capture this.
+	// (WR-02: renamed from Stdout to avoid confusion with process stdout.)
+	UserOutput io.Writer
 }
 
 // Dial opens an authenticated SSH connection to the host described by cfg.
@@ -67,8 +69,8 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint
 	if cfg.Stdin == nil {
 		cfg.Stdin = os.Stdin
 	}
-	if cfg.Stdout == nil {
-		cfg.Stdout = os.Stderr
+	if cfg.UserOutput == nil {
+		cfg.UserOutput = os.Stderr
 	}
 
 	// Step 1: Build auth methods (agent → config keys; no password).
@@ -108,9 +110,9 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint
 			var typed1 *KeyMismatchError
 			switch {
 			case errors.As(cbErr, &typed):
-				return handleTOFU(cfg.Stdin, cfg.Stdout, knownHostsPath, hostname, remote, key, typed)
+				return handleTOFU(cfg.Stdin, cfg.UserOutput, knownHostsPath, hostname, remote, key, typed)
 			case errors.As(cbErr, &typed1):
-				return handleKeyMismatch(cfg.Stdout, cfg.Hostname, typed1)
+				return handleKeyMismatch(cfg.UserOutput, cfg.Hostname, typed1)
 			default:
 				return cbErr
 			}
@@ -142,8 +144,23 @@ func Dial(ctx context.Context, cfg DialConfig) (*gossh.Client, error) { //nolint
 
 	select {
 	case <-ctx.Done():
+		// Drain and close in background: the goroutine continues to completion
+		// and returns a *gossh.Client to the channel; if we don't drain it the
+		// TCP connection leaks indefinitely (CLAUDE.md Rule 2 / CR-01).
+		go func() {
+			if r := <-ch; r.client != nil {
+				r.client.Close()
+			}
+		}()
 		return nil, fmt.Errorf("SSH connection cancelled: %w", ctx.Err())
 	case <-time.After(timeout):
+		// Same drain pattern — goroutine is still running; close the client
+		// when (if) it eventually completes the dial.
+		go func() {
+			if r := <-ch; r.client != nil {
+				r.client.Close()
+			}
+		}()
 		return nil, fmt.Errorf("SSH connection timed out after %v", timeout)
 	case r := <-ch:
 		if r.err != nil {
@@ -182,6 +199,11 @@ func buildAuthMethods(hostname, user string) ([]gossh.AuthMethod, error) {
 // loadSSHConfigKeys reads ~/.ssh/config, finds the block matching hostname,
 // and loads each IdentityFile key. Keys that fail to load (e.g. wrong passphrase)
 // are silently skipped.
+//
+// Note: the user parameter is intentionally ignored. OpenSSH config User directives
+// within Host blocks are not yet parsed; identity files are resolved by hostname only.
+// See: internal/sshconfig/sshconfig.go — User-aware parsing is a future enhancement.
+// (IN-04)
 func loadSSHConfigKeys(hostname, _ string) []gossh.Signer {
 	home, err := os.UserHomeDir()
 	if err != nil {

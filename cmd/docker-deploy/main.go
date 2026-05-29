@@ -31,9 +31,9 @@ var version = "dev"
 var gitCommit = "unknown"
 var buildTime = "unknown"
 
-// sshDialTimeout is the maximum time to wait for an SSH connection to establish.
-// This timeout covers the TCP dial phase; SSH protocol negotiation and authentication
-// may take additional time (IN-01).
+// sshDialTimeout is the maximum time to wait for the full SSH handshake
+// (TCP dial + protocol negotiation + authentication) to complete.
+// Enforced via goroutine + select in internal/ssh.Dial per CLAUDE.md Rule 2.
 const sshDialTimeout = 10 * time.Second
 
 func main() {
@@ -149,8 +149,9 @@ func runValidate() error {
 	// 2. Check that deploy.yaml exists before calling LoadFile (D-07).
 	// os.Stat is used rather than LoadFile so we can distinguish "missing" from
 	// "malformed" and emit the exact "deploy.yaml not found" message.
+	// Note: do NOT print the error here; cobra's RunE handler prints the returned
+	// error automatically (WR-01: avoid double-printing).
 	if _, err := os.Stat(filepath.Join(cwd, "deploy.yaml")); errors.Is(err, fs.ErrNotExist) {
-		fmt.Fprintln(os.Stderr, "deploy.yaml not found")
 		return fmt.Errorf("deploy.yaml not found")
 	}
 
@@ -160,14 +161,12 @@ func runValidate() error {
 	// 4. Load deploy.yaml.
 	fileConfig, _, err := config.LoadFile(cwd)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
 		return fmt.Errorf("loading deploy.yaml: %w", err)
 	}
 
 	// 5. Resolve config with zero FlagOpts — validate flag values only come from the file.
 	_, err = config.Resolve(config.FlagOpts{}, fileConfig, projectName, cwd)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
 		return fmt.Errorf("resolving config: %w", err)
 	}
 
@@ -254,7 +253,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, skipE
 		Port:     port,
 		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
-		Stdout:   os.Stderr,
+		UserOutput: os.Stderr,
 	}
 
 	// 6. Dial the SSH server.
@@ -339,7 +338,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		Port:     port,
 		Timeout:  sshDialTimeout,
 		Stdin:    os.Stdin,
-		Stdout:   os.Stderr,
+		UserOutput: os.Stderr,
 	}
 
 	// 6. Dial the SSH server.

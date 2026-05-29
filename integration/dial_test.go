@@ -22,7 +22,7 @@ func TestDial_Timeout(t *testing.T) {
 		Timeout:        500 * time.Millisecond,
 		KnownHostsPath: emptyKnownHosts(t),
 		Stdin:          strings.NewReader(""),
-		Stdout:         os.Stderr,
+		UserOutput:     os.Stderr,
 	}
 	_, err := internalssh.Dial(context.Background(), cfg)
 	if err == nil {
@@ -43,7 +43,7 @@ func TestDial_UnknownHost_TOFU(t *testing.T) {
 		KnownHostsPath: emptyKnownHosts(t),
 		Timeout:        15 * time.Second,
 		Stdin:          strings.NewReader("no\n"),
-		Stdout:         os.Stderr,
+		UserOutput:     os.Stderr,
 	}
 	_, err := internalssh.Dial(context.Background(), cfg)
 	if err == nil {
@@ -63,7 +63,7 @@ func TestDial_UnknownHost_TOFU_Accepted(t *testing.T) {
 		KnownHostsPath: khFile,
 		Timeout:        15 * time.Second,
 		Stdin:          strings.NewReader("yes\n"),
-		Stdout:         os.Stderr,
+		UserOutput:     os.Stderr,
 	}
 	// Ignore dial error — auth will fail since no key is configured. What matters
 	// is that the TOFU path fires and writes to known_hosts.
@@ -93,7 +93,7 @@ func TestDial_Success(t *testing.T) {
 		KnownHostsPath: khFile,
 		Timeout:        15 * time.Second,
 		Stdin:          strings.NewReader(""),
-		Stdout:         os.Stderr,
+		UserOutput:     os.Stderr,
 	}
 
 	client, err := internalssh.Dial(context.Background(), cfg)

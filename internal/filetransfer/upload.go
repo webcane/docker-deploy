@@ -114,7 +114,9 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 		return nil
 	}
 	if verbose {
-		fmt.Fprintf(os.Stderr, "  → exit 1 (direct failed, trying sudo)\n")
+		// Use a generic message — the actual failure reason may not be exit 1
+		// (e.g. connection reset, session limit). WR-06: avoid hardcoding "exit 1".
+		fmt.Fprintf(os.Stderr, "  → direct failed, trying sudo\n")
 	}
 
 	// Step 2: Cached password from a previous interactive prompt.
@@ -449,20 +451,19 @@ func Upload(ctx context.Context, client *gossh.Client, localDir, remoteBase stri
 	// back it up before the atomic swap. The swap replaces the entire directory, which
 	// would silently delete the remote .env even though the operator excluded it
 	// intentionally (e.g. via --skip-env). The backup is restored after the swap.
+	// Use ShouldExclude rather than an exact-string scan so that glob patterns
+	// (e.g. ".env*") also trigger the backup (WR-03). ShouldExclude matches the
+	// same patterns that WalkFiles uses to exclude files, keeping the two paths
+	// consistent.
 	envBackupPath := ""
-	if existsBefore { //nolint:nestif // .env backup logic must check all excludes and conditionally copy — splitting into a helper would need the same parameters
-		for _, exc := range excludes {
-			if exc == ".env" {
-				envPath := path.Join(remoteBase, ".env")
-				out, checkErr := sshExecOutput(client, fmt.Sprintf("test -f %s && echo exists || echo absent", ShellQuote(envPath)))
-				if checkErr == nil && strings.HasPrefix(strings.TrimSpace(out), "exists") {
-					envBackupPath = "/tmp/docker-deploy-env-" + timestamp
-					if cpErr := sshRun(client, fmt.Sprintf("cp %s %s", ShellQuote(envPath), ShellQuote(envBackupPath)), nil); cpErr != nil {
-						fmt.Fprintf(os.Stderr, "WARNING: could not backup remote .env: %v; .env will not be preserved after deploy\n", cpErr)
-						envBackupPath = ""
-					}
-				}
-				break
+	if existsBefore && ShouldExclude(".env", excludes) { //nolint:nestif // .env backup logic requires checking remote file existence and conditionally copying — splitting into a helper would need the same parameters
+		envPath := path.Join(remoteBase, ".env")
+		out, checkErr := sshExecOutput(client, fmt.Sprintf("test -f %s && echo exists || echo absent", ShellQuote(envPath)))
+		if checkErr == nil && strings.HasPrefix(strings.TrimSpace(out), "exists") {
+			envBackupPath = "/tmp/docker-deploy-env-" + timestamp
+			if cpErr := sshRun(client, fmt.Sprintf("cp %s %s", ShellQuote(envPath), ShellQuote(envBackupPath)), nil); cpErr != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: could not backup remote .env: %v; .env will not be preserved after deploy\n", cpErr)
+				envBackupPath = ""
 			}
 		}
 	}

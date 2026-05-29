@@ -319,35 +319,58 @@ func TestUploadAuthFallback_PasswordlessSudo(t *testing.T) {
 	}
 }
 
-// TestUploadAuthFallback_InteractivePassword verifies that when direct and
-// passwordless sudo fail, the function prompts for a password interactively.
-func TestUploadAuthFallback_InteractivePassword(t *testing.T) {
-	t.Skip("Interactive password prompt requires stdin mocking — to be implemented in GREEN phase")
-}
+// TestSudoExec_WrongPasswordRetry verifies that SudoExec retries the interactive
+// password prompt up to 3 times when an incorrect password is supplied, and returns
+// an error containing "no valid auth path available" after exhausting all retries.
+// Uses promptSudoPasswordFunc injection (the same mechanism as TestSudoExec_SinglePromptMultiFile).
+func TestSudoExec_WrongPasswordRetry(t *testing.T) {
+	const wrongPassword = "wrong"
+	const correctPassword = "correct" // never supplied — all attempts use wrong password
 
-// TestUploadAuthFallback_InteractivePassword_WrongPassword verifies that incorrect
-// passwords are retried up to 3 times before failing.
-func TestUploadAuthFallback_InteractivePassword_WrongPassword(t *testing.T) {
-	t.Skip("Password retry logic — to be implemented in GREEN phase")
-}
+	srv := newMockSSHServer(nil)
+	// Direct fails; sudo -n fails; sudo -S always fails (wrong password).
+	srv.cmdExitCode = func(cmd string, stdin []byte) uint32 {
+		if strings.Contains(cmd, "sudo -S") {
+			if bytes.Contains(stdin, []byte(correctPassword)) {
+				return 0
+			}
+			return 1 // wrong password
+		}
+		if strings.Contains(cmd, "sudo -n") {
+			return 1
+		}
+		return 1 // direct fails
+	}
+	client := startMockSSHServer(t, srv)
 
-// TestUploadAuthFallback_InteractivePassword_Timeout verifies that if an interactive
-// password prompt times out, the upload fails gracefully.
-func TestUploadAuthFallback_InteractivePassword_Timeout(t *testing.T) {
-	t.Skip("Timeout handling — to be implemented in GREEN phase")
-}
+	var promptCallCount int64
+	origPrompt := promptSudoPasswordFunc
+	promptSudoPasswordFunc = func() (string, error) {
+		atomic.AddInt64(&promptCallCount, 1)
+		return wrongPassword, nil // always supply wrong password
+	}
+	defer func() { promptSudoPasswordFunc = origPrompt }()
 
-// TestUploadAuthFallback_RootUser verifies that when the SSH user is root, direct
-// copy is used without any sudo path and a danger warning is emitted.
-func TestUploadAuthFallback_RootUser(t *testing.T) {
-	t.Skip("Root user detection and warning — to be implemented in GREEN phase")
-}
+	warnedOnce := new(bool)
+	creds := new(SudoCreds)
+	err := SudoExec(client, "mkdir -p /opt/test", creds, warnedOnce, false)
+	if err == nil {
+		t.Fatal("expected error after 3 wrong-password attempts; got nil")
+	}
+	if !strings.Contains(err.Error(), "no valid auth path available") {
+		t.Errorf("expected 'no valid auth path available' in error; got: %v", err)
+	}
 
-// TestUploadAuthFallback_AllPathsExhausted verifies that when all auth paths fail
-// (no password, wrong password, or timeout), the error message clearly states which
-// paths were exhausted.
-func TestUploadAuthFallback_AllPathsExhausted(t *testing.T) {
-	t.Skip("All paths exhausted error message — to be implemented in GREEN phase")
+	// Prompt must have been called exactly 3 times (the retry limit).
+	count := atomic.LoadInt64(&promptCallCount)
+	if count != 3 {
+		t.Errorf("expected exactly 3 password prompt calls; got %d", count)
+	}
+
+	// creds.pw must remain nil — a wrong password must not be cached.
+	if creds.pw != nil {
+		t.Errorf("expected creds.pw to be nil after all wrong-password attempts; got %v", creds.pw)
+	}
 }
 
 // TestUploadFirstDeploy_RmBeforeMv is the regression test for the first-deploy

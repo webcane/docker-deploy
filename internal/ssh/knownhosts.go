@@ -9,10 +9,17 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
+
+// knownHostsMu protects appendKnownHost from concurrent writes.
+// Concurrent Dial calls on the same unknown host would both prompt the user
+// and both call appendKnownHost; without a lock the file can be corrupted
+// (CR-03). The mutex is package-level so all Dial invocations share it.
+var knownHostsMu sync.Mutex
 
 // UnknownHostError is returned when the remote host is not in known_hosts.
 // The caller (Dial) handles the TOFU prompt.
@@ -102,7 +109,11 @@ func asKeyError(err error, target **knownhosts.KeyError) bool {
 
 // appendKnownHost writes a valid known_hosts line for the given host and key
 // to knownHostsPath, appending to any existing content.
+// Protected by knownHostsMu to prevent concurrent-append file corruption (CR-03).
 func appendKnownHost(knownHostsPath string, hostname string, _ net.Addr, key gossh.PublicKey) error {
+	knownHostsMu.Lock()
+	defer knownHostsMu.Unlock()
+
 	f, err := os.OpenFile(knownHostsPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600) //nolint:gosec // knownHostsPath is derived from os.UserHomeDir(), a trusted location
 	if err != nil {
 		return fmt.Errorf("opening known_hosts for append: %w", err)

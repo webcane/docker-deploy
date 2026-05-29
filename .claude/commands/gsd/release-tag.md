@@ -26,6 +26,23 @@ This is the **sole entry point** for creating releases. Do not tag manually outs
 
 These checks run **before** any user-facing prompts or file changes. All three must pass before proceeding to Step 1.
 
+### Wave 0 Step 0 — Release-file cleanliness guard
+
+Before doing anything else, verify that the files modified by this release script have no uncommitted changes (WR-04: prevents accidentally staging pre-existing edits):
+
+```bash
+dirty=$(git diff --name-only HEAD -- README.md INSTALL.md .planning/STATE.md)
+if [ -n "$dirty" ]; then
+  echo "ABORT: release files have uncommitted changes — commit or stash first:"
+  echo "$dirty"
+  exit 1
+fi
+```
+
+If this check fails: print the abort message and stop with no file changes. Do not proceed to Step A.
+
+If this check passes: continue to Step A.
+
 ### Wave 0 Step A — Unit tests
 
 ```bash
@@ -110,12 +127,13 @@ Compute `$NEXT_TAG` (e.g. `v0.7.9`).
 
 ## Step 4 — Confirm before any changes
 
-Show the plan and ask for confirmation:
+Show the plan and ask for confirmation. Be explicit about the literal strings that will be replaced so the user can verify the scope (IN-03):
 
 ```
 Ready to release $NEXT_TAG:
-  • Update README.md: s/$CURRENT_TAG/$NEXT_TAG/g
-  • Update INSTALL.md: s/$CURRENT_TAG/$NEXT_TAG/g
+  • Update README.md: all occurrences of "$CURRENT_TAG" → "$NEXT_TAG"
+  • Update INSTALL.md: all occurrences of "$CURRENT_TAG" → "$NEXT_TAG"
+  • Update .planning/STATE.md: last_updated and last_activity fields only
   • git commit -m "chore: bump version to $NEXT_TAG"
   • git tag $NEXT_TAG
   • git push && git push --tags

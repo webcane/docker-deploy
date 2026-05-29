@@ -166,10 +166,14 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 // compose project and returns a list of container names.
 // T-05-03-01: projectName is wrapped in ShellQuote() before shell injection.
 func listContainers(runner sessionOpener, projectName string) ([]string, error) {
+	// Quote the entire filter token as one unit so the shell sees it as a single
+	// argument and Docker receives the value without surrounding single-quote chars
+	// (CR-02: ShellQuote must wrap the full label=key=value token, not just the value).
 	// Note: Docker label filter parsing splits on the first '=', so a projectName
 	// containing '=' would produce a malformed filter. Directory names with '=' are
 	// an edge case but worth documenting as a known Docker CLI limitation.
-	cmd := "docker ps -a --filter label=com.docker.compose.project=" + filetransfer.ShellQuote(projectName) + " --format '{{.Names}}'"
+	filterVal := "label=com.docker.compose.project=" + projectName
+	cmd := "docker ps -a --filter " + filetransfer.ShellQuote(filterVal) + " --format '{{.Names}}'"
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("creating session for docker ps: %w", err)

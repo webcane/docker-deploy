@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -221,10 +222,19 @@ func checkRootUser(cfg config.Config) CheckResult {
 //
 // Returns the CheckResult and any blocking error.
 func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
-	path := filetransfer.ShellQuote(cfg.Path)
+	targetQ := filetransfer.ShellQuote(cfg.Path)
 
-	// Try: is the directory already writable?
-	if err := runCmd(client, "test -w "+path); err == nil {
+	// WR-05: The atomic swap (mv remoteBase remoteBase-old) operates on entries
+	// WITHIN the parent directory — it requires the PARENT to be writable, not
+	// the target dir itself. A user-owned /opt/myapp passes "test -w /opt/myapp"
+	// but "mv /opt/myapp …" still fails because /opt is root-owned. Align the
+	// preflight check with Upload()'s probe (which uses path.Dir(remoteBase)).
+	// path (not filepath) is used — the remote is always Linux.
+	parentPath := path.Dir(cfg.Path)
+	parentQ := filetransfer.ShellQuote(parentPath)
+
+	// Try: is the target directory AND its parent already writable?
+	if err := runCmd(client, "test -w "+targetQ+" && test -w "+parentQ); err == nil {
 		return CheckResult{
 			Name:    "target-dir",
 			Status:  "pass",
@@ -232,10 +242,10 @@ func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 		}, nil
 	}
 
-	// Try: mkdir -p without sudo, then verify actual writability.
+	// Try: mkdir -p without sudo, then verify actual writability (both target and parent).
 	// mkdir -p succeeds for existing directories regardless of their permissions,
 	// so a subsequent test -w is required to confirm real write access.
-	if err := runCmd(client, "mkdir -p "+path+" && test -w "+path); err == nil {
+	if err := runCmd(client, "mkdir -p "+targetQ+" && test -w "+targetQ+" && test -w "+parentQ); err == nil {
 		return CheckResult{
 			Name:    "target-dir",
 			Status:  "pass",
@@ -245,7 +255,7 @@ func checkTargetDir(client SSHRunner, cfg config.Config) (CheckResult, error) {
 
 	// Try: passwordless sudo (sudo -n). This succeeds for users with NOPASSWD: ALL
 	// configured, indicating Upload() will not need to prompt for a password.
-	if err := runCmd(client, "sudo -n mkdir -p "+path); err == nil {
+	if err := runCmd(client, "sudo -n mkdir -p "+targetQ); err == nil {
 		return CheckResult{
 			Name:    "target-dir",
 			Status:  "pass",
