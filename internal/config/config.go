@@ -8,8 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/webcane/docker-deploy/internal/sshconfig"
 )
 
 // defaultExcludes is the built-in exclude list that is always active.
@@ -203,6 +206,55 @@ func mergeExcludes(fileExcludes, flagExcludes []string, skipEnv bool) []string {
 	return result
 }
 
+// sshConfigPath returns the canonical path to the user's SSH config file.
+// If os.UserHomeDir() fails (rare in practice), falls back to "~/.ssh/config"
+// as a literal string so that error paths still produce readable messages.
+func sshConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "~/.ssh/config"
+	}
+	return filepath.Join(home, ".ssh", "config")
+}
+
+// resolveHostString resolves a raw host value (either a bare alias or a full
+// ssh:// URL) to a Host struct.
+//
+// If raw has an ssh:// prefix, it is passed directly to ParseHost (existing
+// behaviour — D-03 fallthrough).
+//
+// Otherwise, raw is treated as an SSH config alias (D-01): LookupHost is
+// called with configPath; if no block matches, an error is returned with the
+// message: alias %q not found in <configPath> (D-03, D-04). If a block is
+// found, a synthetic ssh://[user@]hostname[:port] URL is constructed and
+// passed to ParseHost (D-03).
+//
+// Per D-12: HostEntry.HostName (the real hostname) is used as Hostname, not
+// the alias label, so known_hosts verification uses the correct key.
+func resolveHostString(raw, configPath string) (Host, error) {
+	if strings.HasPrefix(raw, "ssh://") {
+		return ParseHost(raw)
+	}
+
+	// Bare alias — look up in ssh config.
+	entry, found := sshconfig.LookupHost(configPath, raw)
+	if !found {
+		return Host{}, fmt.Errorf("alias %q not found in %s", raw, configPath)
+	}
+
+	// Build a synthetic ssh:// URL from the resolved HostEntry fields.
+	userPart := ""
+	if entry.User != "" {
+		userPart = entry.User + "@"
+	}
+	portPart := ""
+	if entry.Port != 0 {
+		portPart = fmt.Sprintf(":%d", entry.Port)
+	}
+	synthetic := "ssh://" + userPart + entry.HostName + portPart
+	return ParseHost(synthetic)
+}
+
 // Resolve applies three-tier precedence (flag > deploy.yaml > default) to
 // produce a fully resolved Config.
 //
@@ -237,13 +289,13 @@ func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string
 
 	switch {
 	case opts.Host != "":
-		h, err := ParseHost(opts.Host)
+		h, err := resolveHostString(opts.Host, sshConfigPath())
 		if err != nil {
 			return Config{}, fmt.Errorf("--host flag: %w", err)
 		}
 		cfg.Host = h
 	case file.Target.Host != "":
-		h, err := ParseHost(file.Target.Host)
+		h, err := resolveHostString(file.Target.Host, sshConfigPath())
 		if err != nil {
 			return Config{}, fmt.Errorf("deploy.yaml target.host: %w", err)
 		}
