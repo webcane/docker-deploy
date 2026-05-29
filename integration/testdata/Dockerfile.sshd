@@ -98,8 +98,10 @@ RUN useradd -m -s /bin/bash sudopassuser \
     && chown -R sudopassuser:sudopassuser /home/sudopassuser/.ssh
 
 # Docker daemon configuration for reliable DinD operation
+# dns overrides the Lima/Colima VM resolver (192.168.x.x) that is unreachable
+# from nested DinD containers, preventing registry pull timeouts.
 RUN mkdir -p /etc/docker \
-    && echo '{"storage-driver": "overlay2"}' > /etc/docker/daemon.json
+    && echo '{"storage-driver": "overlay2", "dns": ["8.8.8.8", "1.1.1.1"]}' > /etc/docker/daemon.json
 
 # Declare /var/lib/docker as a Docker volume so the overlay2 storage driver works
 # in nested DinD containers. The volume is backed by the Docker host's filesystem
