@@ -259,17 +259,19 @@ func resolveHostString(raw, configPath string) (Host, error) {
 		return Host{}, fmt.Errorf("alias %q not found in %s", raw, configPath)
 	}
 
-	// Build a synthetic ssh:// URL from the resolved HostEntry fields.
-	userPart := ""
-	if entry.User != "" {
-		userPart = entry.User + "@"
+	// Build Host directly from HostEntry fields — bypass URL construction to
+	// avoid re-validating the User value through isValidUnixUsername (WR-02)
+	// and to correctly handle IPv6 HostName values without bracket-wrapping (CR-01).
+	// Host.Hostname is used as a direct TCP dial target, not re-parsed as a URL.
+	port := entry.Port
+	if port == 0 {
+		port = 22
 	}
-	portPart := ""
-	if entry.Port != 0 {
-		portPart = fmt.Sprintf(":%d", entry.Port)
-	}
-	synthetic := "ssh://" + userPart + entry.HostName + portPart
-	return ParseHost(synthetic)
+	return Host{
+		User:     entry.User,
+		Hostname: entry.HostName,
+		Port:     port,
+	}, nil
 }
 
 // Resolve applies three-tier precedence (flag > deploy.yaml > default) to
