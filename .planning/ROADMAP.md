@@ -25,7 +25,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link (completed 2026-05-24)
 - [x] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection (completed 2026-05-26)
 - [x] **Phase 14: SSH Config Host Alias Resolution** - parse `~/.ssh/config` to resolve short host aliases without a full SSH URL — completed 2026-05-29
-- [ ] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service
+- [x] **Phase 15: Deploy Healthcheck Config Format** - define a config format for customising healthcheck polling behaviour per service (completed 2026-05-30)
 - [x] **Phase 16: Release Tooling Enhancement** - extend `/gsd:release-tag` with STATE.md update and REQ-derived commit message body (completed 2026-05-27)
 
 ## Phase Details
@@ -386,7 +386,7 @@ Plans:
 - [x] 15-01-PLAN.md — Config schema + resolution + flag registration (HealthcheckConfig struct, duration parsing, --healthcheck-{timeout,interval,retries} flags, config tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 15-02-PLAN.md — Health polling retries semantics (consume cfg.Healthcheck.{Interval,Timeout,Retries}; per-container failCount; reset on healthy; poll tests)
+- [x] 15-02-PLAN.md — Health polling retries semantics (consume cfg.Healthcheck.{Interval,Timeout,Retries}; per-container failCount; reset on healthy; poll tests)
 
 ### Phase 16: Release Tooling Enhancement
 **Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
@@ -448,7 +448,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
 | 14. SSH Config Host Alias Resolution | 0/? | Not started | - |
-| 15. Deploy Healthcheck Config Format | 0/? | Not started | - |
+| 15. Deploy Healthcheck Config Format | 2/2 | Complete   | 2026-05-30 |
 | 16. Release Tooling Enhancement | 2/2 | Complete   | 2026-05-27 |
 
 ## Backlog
