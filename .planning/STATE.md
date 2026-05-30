@@ -141,6 +141,7 @@ None yet.
 | 260524-brw | Fix brew install symlink — lib/docker/cli-plugins symlink in install + system ln -sf in post_install for ~/.docker/cli-plugins | 2026-05-24 | 61a6513 | [260524-brw-fix-brew-install-symlink](./quick/260524-brw-fix-brew-install-symlink/) |
 | 260527-brw | Fix brew install missing ~/.docker/cli-plugins symlink — restore post_install + sandbox_allowlist? = true (correctly combined) | 2026-05-27 | 8b4ef05 | [260527-brw-brew-symlink-post-install](./quick/260527-brw-brew-symlink-post-install/) |
 | 260527-bsi | Add Apple Silicon Homebrew note to INSTALL.md — Docker does not search /opt/homebrew path by default, document symlink and cliPluginsExtraDirs options | 2026-05-27 | ff6ab48 | [260527-bsi-brew-silicon-install-note](./quick/260527-bsi-brew-silicon-install-note/) |
+| 260530-hkb | Fix SSH host key capture in DinD integration tests — bound full SSH handshake per attempt via net.DialTimeout + conn.SetDeadline | 2026-05-30 | d65cccc | — |
 
 ## Deferred Items
 
@@ -153,7 +154,7 @@ None yet.
 Last session: 2026-05-30T14:14:21.030Z
 Stopped at: Phase 15 Plan 02 complete
 Resume file: None
-Last activity: 2026-05-30 - Phase 15 Plan 01: healthcheck config format; four-tier Resolve(); --healthcheck-* flags
+Last activity: 2026-05-30 - Completed quick task 260530-hkb: Fix SSH host key capture in DinD integration tests
 | 2026-05-24 | fast | add /release-tag skill | ✅ |
 | 2026-05-29 | fast | fix DinD DNS - add 8.8.8.8/1.1.1.1 to daemon.json to resolve registry pull timeouts | ✅ |
 | 2026-05-29 | fast | pre-pull nginx:alpine and busybox in entrypoint to avoid Docker Hub rate limits during IT | ✅ |
