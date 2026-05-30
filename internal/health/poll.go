@@ -79,15 +79,15 @@ func (w *sshSessionWrapper) Close() error {
 // (docker ps --filter label=... --format '{{.Names}}').
 //
 // Per container health status interpretation (D-13 in 05-CONTEXT.md):
-//   - "healthy"        → mark done
-//   - "unhealthy"      → print error, return non-nil immediately
-//   - "" or "none"     → print warning, mark done (no HEALTHCHECK defined)
+//   - "healthy"        → mark done; reset per-container failCount to 0 (D-09)
+//   - "no-healthcheck" → mark done; reset per-container failCount to 0
+//   - "unhealthy"      → if cfg.Healthcheck.Retries==0: immediate fail (preserves existing behaviour);
+//     if Retries>0: increment per-container failCount; fail only when failCount >= Retries (D-09, D-10)
 //   - "starting"       → continue polling
 //   - error from inspect → print warning, treat as unknown, continue
 //
-// Polling uses a ticker (HealthInterval seconds) within a timeout (HealthTimeout
-// seconds). If the timeout fires with any container still in "starting", returns
-// a non-nil error.
+// Polling uses a ticker (cfg.Healthcheck.Interval) within a timeout (cfg.Healthcheck.Timeout).
+// If the timeout fires with any container still in "starting", returns a non-nil error.
 //
 // Per CLAUDE.md Rule 3: each docker ps and each docker inspect runs in a
 // separate client.NewSession() call. Sessions are closed after Output() returns.
@@ -96,6 +96,8 @@ func (w *sshSessionWrapper) Close() error {
 // T-05-03-02: container names from docker ps are passed through ShellQuote() before docker inspect.
 // T-05-03-03: unexpected status strings default to "starting" (continue polling) — safe default.
 // T-05-03-04: timeout timer is a time.After select branch that always fires.
+// T-15-02-01: zero-value guards ensure ticker cannot panic and timeout cannot be infinite.
+// T-15-02-04: timeout timer always fires regardless of retries — polling cannot exceed Timeout.
 func PollHealth(ctx context.Context, client *gossh.Client, projectName string, cfg config.Config) error {
 	return pollHealthWithRunner(ctx, &sshClientRunner{client: client}, projectName, cfg)
 }
@@ -134,6 +136,8 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 
 	// done tracks containers that have reached a terminal state (healthy or no-healthcheck).
 	done := make(map[string]bool, len(containers))
+	// failCount tracks consecutive unhealthy results per container for retries semantics (D-09, D-10).
+	failCount := make(map[string]int, len(containers))
 
 	for {
 		select {
@@ -142,16 +146,17 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 
 		case <-timeoutTimer.C:
 			// Timeout expired — print error for each still-starting container.
-			// T-05-03-04: this select branch always fires at HealthTimeout.
+			// T-05-03-04: this select branch always fires at cfg.Healthcheck.Timeout.
+			// T-15-02-04: timeout fires regardless of retries setting.
 			for _, c := range containers {
 				if !done[c] {
-					fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet running\n", healthTimeout, c)
+					fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet running\n", cfg.Healthcheck.Timeout, c)
 				}
 			}
 			return fmt.Errorf("health: timed out waiting for containers to become healthy")
 
 		case <-ticker.C:
-			allDone, pollErr := pollContainers(runner, containers, done)
+			allDone, pollErr := pollContainers(runner, containers, done, failCount, cfg.Healthcheck.Retries)
 			if pollErr != nil {
 				return pollErr
 			}
@@ -203,10 +208,19 @@ func listContainers(runner sessionOpener, projectName string) ([]string, error) 
 }
 
 // pollContainers inspects each not-yet-done container's health status and
-// updates the done map. Returns (true, nil) when all containers are done,
-// (false, nil) to continue polling, or (false, non-nil) when an unhealthy
-// container is found.
-func pollContainers(runner sessionOpener, containers []string, done map[string]bool) (bool, error) {
+// updates the done and failCount maps. Returns (true, nil) when all containers
+// are done, (false, nil) to continue polling, or (false, non-nil) when a
+// container has failed.
+//
+// The failCount map tracks consecutive unhealthy results per container (D-10).
+// When a container becomes healthy or no-healthcheck, its failCount is reset to
+// zero so that a later flap starts counting fresh (D-09: a single healthy result
+// resets the consecutive counter).
+//
+// The retries parameter controls when an unhealthy result terminates polling:
+//   - retries == 0: existing immediate-fail behaviour preserved (backwards compat)
+//   - retries > 0: increment failCount[container]; only fail when failCount >= retries
+func pollContainers(runner sessionOpener, containers []string, done map[string]bool, failCount map[string]int, retries int) (bool, error) {
 	for _, container := range containers {
 		if done[container] {
 			continue
@@ -222,10 +236,22 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 		switch status {
 		case "healthy", "no-healthcheck":
 			done[container] = true
+			failCount[container] = 0 // reset consecutive-unhealthy counter (D-09)
 
 		case "unhealthy":
-			fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
-			return false, fmt.Errorf("health: container %s is unhealthy", container)
+			if retries > 0 {
+				// Retries configured: accumulate consecutive unhealthy results (D-09, D-10).
+				failCount[container]++
+				if failCount[container] >= retries {
+					fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy (%d consecutive unhealthy results)\n", container, failCount[container])
+					return false, fmt.Errorf("health: container %s is unhealthy after %d consecutive unhealthy results", container, failCount[container])
+				}
+				// Below threshold — continue polling on next tick; do not mark done.
+			} else {
+				// retries == 0: existing immediate-fail behaviour (T-15-02-02).
+				fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
+				return false, fmt.Errorf("health: container %s is unhealthy", container)
+			}
 
 		case "exited", "dead":
 			fmt.Fprintf(os.Stderr, "Health check failed: container %s stopped unexpectedly\n", container)
