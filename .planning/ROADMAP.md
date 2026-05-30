@@ -383,7 +383,7 @@ Plans:
 Plans:
 
 **Wave 1**
-- [ ] 15-01-PLAN.md — Config schema + resolution + flag registration (HealthcheckConfig struct, duration parsing, --healthcheck-{timeout,interval,retries} flags, config tests)
+- [x] 15-01-PLAN.md — Config schema + resolution + flag registration (HealthcheckConfig struct, duration parsing, --healthcheck-{timeout,interval,retries} flags, config tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-02-PLAN.md — Health polling retries semantics (consume cfg.Healthcheck.{Interval,Timeout,Retries}; per-container failCount; reset on healthy; poll tests)

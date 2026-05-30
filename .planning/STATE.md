@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-05-30T11:11:08.514Z"
-last_activity: 2026-05-30 -- Phase 15 planning complete
+stopped_at: Phase 15 Plan 01 complete
+last_updated: "2026-05-30T11:18:00.000Z"
+last_activity: 2026-05-30 -- Phase 15 Plan 01 complete
 progress:
   total_phases: 16
   completed_phases: 12
-  total_plans: 52
-  completed_plans: 52
+  total_plans: 53
+  completed_plans: 53
   percent: 75
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Phase 14 — SSH Config Host Alias Resolution
+**Current focus:** Phase 15 — Deploy Healthcheck Config Format
 **Shipped:** Phase 14 — SSH Config Host Alias Resolution complete 2026-05-29
 
 ## Current Position
 
-Phase: 14 of 15 (SSH Config Host Alias Resolution) — COMPLETE
-Plan: 2 of 2 complete
-Status: Ready to execute
-Last activity: 2026-05-30 -- Phase 15 planning complete
+Phase: 15 of 15 (Deploy Healthcheck Config Format) — IN PROGRESS
+Plan: 1 of 1 complete
+Status: Ready to execute next plan
+Last activity: 2026-05-30 -- Phase 15 Plan 01: healthcheck config format complete
 Resume file: None
 
 Progress: [██████████] 100%
@@ -64,6 +64,7 @@ Progress: [██████████] 100%
 | Phase 13-cli-subcommands-deploy-ux P07 | 8 | 1 task (TDD) | 2 files |
 | Phase 13-cli-subcommands-deploy-ux P05 | 12 | 1 task (TDD) | 3 files |
 | Phase 13-cli-subcommands-deploy-ux P06 | 8 | 1 task (TDD) | 2 files |
+| Phase 15-deploy-healthcheck-config-format P01 | 56 | 3 tasks (TDD) | 5 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,7 @@ Recent decisions affecting current work:
 - 13-07: Verbose sudo -l block inserted after id -nG in checkDockerGroup; runs regardless of docker group membership; failure silently swallowed (D-27); no signature change to RunPreflightChecks
 - 13-05: Upload() now owns confirm prompt and verbose diff; force bool added after creds, before warnedOnce; sftpClient.ReadDir used for remote listing; existing repeat-deploy tests use force=true
 - 13-06: needsSudo probe uses 'test -w remoteBase || test -w path.Dir(remoteBase)'; execCmd closure dispatches SudoExec vs sshRun(nil) for all 8 remoteBase ops; /tmp staging cleanup unchanged; path.Dir not filepath.Dir
+- 15-01: healthcheckYAML unexported struct for YAML parsing; HealthcheckConfig exported for runtime; four-tier Resolve(opts,file,globalFile,projectName,localDir); no hardcoded defaults (D-04); loadGlobalConfig() helper in main.go tolerates missing file; all three Resolve() call sites updated
 
 ### Roadmap Evolution
 
@@ -145,10 +147,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-27T05:20:37.376Z
-Stopped at: Phase 16 context gathered
+Last session: 2026-05-30T11:18:00Z
+Stopped at: Phase 15 Plan 01 complete
 Resume file: None
-Last activity: 2026-05-26 - Phase 13 Plan 06: path-aware sudo probe; writable paths bypass SudoExec entirely
+Last activity: 2026-05-30 - Phase 15 Plan 01: healthcheck config format; four-tier Resolve(); --healthcheck-* flags
 | 2026-05-24 | fast | add /release-tag skill | ✅ |
 | 2026-05-29 | fast | fix DinD DNS - add 8.8.8.8/1.1.1.1 to daemon.json to resolve registry pull timeouts | ✅ |
 | 2026-05-29 | fast | pre-pull nginx:alpine and busybox in entrypoint to avoid Docker Hub rate limits during IT | ✅ |
