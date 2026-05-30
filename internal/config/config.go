@@ -377,11 +377,94 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 
 	// Healthcheck resolution: four-tier precedence (flag > local file > global file > zero).
 	// Duration strings are parsed via time.ParseDuration; negative durations are rejected.
-	// Invalid duration strings return an error naming the source.
-	// No hardcoded defaults — absent block means zero HealthcheckConfig (health polling skipped per D-04).
-	// TODO(task-2): implement four-tier healthcheck resolution using opts.HealthcheckTimeout/Interval/Retries,
-	//              file.Target.Healthcheck.*, and globalFile.Target.Healthcheck.*
-	_ = globalFile // suppress unused parameter error until Task 2 implements the resolution
+	// Invalid duration strings return an error naming the source (--healthcheck-X, deploy.yaml, or global config).
+	// No hardcoded defaults — absent block in all tiers produces zero HealthcheckConfig (health polling skipped per D-04).
+
+	// 1. Validate negative retries up front across all three file/flag tiers.
+	if file.Target.Healthcheck.Retries < 0 {
+		return Config{}, fmt.Errorf("deploy.yaml: healthcheck.retries must be >= 0, got %d", file.Target.Healthcheck.Retries)
+	}
+	if globalFile.Target.Healthcheck.Retries < 0 {
+		return Config{}, fmt.Errorf("global config: healthcheck.retries must be >= 0, got %d", globalFile.Target.Healthcheck.Retries)
+	}
+	if opts.HealthcheckRetries < 0 {
+		return Config{}, fmt.Errorf("--healthcheck-retries: must be >= 0, got %d", opts.HealthcheckRetries)
+	}
+
+	// 2. Resolve Interval: flag > local file > global file > zero.
+	switch {
+	case opts.HealthcheckInterval != "":
+		d, err := time.ParseDuration(opts.HealthcheckInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("--healthcheck-interval: invalid duration %q: %w", opts.HealthcheckInterval, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("--healthcheck-interval: duration must be >= 0, got %s", opts.HealthcheckInterval)
+		}
+		cfg.Healthcheck.Interval = d
+	case file.Target.Healthcheck.Interval != "":
+		d, err := time.ParseDuration(file.Target.Healthcheck.Interval)
+		if err != nil {
+			return Config{}, fmt.Errorf("deploy.yaml: healthcheck.interval: invalid duration %q: %w", file.Target.Healthcheck.Interval, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("deploy.yaml: healthcheck.interval: duration must be >= 0, got %s", file.Target.Healthcheck.Interval)
+		}
+		cfg.Healthcheck.Interval = d
+	case globalFile.Target.Healthcheck.Interval != "":
+		d, err := time.ParseDuration(globalFile.Target.Healthcheck.Interval)
+		if err != nil {
+			return Config{}, fmt.Errorf("global config: healthcheck.interval: invalid duration %q: %w", globalFile.Target.Healthcheck.Interval, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("global config: healthcheck.interval: duration must be >= 0, got %s", globalFile.Target.Healthcheck.Interval)
+		}
+		cfg.Healthcheck.Interval = d
+	// else: leave cfg.Healthcheck.Interval at zero (no hardcoded default per D-04)
+	}
+
+	// 3. Resolve Timeout: flag > local file > global file > zero.
+	switch {
+	case opts.HealthcheckTimeout != "":
+		d, err := time.ParseDuration(opts.HealthcheckTimeout)
+		if err != nil {
+			return Config{}, fmt.Errorf("--healthcheck-timeout: invalid duration %q: %w", opts.HealthcheckTimeout, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("--healthcheck-timeout: duration must be >= 0, got %s", opts.HealthcheckTimeout)
+		}
+		cfg.Healthcheck.Timeout = d
+	case file.Target.Healthcheck.Timeout != "":
+		d, err := time.ParseDuration(file.Target.Healthcheck.Timeout)
+		if err != nil {
+			return Config{}, fmt.Errorf("deploy.yaml: healthcheck.timeout: invalid duration %q: %w", file.Target.Healthcheck.Timeout, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("deploy.yaml: healthcheck.timeout: duration must be >= 0, got %s", file.Target.Healthcheck.Timeout)
+		}
+		cfg.Healthcheck.Timeout = d
+	case globalFile.Target.Healthcheck.Timeout != "":
+		d, err := time.ParseDuration(globalFile.Target.Healthcheck.Timeout)
+		if err != nil {
+			return Config{}, fmt.Errorf("global config: healthcheck.timeout: invalid duration %q: %w", globalFile.Target.Healthcheck.Timeout, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("global config: healthcheck.timeout: duration must be >= 0, got %s", globalFile.Target.Healthcheck.Timeout)
+		}
+		cfg.Healthcheck.Timeout = d
+	// else: leave cfg.Healthcheck.Timeout at zero (no hardcoded default per D-04)
+	}
+
+	// 4. Resolve Retries: flag (> 0) > local file (> 0) > global file (> 0) > zero.
+	switch {
+	case opts.HealthcheckRetries > 0:
+		cfg.Healthcheck.Retries = opts.HealthcheckRetries
+	case file.Target.Healthcheck.Retries > 0:
+		cfg.Healthcheck.Retries = file.Target.Healthcheck.Retries
+	case globalFile.Target.Healthcheck.Retries > 0:
+		cfg.Healthcheck.Retries = globalFile.Target.Healthcheck.Retries
+	// else: leave cfg.Healthcheck.Retries at zero (no hardcoded default per D-04)
+	}
 
 	// Validate that the remote path is absolute (WR-03).
 	// ShellQuote prevents the shell from interpreting the path as a command, but

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // --- ParseHost tests ---
@@ -118,7 +119,7 @@ func TestResolveHostPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Host: tt.fileHost},
 			}
-			cfg, err := Resolve(FlagOpts{Host: tt.flagHost, ComposeFile: "compose.yaml"}, file, "myproject", "")
+			cfg, err := Resolve(FlagOpts{Host: tt.flagHost, ComposeFile: "compose.yaml"}, file, FileConfig{}, "myproject", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -175,7 +176,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Path: tt.filePath},
 			}
-			cfg, err := Resolve(FlagOpts{Path: tt.flagPath, ComposeFile: "compose.yaml"}, file, tt.projectName, "")
+			cfg, err := Resolve(FlagOpts{Path: tt.flagPath, ComposeFile: "compose.yaml"}, file, FileConfig{}, tt.projectName, "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -187,7 +188,7 @@ func TestResolvePathPrecedence(t *testing.T) {
 }
 
 func TestResolveInvalidHostReturnsError(t *testing.T) {
-	_, err := Resolve(FlagOpts{Host: "http://not-ssh.example.com", ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+	_, err := Resolve(FlagOpts{Host: "http://not-ssh.example.com", ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 	if err == nil {
 		t.Fatal("Resolve() with non-ssh scheme should return error")
 	}
@@ -281,7 +282,7 @@ func TestResolveExcludes(t *testing.T) { //nolint:gocognit // tests exclude merg
 			file := FileConfig{
 				Target: TargetConfig{Exclude: tt.fileExclude},
 			}
-			cfg, err := Resolve(FlagOpts{Excludes: tt.flagExcludes, ComposeFile: "compose.yaml"}, file, "proj", "")
+			cfg, err := Resolve(FlagOpts{Excludes: tt.flagExcludes, ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -312,7 +313,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 	}
 
 	t.Run("flag_skip_env_appends_dot_env", func(t *testing.T) {
-		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -326,7 +327,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 
 	t.Run("file_skip_env_appends_dot_env", func(t *testing.T) {
 		file := FileConfig{Target: TargetConfig{SkipEnv: true}}
-		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, "proj", "")
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -341,7 +342,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 	t.Run("flag_overrides_file_skip_env_false", func(t *testing.T) {
 		// Flag SkipEnv=true overrides file SkipEnv=false — .env must be present.
 		file := FileConfig{Target: TargetConfig{SkipEnv: false}}
-		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, file, "proj", "")
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -355,7 +356,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 
 	t.Run("skip_env_deduplicates_if_already_in_flag_excludes", func(t *testing.T) {
 		// User also listed ".env" in --exclude; SkipEnv should not add it again.
-		cfg, err := Resolve(FlagOpts{SkipEnv: true, Excludes: []string{".env"}, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		cfg, err := Resolve(FlagOpts{SkipEnv: true, Excludes: []string{".env"}, ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -366,7 +367,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 
 	t.Run("no_skip_env_dot_env_absent", func(t *testing.T) {
 		// Neither flag nor file enables SkipEnv — .env must not appear.
-		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -382,7 +383,7 @@ func TestResolveSkipEnv(t *testing.T) { //nolint:gocognit // exercises skip-env 
 // TestResolveVerbose verifies that cfg.Verbose reflects opts.Verbose.
 func TestResolveVerbose(t *testing.T) {
 	t.Run("verbose_true", func(t *testing.T) {
-		cfg, err := Resolve(FlagOpts{Verbose: true, ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		cfg, err := Resolve(FlagOpts{Verbose: true, ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -392,7 +393,7 @@ func TestResolveVerbose(t *testing.T) {
 	})
 
 	t.Run("verbose_false_default", func(t *testing.T) {
-		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, "proj", "")
+		cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", "")
 		if err != nil {
 			t.Fatalf("Resolve() unexpected error: %v", err)
 		}
@@ -410,7 +411,7 @@ func TestResolveExpandedDefaults(t *testing.T) {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
 
-	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -470,7 +471,7 @@ func TestResolveForce(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{Force: tt.fileForce},
 			}
-			cfg, err := Resolve(FlagOpts{Force: tt.flagForce, ComposeFile: "compose.yaml"}, file, "proj", "")
+			cfg, err := Resolve(FlagOpts{Force: tt.flagForce, ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", "")
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
@@ -494,7 +495,7 @@ func TestResolveComposeFile_FlagWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "compose.yaml"},
 	}
-	cfg, err := Resolve(FlagOpts{ComposeFile: "docker-compose.yml"}, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{ComposeFile: "docker-compose.yml"}, file, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -514,7 +515,7 @@ func TestResolveComposeFile_FileWins(t *testing.T) {
 	file := FileConfig{
 		Target: TargetConfig{ComposeFile: "mycompose.yaml"},
 	}
-	cfg, err := Resolve(FlagOpts{}, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, file, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -530,7 +531,7 @@ func TestResolveComposeFile_AutoDetectComposeYaml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
-	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -546,7 +547,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating docker-compose.yml: %v", err)
 	}
-	cfg, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -560,7 +561,7 @@ func TestResolveComposeFile_AutoDetectDockerComposeYml(t *testing.T) {
 // resolution method.
 func TestResolveComposeFile_NoFileFound(t *testing.T) {
 	dir := t.TempDir()
-	_, err := Resolve(FlagOpts{}, FileConfig{}, "proj", dir)
+	_, err := Resolve(FlagOpts{}, FileConfig{}, FileConfig{}, "proj", dir)
 	if err == nil {
 		t.Fatal("Resolve() expected error when no compose file found, got nil")
 	}
@@ -584,7 +585,7 @@ func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
 			Force: true,
 		},
 	}
-	cfg, err := Resolve(FlagOpts{Excludes: []string{"*.tmp"}}, file, "proj", dir)
+	cfg, err := Resolve(FlagOpts{Excludes: []string{"*.tmp"}}, file, FileConfig{}, "proj", dir)
 	if err != nil {
 		t.Fatalf("Resolve() unexpected error: %v", err)
 	}
@@ -609,63 +610,66 @@ func TestResolveComposeFile_PreservesExistingFields(t *testing.T) {
 	}
 }
 
-// --- TestResolveHealthConfig tests (TDD: 05-01) ---
+// --- TestResolveHealthcheckConfig tests (TDD: 15-01) ---
 
-// TestResolveHealthConfig verifies that Config.HealthTimeout and
-// Config.HealthInterval follow flag > file > default precedence.
-// Defaults: HealthTimeout=60, HealthInterval=5.
-// Zero-value is treated as "not set" (same as empty-string pattern for other fields).
-func TestResolveHealthConfig(t *testing.T) {
+// TestResolveHealthcheck_AbsentBlockZeroValue verifies that when no healthcheck
+// block is present in any source tier, the result is a zero-value HealthcheckConfig.
+// Per D-04: no hardcoded defaults; absent block means health polling is skipped.
+func TestResolveHealthcheck_AbsentBlockZeroValue(t *testing.T) {
 	dir := t.TempDir()
-	// Create a compose.yaml so Resolve() doesn't fail on missing compose file.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	cfg, err := Resolve(FlagOpts{}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Healthcheck.Interval != 0 {
+		t.Errorf("Healthcheck.Interval = %v, want 0 (no hardcoded default)", cfg.Healthcheck.Interval)
+	}
+	if cfg.Healthcheck.Timeout != 0 {
+		t.Errorf("Healthcheck.Timeout = %v, want 0 (no hardcoded default)", cfg.Healthcheck.Timeout)
+	}
+	if cfg.Healthcheck.Retries != 0 {
+		t.Errorf("Healthcheck.Retries = %d, want 0 (no hardcoded default)", cfg.Healthcheck.Retries)
+	}
+}
+
+// TestResolveHealthcheck_ValidDurationStrings verifies that valid duration strings
+// are parsed correctly to time.Duration values.
+func TestResolveHealthcheck_ValidDurationStrings(t *testing.T) {
+	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
 
 	tests := []struct {
-		name               string
-		flagHealthTimeout  int
-		flagHealthInterval int
-		fileHealthTimeout  int
-		fileHealthInterval int
-		wantHealthTimeout  int
-		wantHealthInterval int
+		name             string
+		fileInterval     string
+		fileTimeout      string
+		fileRetries      int
+		wantInterval     time.Duration
+		wantTimeout      time.Duration
+		wantRetries      int
 	}{
 		{
-			name:               "defaults_when_no_overrides",
-			flagHealthTimeout:  0,
-			flagHealthInterval: 0,
-			fileHealthTimeout:  0,
-			fileHealthInterval: 0,
-			wantHealthTimeout:  60,
-			wantHealthInterval: 5,
+			name:         "10s interval and 30s timeout",
+			fileInterval: "10s",
+			fileTimeout:  "30s",
+			fileRetries:  3,
+			wantInterval: 10 * time.Second,
+			wantTimeout:  30 * time.Second,
+			wantRetries:  3,
 		},
 		{
-			name:               "file_overrides_default",
-			flagHealthTimeout:  0,
-			flagHealthInterval: 0,
-			fileHealthTimeout:  30,
-			fileHealthInterval: 10,
-			wantHealthTimeout:  30,
-			wantHealthInterval: 10,
-		},
-		{
-			name:               "flag_overrides_file",
-			flagHealthTimeout:  45,
-			flagHealthInterval: 15,
-			fileHealthTimeout:  30,
-			fileHealthInterval: 10,
-			wantHealthTimeout:  45,
-			wantHealthInterval: 15,
-		},
-		{
-			name:               "zero_file_falls_back_to_default",
-			flagHealthTimeout:  0,
-			flagHealthInterval: 0,
-			fileHealthTimeout:  0,
-			fileHealthInterval: 0,
-			wantHealthTimeout:  60,
-			wantHealthInterval: 5,
+			name:         "1m30s timeout parsed correctly",
+			fileInterval: "10s",
+			fileTimeout:  "1m30s",
+			fileRetries:  5,
+			wantInterval: 10 * time.Second,
+			wantTimeout:  90 * time.Second,
+			wantRetries:  5,
 		},
 	}
 
@@ -673,21 +677,412 @@ func TestResolveHealthConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			file := FileConfig{
 				Target: TargetConfig{
-					HealthTimeout:  tt.fileHealthTimeout,
-					HealthInterval: tt.fileHealthInterval,
+					Healthcheck: healthcheckYAML{
+						Interval: tt.fileInterval,
+						Timeout:  tt.fileTimeout,
+						Retries:  tt.fileRetries,
+					},
 				},
 			}
-			cfg, err := Resolve(FlagOpts{HealthTimeout: tt.flagHealthTimeout, HealthInterval: tt.flagHealthInterval}, file, "proj", dir)
+			cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", dir)
 			if err != nil {
 				t.Fatalf("Resolve() unexpected error: %v", err)
 			}
-			if cfg.HealthTimeout != tt.wantHealthTimeout {
-				t.Errorf("HealthTimeout = %d, want %d", cfg.HealthTimeout, tt.wantHealthTimeout)
+			if cfg.Healthcheck.Interval != tt.wantInterval {
+				t.Errorf("Healthcheck.Interval = %v, want %v", cfg.Healthcheck.Interval, tt.wantInterval)
 			}
-			if cfg.HealthInterval != tt.wantHealthInterval {
-				t.Errorf("HealthInterval = %d, want %d", cfg.HealthInterval, tt.wantHealthInterval)
+			if cfg.Healthcheck.Timeout != tt.wantTimeout {
+				t.Errorf("Healthcheck.Timeout = %v, want %v", cfg.Healthcheck.Timeout, tt.wantTimeout)
+			}
+			if cfg.Healthcheck.Retries != tt.wantRetries {
+				t.Errorf("Healthcheck.Retries = %d, want %d", cfg.Healthcheck.Retries, tt.wantRetries)
 			}
 		})
+	}
+}
+
+// TestResolveHealthcheck_FlagOverridesLocalFile verifies that flag values override
+// local deploy.yaml values (first tier wins over second tier).
+func TestResolveHealthcheck_FlagOverridesLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{
+				Interval: "30s",
+				Timeout:  "60s",
+				Retries:  10,
+			},
+		},
+	}
+	opts := FlagOpts{
+		ComposeFile:         "compose.yaml",
+		HealthcheckInterval: "5s",
+		HealthcheckTimeout:  "10s",
+		HealthcheckRetries:  2,
+	}
+	cfg, err := Resolve(opts, file, FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Healthcheck.Interval != 5*time.Second {
+		t.Errorf("Healthcheck.Interval = %v, want 5s (flag wins over local file)", cfg.Healthcheck.Interval)
+	}
+	if cfg.Healthcheck.Timeout != 10*time.Second {
+		t.Errorf("Healthcheck.Timeout = %v, want 10s (flag wins over local file)", cfg.Healthcheck.Timeout)
+	}
+	if cfg.Healthcheck.Retries != 2 {
+		t.Errorf("Healthcheck.Retries = %d, want 2 (flag wins over local file)", cfg.Healthcheck.Retries)
+	}
+}
+
+// TestResolveHealthcheck_LocalFileOverridesGlobalFile verifies that local deploy.yaml
+// values override global config values (second tier wins over third tier).
+func TestResolveHealthcheck_LocalFileOverridesGlobalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{
+				Interval: "30s",
+				Timeout:  "60s",
+				Retries:  5,
+			},
+		},
+	}
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{
+				Interval: "10s",
+				Timeout:  "30s",
+				Retries:  3,
+			},
+		},
+	}
+	cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, globalFile, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Healthcheck.Interval != 30*time.Second {
+		t.Errorf("Healthcheck.Interval = %v, want 30s (local file wins over global)", cfg.Healthcheck.Interval)
+	}
+	if cfg.Healthcheck.Timeout != 60*time.Second {
+		t.Errorf("Healthcheck.Timeout = %v, want 60s (local file wins over global)", cfg.Healthcheck.Timeout)
+	}
+	if cfg.Healthcheck.Retries != 5 {
+		t.Errorf("Healthcheck.Retries = %d, want 5 (local file wins over global)", cfg.Healthcheck.Retries)
+	}
+}
+
+// TestResolveHealthcheck_GlobalFileUsedWhenFlagAndLocalEmpty verifies that global
+// config values are used when flag and local deploy.yaml are both absent.
+func TestResolveHealthcheck_GlobalFileUsedWhenFlagAndLocalEmpty(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{
+				Interval: "10s",
+				Timeout:  "30s",
+				Retries:  3,
+			},
+		},
+	}
+	cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Healthcheck.Interval != 10*time.Second {
+		t.Errorf("Healthcheck.Interval = %v, want 10s (from global config)", cfg.Healthcheck.Interval)
+	}
+	if cfg.Healthcheck.Timeout != 30*time.Second {
+		t.Errorf("Healthcheck.Timeout = %v, want 30s (from global config)", cfg.Healthcheck.Timeout)
+	}
+	if cfg.Healthcheck.Retries != 3 {
+		t.Errorf("Healthcheck.Retries = %d, want 3 (from global config)", cfg.Healthcheck.Retries)
+	}
+}
+
+// TestResolveHealthcheck_InvalidDurationInFlag verifies that an invalid duration
+// string in a flag returns an error naming "--healthcheck-interval" and the bad value.
+func TestResolveHealthcheck_InvalidDurationInFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckInterval: "notaduration"}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for invalid duration in flag, got nil")
+	}
+	if !strings.Contains(err.Error(), "--healthcheck-interval") {
+		t.Errorf("error = %q, want it to mention --healthcheck-interval", err.Error())
+	}
+	if !strings.Contains(err.Error(), "notaduration") {
+		t.Errorf("error = %q, want it to mention the bad value", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_InvalidDurationInLocalFile verifies that an invalid duration
+// string in local deploy.yaml returns an error naming "deploy.yaml: healthcheck.interval".
+func TestResolveHealthcheck_InvalidDurationInLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Interval: "badvalue"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for invalid duration in local file, got nil")
+	}
+	if !strings.Contains(err.Error(), "deploy.yaml: healthcheck.interval") {
+		t.Errorf("error = %q, want it to mention deploy.yaml: healthcheck.interval", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_InvalidDurationInGlobalFile verifies that an invalid duration
+// string in global config returns an error naming "global config: healthcheck.interval".
+func TestResolveHealthcheck_InvalidDurationInGlobalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Interval: "badvalue"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for invalid duration in global config, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: healthcheck.interval") {
+		t.Errorf("error = %q, want it to mention global config: healthcheck.interval", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeDurationInFlag verifies that a negative parsed
+// duration from a flag (e.g. --healthcheck-interval=-5s) is rejected.
+func TestResolveHealthcheck_NegativeDurationInFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckInterval: "-5s"}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative duration in flag, got nil")
+	}
+	if !strings.Contains(err.Error(), "--healthcheck-interval") {
+		t.Errorf("error = %q, want it to mention --healthcheck-interval", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeDurationInLocalFile verifies that a negative parsed
+// duration in local deploy.yaml (e.g. interval: -5s) is rejected.
+func TestResolveHealthcheck_NegativeDurationInLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Interval: "-5s"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative duration in local file, got nil")
+	}
+	if !strings.Contains(err.Error(), "deploy.yaml: healthcheck.interval") {
+		t.Errorf("error = %q, want it to mention deploy.yaml: healthcheck.interval", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeDurationInGlobalFile verifies that a negative parsed
+// duration in global config (e.g. interval: -5s) is rejected.
+func TestResolveHealthcheck_NegativeDurationInGlobalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Interval: "-5s"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative duration in global config, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: healthcheck.interval") {
+		t.Errorf("error = %q, want it to mention global config: healthcheck.interval", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeTimeoutInFlag verifies that a negative parsed
+// timeout from a flag (e.g. --healthcheck-timeout=-1m) is rejected.
+func TestResolveHealthcheck_NegativeTimeoutInFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckTimeout: "-1m"}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative timeout in flag, got nil")
+	}
+	if !strings.Contains(err.Error(), "--healthcheck-timeout") {
+		t.Errorf("error = %q, want it to mention --healthcheck-timeout", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeTimeoutInLocalFile verifies that a negative parsed
+// timeout in local deploy.yaml (e.g. timeout: -1m) is rejected.
+func TestResolveHealthcheck_NegativeTimeoutInLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Timeout: "-1m"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative timeout in local file, got nil")
+	}
+	if !strings.Contains(err.Error(), "deploy.yaml: healthcheck.timeout") {
+		t.Errorf("error = %q, want it to mention deploy.yaml: healthcheck.timeout", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeTimeoutInGlobalFile verifies that a negative parsed
+// timeout in global config (e.g. timeout: -1m) is rejected.
+func TestResolveHealthcheck_NegativeTimeoutInGlobalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Timeout: "-1m"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative timeout in global config, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: healthcheck.timeout") {
+		t.Errorf("error = %q, want it to mention global config: healthcheck.timeout", err.Error())
+	}
+	if !strings.Contains(err.Error(), "must be >= 0") {
+		t.Errorf("error = %q, want it to mention 'must be >= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeRetriesInFlag verifies that negative retries from
+// a flag returns an error.
+func TestResolveHealthcheck_NegativeRetriesInFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckRetries: -1}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative retries in flag, got nil")
+	}
+	if !strings.Contains(err.Error(), "--healthcheck-retries") {
+		t.Errorf("error = %q, want it to mention --healthcheck-retries", err.Error())
+	}
+	if !strings.Contains(err.Error(), ">= 0") {
+		t.Errorf("error = %q, want it to mention '>= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeRetriesInLocalFile verifies that negative retries
+// in local deploy.yaml returns an error.
+func TestResolveHealthcheck_NegativeRetriesInLocalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	file := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Retries: -1},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, file, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative retries in local file, got nil")
+	}
+	if !strings.Contains(err.Error(), "deploy.yaml: healthcheck.retries") {
+		t.Errorf("error = %q, want it to mention deploy.yaml: healthcheck.retries", err.Error())
+	}
+	if !strings.Contains(err.Error(), ">= 0") {
+		t.Errorf("error = %q, want it to mention '>= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_NegativeRetriesInGlobalFile verifies that negative retries
+// in global config returns an error.
+func TestResolveHealthcheck_NegativeRetriesInGlobalFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			Healthcheck: healthcheckYAML{Retries: -1},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative retries in global config, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: healthcheck.retries") {
+		t.Errorf("error = %q, want it to mention global config: healthcheck.retries", err.Error())
+	}
+	if !strings.Contains(err.Error(), ">= 0") {
+		t.Errorf("error = %q, want it to mention '>= 0'", err.Error())
 	}
 }
 
@@ -758,6 +1153,35 @@ path: /opt/myapp
 		// Flat keys should be ignored — target subsection is the schema
 		if fc.Target.Host != "" {
 			t.Errorf("flat 'host' key should not populate Target.Host, got %q", fc.Target.Host)
+		}
+	})
+
+	t.Run("target.healthcheck block is parsed correctly", func(t *testing.T) {
+		dir := t.TempDir()
+		content := `version: 1
+target:
+  host: ssh://user@myhost.com:22
+  path: /opt/myapp
+  healthcheck:
+    interval: 10s
+    timeout: 30s
+    retries: 5
+`
+		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+			t.Fatalf("writing deploy.yaml: %v", err)
+		}
+		fc, _, err := LoadFile(dir)
+		if err != nil {
+			t.Fatalf("LoadFile() unexpected error: %v", err)
+		}
+		if fc.Target.Healthcheck.Interval != "10s" {
+			t.Errorf("Target.Healthcheck.Interval = %q, want %q", fc.Target.Healthcheck.Interval, "10s")
+		}
+		if fc.Target.Healthcheck.Timeout != "30s" {
+			t.Errorf("Target.Healthcheck.Timeout = %q, want %q", fc.Target.Healthcheck.Timeout, "30s")
+		}
+		if fc.Target.Healthcheck.Retries != 5 {
+			t.Errorf("Target.Healthcheck.Retries = %d, want 5", fc.Target.Healthcheck.Retries)
 		}
 	})
 }

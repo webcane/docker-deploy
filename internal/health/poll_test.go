@@ -62,8 +62,10 @@ func fakeSessionOut(output string) *fakeSession {
 // defaultCfg returns a Config with given intervals for test use.
 func defaultCfg(timeoutSec, intervalSec int) config.Config {
 	return config.Config{
-		HealthTimeout:  timeoutSec,
-		HealthInterval: intervalSec,
+		Healthcheck: config.HealthcheckConfig{
+			Timeout:  time.Duration(timeoutSec) * time.Second,
+			Interval: time.Duration(intervalSec) * time.Second,
+		},
 	}
 }
 

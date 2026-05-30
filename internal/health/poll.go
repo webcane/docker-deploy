@@ -114,13 +114,14 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 	}
 
 	// Step 2: Determine effective intervals.
-	// HealthInterval=0 is treated as 1ms in tests (too fast for production, but
-	// avoids blocking test runs). In production, Resolve() always sets >= 1.
-	healthInterval := time.Duration(cfg.HealthInterval) * time.Second
+	// Healthcheck.Interval == 0 (absent from all config sources) is treated as
+	// 1ms in tests (too fast for production, but avoids blocking test runs).
+	// Healthcheck.Timeout == 0 is treated as 1s minimum to avoid an immediate timeout.
+	healthInterval := cfg.Healthcheck.Interval
 	if healthInterval <= 0 {
-		healthInterval = time.Millisecond // test-fast mode
+		healthInterval = time.Millisecond // test-fast mode / absent config
 	}
-	healthTimeout := time.Duration(cfg.HealthTimeout) * time.Second
+	healthTimeout := cfg.Healthcheck.Timeout
 	if healthTimeout <= 0 {
 		healthTimeout = time.Second // minimum 1s
 	}
@@ -144,7 +145,7 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 			// T-05-03-04: this select branch always fires at HealthTimeout.
 			for _, c := range containers {
 				if !done[c] {
-					fmt.Fprintf(os.Stderr, "Health check timed out after %ds: container %s is not yet running\n", cfg.HealthTimeout, c)
+					fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet running\n", healthTimeout, c)
 				}
 			}
 			return fmt.Errorf("health: timed out waiting for containers to become healthy")
