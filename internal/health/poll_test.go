@@ -226,3 +226,79 @@ func TestPollHealth_ContextCancel(t *testing.T) {
 		t.Errorf("expected error to contain 'context', got: %v", err)
 	}
 }
+
+// TestPollHealth_NoRetries_ImmediateFail: retries=0 (default), single unhealthy → immediate error.
+// This ensures backward compat: absent retries config preserves the existing fail-fast behaviour.
+func TestPollHealth_NoRetries_ImmediateFail(t *testing.T) {
+	fc := newFakeClient(
+		fakeSessionOut("bad-container\n"),
+		fakeSessionOut("unhealthy"),
+	)
+
+	cfg := config.Config{
+		Healthcheck: config.HealthcheckConfig{
+			Timeout:  5 * time.Second,
+			Interval: 0, // zero → 1ms test-fast
+			Retries:  0, // explicit: no retries, immediate fail
+		},
+	}
+
+	err := pollHealthWithRunner(context.Background(), fc, "myproject", cfg)
+	if err == nil {
+		t.Fatal("expected non-nil error for unhealthy container with retries=0, got nil")
+	}
+	if !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("expected error to mention 'unhealthy', got: %v", err)
+	}
+}
+
+// TestPollHealth_RetriesThresholdReached: retries=2, container reports unhealthy on poll 1 and 2
+// → PollHealth returns error after the 2nd unhealthy (failCount reaches threshold).
+func TestPollHealth_RetriesThresholdReached(t *testing.T) {
+	fc := newFakeClient(
+		fakeSessionOut("flaky-container\n"),
+		fakeSessionOut("unhealthy"), // poll 1: failCount=1, below threshold
+		fakeSessionOut("unhealthy"), // poll 2: failCount=2, threshold reached → error
+		// No more responses needed — should error before poll 3
+	)
+
+	cfg := config.Config{
+		Healthcheck: config.HealthcheckConfig{
+			Timeout:  5 * time.Second,
+			Interval: 0, // zero → 1ms test-fast
+			Retries:  2,
+		},
+	}
+
+	err := pollHealthWithRunner(context.Background(), fc, "myproject", cfg)
+	if err == nil {
+		t.Fatal("expected non-nil error after retries threshold reached, got nil")
+	}
+	if !strings.Contains(err.Error(), "consecutive unhealthy") {
+		t.Errorf("expected error to mention 'consecutive unhealthy', got: %v", err)
+	}
+}
+
+// TestPollHealth_RetriesResetOnHealthy: retries=3, container reports unhealthy once then healthy.
+// The single unhealthy result increments failCount but does not trip the threshold;
+// healthy resets the counter; the container is eventually marked done with no error.
+func TestPollHealth_RetriesResetOnHealthy(t *testing.T) {
+	fc := newFakeClient(
+		fakeSessionOut("recovering-container\n"),
+		fakeSessionOut("unhealthy"), // poll 1: failCount=1, below threshold
+		fakeSessionOut("healthy"),   // poll 2: failCount reset to 0, marked done
+	)
+
+	cfg := config.Config{
+		Healthcheck: config.HealthcheckConfig{
+			Timeout:  5 * time.Second,
+			Interval: 0, // zero → 1ms test-fast
+			Retries:  3,
+		},
+	}
+
+	err := pollHealthWithRunner(context.Background(), fc, "myproject", cfg)
+	if err != nil {
+		t.Fatalf("expected nil error when unhealthy resets on healthy, got: %v", err)
+	}
+}
