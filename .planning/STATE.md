@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Phase 15 verification passed
-last_updated: "2026-05-30T14:30:00.000Z"
-last_activity: 2026-05-30
+last_updated: "2026-05-30T15:38:46Z"
+last_activity: 2026-05-30 -- Released v0.12.0
 progress:
   total_phases: 16
   completed_phases: 13
