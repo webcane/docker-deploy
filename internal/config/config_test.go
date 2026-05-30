@@ -645,13 +645,13 @@ func TestResolveHealthcheck_ValidDurationStrings(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		fileInterval     string
-		fileTimeout      string
-		fileRetries      int
-		wantInterval     time.Duration
-		wantTimeout      time.Duration
-		wantRetries      int
+		name         string
+		fileInterval string
+		fileTimeout  string
+		fileRetries  int
+		wantInterval time.Duration
+		wantTimeout  time.Duration
+		wantRetries  int
 	}{
 		{
 			name:         "10s interval and 30s timeout",

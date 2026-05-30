@@ -91,16 +91,16 @@ type Config struct {
 // HealthcheckTimeout and HealthcheckInterval, and an integer for HealthcheckRetries.
 // Precedence: flag > local deploy.yaml target.healthcheck > global config target.healthcheck > absent (zero value).
 type FlagOpts struct {
-	Host               string
-	Path               string
-	Excludes           []string
-	Force              bool
-	ComposeFile        string
+	Host                string
+	Path                string
+	Excludes            []string
+	Force               bool
+	ComposeFile         string
 	HealthcheckTimeout  string
 	HealthcheckInterval string
 	HealthcheckRetries  int
-	SkipEnv            bool
-	Verbose            bool
+	SkipEnv             bool
+	Verbose             bool
 }
 
 // isValidUnixUsername reports whether s is a valid Unix username, i.e. it
@@ -420,7 +420,7 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 			return Config{}, fmt.Errorf("global config: healthcheck.interval: duration must be >= 0, got %s", globalFile.Target.Healthcheck.Interval)
 		}
 		cfg.Healthcheck.Interval = d
-	// else: leave cfg.Healthcheck.Interval at zero (no hardcoded default per D-04)
+		// else: leave cfg.Healthcheck.Interval at zero (no hardcoded default per D-04)
 	}
 
 	// 3. Resolve Timeout: flag > local file > global file > zero.
@@ -452,7 +452,7 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 			return Config{}, fmt.Errorf("global config: healthcheck.timeout: duration must be >= 0, got %s", globalFile.Target.Healthcheck.Timeout)
 		}
 		cfg.Healthcheck.Timeout = d
-	// else: leave cfg.Healthcheck.Timeout at zero (no hardcoded default per D-04)
+		// else: leave cfg.Healthcheck.Timeout at zero (no hardcoded default per D-04)
 	}
 
 	// 4. Resolve Retries: flag (> 0) > local file (> 0) > global file (> 0) > zero.
@@ -463,7 +463,7 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 		cfg.Healthcheck.Retries = file.Target.Healthcheck.Retries
 	case globalFile.Target.Healthcheck.Retries > 0:
 		cfg.Healthcheck.Retries = globalFile.Target.Healthcheck.Retries
-	// else: leave cfg.Healthcheck.Retries at zero (no hardcoded default per D-04)
+		// else: leave cfg.Healthcheck.Retries at zero (no hardcoded default per D-04)
 	}
 
 	// Validate that the remote path is absolute (WR-03).

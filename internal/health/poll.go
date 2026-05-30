@@ -239,18 +239,8 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 			failCount[container] = 0 // reset consecutive-unhealthy counter (D-09)
 
 		case "unhealthy":
-			if retries > 0 {
-				// Retries configured: accumulate consecutive unhealthy results (D-09, D-10).
-				failCount[container]++
-				if failCount[container] >= retries {
-					fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy (%d consecutive unhealthy results)\n", container, failCount[container])
-					return false, fmt.Errorf("health: container %s is unhealthy after %d consecutive unhealthy results", container, failCount[container])
-				}
-				// Below threshold — continue polling on next tick; do not mark done.
-			} else {
-				// retries == 0: existing immediate-fail behaviour (T-15-02-02).
-				fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
-				return false, fmt.Errorf("health: container %s is unhealthy", container)
+			if err := recordUnhealthy(container, failCount, retries); err != nil {
+				return false, err
 			}
 
 		case "exited", "dead":
@@ -262,13 +252,35 @@ func pollContainers(runner sessionOpener, containers []string, done map[string]b
 		}
 	}
 
-	// Check whether all containers have reached a terminal state.
+	return allContainersDone(containers, done), nil
+}
+
+// recordUnhealthy accumulates a consecutive-unhealthy result for a container
+// and returns an error once the failure threshold is reached. retries==0 means
+// fail immediately (preserves existing behaviour, T-15-02-02).
+func recordUnhealthy(container string, failCount map[string]int, retries int) error {
+	if retries == 0 {
+		fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy\n", container)
+		return fmt.Errorf("health: container %s is unhealthy", container)
+	}
+	// Retries configured: accumulate consecutive unhealthy results (D-09, D-10).
+	failCount[container]++
+	if failCount[container] >= retries {
+		fmt.Fprintf(os.Stderr, "Health check failed: container %s is unhealthy (%d consecutive unhealthy results)\n", container, failCount[container])
+		return fmt.Errorf("health: container %s is unhealthy after %d consecutive unhealthy results", container, failCount[container])
+	}
+	// Below threshold — continue polling on next tick; do not mark done.
+	return nil
+}
+
+// allContainersDone reports whether every container has reached a terminal state.
+func allContainersDone(containers []string, done map[string]bool) bool {
 	for _, c := range containers {
 		if !done[c] {
-			return false, nil
+			return false
 		}
 	}
-	return true, nil
+	return true
 }
 
 // inspectHealth returns the health status of a container. For containers with a
