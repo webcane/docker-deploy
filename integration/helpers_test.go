@@ -208,11 +208,15 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 
 // captureHostKeyFromContainer captures the SSH host key from a running container
 // using a short-lived connection that captures the key then intentionally disconnects.
-// Retries every 500ms for up to 30s because wait.ForListeningPort fires when the TCP
+// Retries every 500ms for up to 60s because wait.ForListeningPort fires when the TCP
 // port opens, but sshd may not yet be ready to complete the SSH handshake (race on CI).
+//
+// Each attempt uses net.DialTimeout + conn.SetDeadline to bound the full SSH handshake,
+// not just the TCP dial. gossh.ClientConfig.Timeout only covers the TCP dial phase;
+// without a conn deadline the key-exchange can stall indefinitely on a loaded CI machine.
 func captureHostKeyFromContainer(ctx context.Context, _ testcontainers.Container, host string, port int) (gossh.PublicKey, error) {
 	addr := fmt.Sprintf("%s:%d", host, port)
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		var captured gossh.PublicKey
 		cfg := &gossh.ClientConfig{
@@ -222,9 +226,14 @@ func captureHostKeyFromContainer(ctx context.Context, _ testcontainers.Container
 				captured = key
 				return fmt.Errorf("key captured")
 			},
-			Timeout: 5 * time.Second,
 		}
-		gossh.Dial("tcp", addr, cfg) //nolint:errcheck — intentional disconnect
+		// Bound the full SSH handshake (not just TCP dial) with a per-attempt deadline.
+		// TCP dial: 5s; SSH key-exchange: up to 10s after connect.
+		if conn, err := net.DialTimeout("tcp", addr, 5*time.Second); err == nil {
+			conn.SetDeadline(time.Now().Add(10 * time.Second)) //nolint:errcheck
+			gossh.NewClientConn(conn, addr, cfg)               //nolint:errcheck — intentional disconnect
+			conn.Close()                                       //nolint:errcheck
+		}
 		if captured != nil {
 			return captured, nil
 		}
@@ -234,7 +243,7 @@ func captureHostKeyFromContainer(ctx context.Context, _ testcontainers.Container
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
-	return nil, fmt.Errorf("failed to capture SSH host key from DinD container after 30s")
+	return nil, fmt.Errorf("failed to capture SSH host key from DinD container after 60s")
 }
 
 // captureHostKey dials the SSH server to capture its host public key, then disconnects.
