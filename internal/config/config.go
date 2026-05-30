@@ -1,5 +1,5 @@
 // Package config implements configuration resolution for docker-deploy.
-// It supports three-tier precedence: CLI flags > deploy.yaml > built-in defaults.
+// It supports four-tier precedence: CLI flags > local deploy.yaml > global config > zero value.
 package config
 
 import (
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -31,17 +32,36 @@ type Host struct {
 	Port     int
 }
 
+// healthcheckYAML is the YAML-parsing form of the target.healthcheck sub-block.
+// Duration values are strings (e.g. "10s", "1m30s") and are converted to
+// time.Duration by Resolve(). This struct is unexported; callers use HealthcheckConfig.
+type healthcheckYAML struct {
+	Interval string `yaml:"interval"`
+	Timeout  string `yaml:"timeout"`
+	Retries  int    `yaml:"retries"`
+}
+
+// HealthcheckConfig is the resolved runtime form of the healthcheck configuration.
+// Fields are zero values when no healthcheck block is present in any config source,
+// which signals that health polling should be skipped entirely (per D-04).
+type HealthcheckConfig struct {
+	Interval time.Duration
+	Timeout  time.Duration
+	Retries  int
+}
+
 // TargetConfig holds the single-target subsection of deploy.yaml.
 // Future phases will add a "targets" (plural) map for named targets.
+// The Healthcheck sub-block uses Docker-style duration strings (e.g. "10s", "1m30s").
+// Precedence: CLI flags > local deploy.yaml > global config > absent (zero value).
 type TargetConfig struct {
-	Host           string   `yaml:"host"`
-	Path           string   `yaml:"path"`
-	Exclude        []string `yaml:"exclude"`
-	Force          bool     `yaml:"force"`
-	ComposeFile    string   `yaml:"compose_file"`
-	HealthTimeout  int      `yaml:"health_timeout"`
-	HealthInterval int      `yaml:"health_interval"`
-	SkipEnv        bool     `yaml:"skip_env"`
+	Host        string          `yaml:"host"`
+	Path        string          `yaml:"path"`
+	Exclude     []string        `yaml:"exclude"`
+	Force       bool            `yaml:"force"`
+	ComposeFile string          `yaml:"compose_file"`
+	Healthcheck healthcheckYAML `yaml:"healthcheck"`
+	SkipEnv     bool            `yaml:"skip_env"`
 }
 
 // FileConfig is the top-level structure of deploy.yaml.
@@ -53,31 +73,34 @@ type FileConfig struct {
 
 // Config is the fully resolved runtime configuration.
 type Config struct {
-	Host           Host
-	Path           string
-	DryRun         bool
-	Excludes       []string // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
-	Force          bool     // flag || file.Target.Force (flag > deploy.yaml > false)
-	ComposeFile    string   // resolved compose filename basename (flag > deploy.yaml > auto-detect)
-	HealthTimeout  int      // seconds to wait for health check; flag > deploy.yaml > 60
-	HealthInterval int      // seconds between health check polls; flag > deploy.yaml > 5
-	SkipEnv        bool     // opts.SkipEnv || file.Target.SkipEnv; appends .env to Excludes when true
-	Verbose        bool     // opts.Verbose; enables detailed output lines
+	Host        Host
+	Path        string
+	DryRun      bool
+	Excludes    []string          // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
+	Force       bool              // flag || file.Target.Force (flag > deploy.yaml > false)
+	ComposeFile string            // resolved compose filename basename (flag > deploy.yaml > auto-detect)
+	Healthcheck HealthcheckConfig // resolved health polling config; zero value means skip polling (per D-04)
+	SkipEnv     bool              // opts.SkipEnv || file.Target.SkipEnv; appends .env to Excludes when true
+	Verbose     bool              // opts.Verbose; enables detailed output lines
 }
 
 // FlagOpts holds all CLI-flag values passed to Resolve().
 // It replaces the previous positional-params signature, making it easier to
 // add new flags without breaking callers.
+// Healthcheck flags use Docker-style duration strings (e.g. "10s", "1m30s") for
+// HealthcheckTimeout and HealthcheckInterval, and an integer for HealthcheckRetries.
+// Precedence: flag > local deploy.yaml target.healthcheck > global config target.healthcheck > absent (zero value).
 type FlagOpts struct {
-	Host           string
-	Path           string
-	Excludes       []string
-	Force          bool
-	ComposeFile    string
-	HealthTimeout  int
-	HealthInterval int
-	SkipEnv        bool
-	Verbose        bool
+	Host               string
+	Path               string
+	Excludes           []string
+	Force              bool
+	ComposeFile        string
+	HealthcheckTimeout  string
+	HealthcheckInterval string
+	HealthcheckRetries  int
+	SkipEnv            bool
+	Verbose            bool
 }
 
 // isValidUnixUsername reports whether s is a valid Unix username, i.e. it
@@ -274,12 +297,14 @@ func resolveHostString(raw, configPath string) (Host, error) {
 	}, nil
 }
 
-// Resolve applies three-tier precedence (flag > deploy.yaml > default) to
+// Resolve applies four-tier precedence (flag > local deploy.yaml > global config > zero value) to
 // produce a fully resolved Config.
 //
 // Parameters:
 //   - opts: FlagOpts struct containing all CLI-flag values; zero values mean "not set"
-//   - file: parsed deploy.yaml content (zero value is safe when no file present)
+//   - file: parsed local deploy.yaml content (zero value is safe when no file present)
+//   - globalFile: parsed global config (~/.docker/cli-plugins/deploy.yaml); pass FileConfig{}
+//     when the global config does not exist (a missing global file is not an error)
 //   - projectName: basename of the local project directory
 //   - localDir: absolute path to the local project directory (used for auto-detect)
 //
@@ -288,22 +313,17 @@ func resolveHostString(raw, configPath string) (Host, error) {
 // Excludes: defaultExcludes + file.Target.Exclude + opts.Excludes (deduped, order preserved).
 // Force: opts.Force || file.Target.Force (flag > deploy.yaml > false).
 // ComposeFile: opts.ComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
-// HealthTimeout: opts.HealthTimeout > file.Target.HealthTimeout > 60.
-// HealthInterval: opts.HealthInterval > file.Target.HealthInterval > 5.
+// Healthcheck.Interval: --healthcheck-interval > local deploy.yaml > global config > 0 (zero = skip).
+// Healthcheck.Timeout: --healthcheck-timeout > local deploy.yaml > global config > 0 (zero = skip).
+// Healthcheck.Retries: --healthcheck-retries (> 0) > local deploy.yaml (> 0) > global config (> 0) > 0 (zero = skip).
 // SkipEnv: opts.SkipEnv || file.Target.SkipEnv; when true, ".env" is appended to Excludes.
 // Verbose: opts.Verbose; enables detailed output lines to stderr.
-//
-// NOTE: opts.HealthTimeout and opts.HealthInterval are not registered as CLI flags in
-// Phase 5 (health flags via deploy.yaml only per D-03). Callers pass 0 for both.
-// The fields exist for future flag registration without a signature change.
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
 // T-04-01-01: ComposeFile is stored as supplied (basename); Plan 02 validates
 // filepath.Base(ComposeFile) == ComposeFile before constructing remote commands.
-// T-05-01-01: Zero and negative values for health fields are treated as "not set"
-// (> 0 check gates both flag and file values), so defaults always apply.
-func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string) (Config, error) { //nolint:gocognit // complexity from layered flag>file>default precedence for 10+ config fields — splitting by field group would require multiple return values and hurt readability
+func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName string, localDir string) (Config, error) { //nolint:gocognit // complexity from layered flag>file>default precedence for 10+ config fields — splitting by field group would require multiple return values and hurt readability
 	var cfg Config
 
 	switch {
@@ -355,36 +375,13 @@ func Resolve(opts FlagOpts, file FileConfig, projectName string, localDir string
 		}
 	}
 
-	// Validate deploy.yaml health values: negative integers are rejected with an
-	// explicit error so the user is not silently surprised by default values.
-	if file.Target.HealthTimeout < 0 {
-		return Config{}, fmt.Errorf("deploy.yaml: health_timeout must be >= 0, got %d", file.Target.HealthTimeout)
-	}
-	if file.Target.HealthInterval < 0 {
-		return Config{}, fmt.Errorf("deploy.yaml: health_interval must be >= 0, got %d", file.Target.HealthInterval)
-	}
-
-	// HealthTimeout resolution: flag > deploy.yaml > default 60.
-	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
-	switch {
-	case opts.HealthTimeout > 0:
-		cfg.HealthTimeout = opts.HealthTimeout
-	case file.Target.HealthTimeout > 0:
-		cfg.HealthTimeout = file.Target.HealthTimeout
-	default:
-		cfg.HealthTimeout = 60
-	}
-
-	// HealthInterval resolution: flag > deploy.yaml > default 5.
-	// Zero is treated as "not set" for both flag and file values (T-05-01-01).
-	switch {
-	case opts.HealthInterval > 0:
-		cfg.HealthInterval = opts.HealthInterval
-	case file.Target.HealthInterval > 0:
-		cfg.HealthInterval = file.Target.HealthInterval
-	default:
-		cfg.HealthInterval = 5
-	}
+	// Healthcheck resolution: four-tier precedence (flag > local file > global file > zero).
+	// Duration strings are parsed via time.ParseDuration; negative durations are rejected.
+	// Invalid duration strings return an error naming the source.
+	// No hardcoded defaults — absent block means zero HealthcheckConfig (health polling skipped per D-04).
+	// TODO(task-2): implement four-tier healthcheck resolution using opts.HealthcheckTimeout/Interval/Retries,
+	//              file.Target.Healthcheck.*, and globalFile.Target.Healthcheck.*
+	_ = globalFile // suppress unused parameter error until Task 2 implements the resolution
 
 	// Validate that the remote path is absolute (WR-03).
 	// ShellQuote prevents the shell from interpreting the path as a command, but
