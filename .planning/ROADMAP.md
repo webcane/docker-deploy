@@ -375,8 +375,18 @@ Plans:
 **Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
-  1. Users can set `health_timeout` and `health_interval` per target in `deploy.yaml` and the values are respected during polling
-  2. Omitting the keys falls back to the existing global defaults without breaking existing configs
+  1. Users can set `target.healthcheck.{interval,timeout,retries}` in `deploy.yaml` using Docker-style duration strings and the values are respected during polling
+  2. Omitting the `healthcheck` block skips health polling entirely (no hardcoded defaults in code; defaults live in the global config file per D-04)
+  3. CLI flags `--healthcheck-timeout`, `--healthcheck-interval`, `--healthcheck-retries` override `deploy.yaml`
+  4. Retries semantics: per-container consecutive-unhealthy counter; resets on healthy; trips fail when `>= retries`
+
+Plans:
+
+**Wave 1**
+- [ ] 15-01-PLAN.md — Config schema + resolution + flag registration (HealthcheckConfig struct, duration parsing, --healthcheck-{timeout,interval,retries} flags, config tests)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 15-02-PLAN.md — Health polling retries semantics (consume cfg.Healthcheck.{Interval,Timeout,Retries}; per-container failCount; reset on healthy; poll tests)
 
 ### Phase 16: Release Tooling Enhancement
 **Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
