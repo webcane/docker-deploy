@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/webcane/docker-deploy/internal/compose"
 	"github.com/webcane/docker-deploy/internal/config"
@@ -69,7 +70,7 @@ func TestCompose_Healthy_NoHealthcheck(t *testing.T) {
 
 	// PollHealth should return nil — nginx:alpine container reaches "running" state.
 	// project name = directory basename of remoteBase (Docker Compose convention).
-	cfg := config.Config{HealthTimeout: 30, HealthInterval: 2}
+	cfg := config.Config{Healthcheck: config.HealthcheckConfig{Timeout: 30 * time.Second, Interval: 2 * time.Second}}
 	if err := health.PollHealth(context.Background(), client, "compose-test-healthy", cfg); err != nil {
 		t.Fatalf("PollHealth: unexpected error for healthy service: %v", err)
 	}
@@ -110,7 +111,7 @@ func TestCompose_Unhealthy_ReturnError(t *testing.T) {
 	// Allow a short pause for the container to exit before polling.
 	// PollHealth polls at 2s interval with 30s timeout; the container exits
 	// almost immediately so the first poll will see it.
-	cfg := config.Config{HealthTimeout: 30, HealthInterval: 2}
+	cfg := config.Config{Healthcheck: config.HealthcheckConfig{Timeout: 30 * time.Second, Interval: 2 * time.Second}}
 	err := health.PollHealth(context.Background(), client, "compose-test-unhealthy", cfg)
 
 	// Assert non-nil error (HEALTH-03).
@@ -141,7 +142,7 @@ func TestHealth_NoContainers(t *testing.T) {
 	// Use a project name that does not exist in the DinD Docker daemon.
 	// docker ps --filter label=com.docker.compose.project=nonexistent-project-xyz
 	// returns empty output → listContainers returns [] → PollHealth returns nil.
-	cfg := config.Config{HealthTimeout: 10, HealthInterval: 1}
+	cfg := config.Config{Healthcheck: config.HealthcheckConfig{Timeout: 10 * time.Second, Interval: 1 * time.Second}}
 	if err := health.PollHealth(context.Background(), client, "nonexistent-project-xyz", cfg); err != nil {
 		t.Fatalf("PollHealth for empty project: unexpected error: %v", err)
 	}

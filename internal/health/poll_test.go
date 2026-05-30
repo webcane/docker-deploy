@@ -3,9 +3,9 @@
 // poll.go, allowing deterministic control of docker ps and docker inspect output
 // without requiring a real SSH connection.
 //
-// Time handling: tests pass Config with HealthInterval=0 (treated as 1ms internally)
+// Time handling: tests pass Config with Healthcheck.Interval=0 (treated as 1ms internally)
 // so the ticker fires quickly without blocking test runs. Timeout tests use
-// HealthTimeout=1 so the timer fires within a second.
+// Healthcheck.Timeout=1s so the timer fires within a second.
 package health
 
 import (
