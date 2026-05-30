@@ -11,7 +11,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 **In scope:**
 - New `target.healthcheck:` block in deploy.yaml schema with `interval`, `timeout`, `retries` fields using duration strings (e.g. `10s`, `1m30s`)
 - Remove old `health_timeout` / `health_interval` flat integer keys from `TargetConfig` and `Config`; emit a deprecation warning if they appear in deploy.yaml (yaml.v3 silently ignores unknown keys, so the warning must be explicit)
-- Three-tier precedence: flag > `deploy.yaml target.healthcheck` > hardcoded defaults
+- Four-tier precedence: flag > local `deploy.yaml target.healthcheck` > global config (`~/.docker/cli-plugins/deploy.yaml`) > no healthcheck (section absent = health polling skipped)
 - CLI flags: `--healthcheck-timeout`, `--healthcheck-interval`, `--healthcheck-retries` (duration string format for timeout/interval, integer for retries)
 - Update `internal/health/poll.go` to use `retries` (stop polling after N consecutive unhealthy results before timeout fires)
 - Update `internal/config/config.go`: new `Healthcheck` struct, updated `Resolve()` parsing, duration string → `time.Duration` conversion, negative-value validation
@@ -19,7 +19,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 
 **Out of scope:**
 - Per-service healthcheck overrides (no `target.services` map)
-- Disabling health polling per service or globally (containers without HEALTHCHECK already warn and pass — Phase 5 behaviour)
+- Disabling health polling per service or via a flag — omitting `target.healthcheck` from all config files is the supported way to skip health polling entirely
 - Changes to container enumeration strategy (still uses `com.docker.compose.project` label as in Phase 5)
 
 </domain>
@@ -39,12 +39,12 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
   ```
 - **D-02:** Duration values use Docker-style strings (`10s`, `1m30s`, `2m`). Parsed via `time.ParseDuration`. Plain integers are not accepted in the new block.
 - **D-03:** `retries` is a plain integer (not a duration). Represents maximum consecutive unhealthy results before declaring failure.
-- **D-04:** Defaults: `interval: 10s`, `timeout: 30s`, `retries: 3`.
-- **D-05:** The old flat `health_timeout` / `health_interval` keys are fully removed from `TargetConfig`. yaml.v3 ignores unknown fields silently; emit an explicit warning to stderr if either old key is detected in deploy.yaml (detect via a separate strict-mode unmarshal or a custom YAML check).
+- **D-04:** No hardcoded defaults. Default values are defined in the global config (`~/.docker/cli-plugins/deploy.yaml`) pre-populated with `interval: 10s`, `timeout: 30s`, `retries: 3` (commented out, discoverable). If the `healthcheck:` block is absent from both global and local config, health polling is skipped entirely.
+- **D-05:** The old flat `health_timeout` / `health_interval` keys are fully removed from `TargetConfig`. yaml.v3 silently ignores unknown fields — rely on the same common unknown-field handling already in place; no special deprecation warning.
 
-### Config Resolution (three-tier precedence)
+### Config Resolution (four-tier precedence)
 
-- **D-06:** Resolution chain for each field: CLI flag > `deploy.yaml target.healthcheck` > hardcoded default. Zero/empty value means "not set" (same guard as existing fields).
+- **D-06:** Resolution chain: CLI flags > local `deploy.yaml target.healthcheck` > global config `~/.docker/cli-plugins/deploy.yaml target.healthcheck` > absent (no health polling). No hardcoded fallback values in code — defaults live in the global config file.
 - **D-07:** CLI flags added to `main.go` and `FlagOpts`: `--healthcheck-timeout` (string), `--healthcheck-interval` (string), `--healthcheck-retries` (int).
 - **D-08:** Flag string values are parsed via `time.ParseDuration` in `Resolve()`. Invalid duration strings are rejected with a clear error.
 
@@ -55,9 +55,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 
 ### Backward Compatibility
 
-- **D-11:** Hard remove of old flat keys. If deploy.yaml contains `health_timeout` or `health_interval`, print a deprecation warning to stderr:
-  `Warning: deploy.yaml: health_timeout / health_interval are deprecated — use target.healthcheck block instead`
-  The old values are NOT used; operator must migrate.
+- **D-11:** Hard remove of old flat keys. yaml.v3 silently ignores unknown fields — no special deprecation warning; same behaviour as any other unknown key in deploy.yaml.
 - **D-12:** Existing unit tests for old flat keys should be updated to test the new `healthcheck:` block format.
 
 ### Claude's Discretion
@@ -115,14 +113,6 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 - Duration string format (`10s`, `1m30s`) matches what operators already write in `compose.yaml` HEALTHCHECK entries.
 
 </specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Per-service healthcheck overrides (e.g. `target.services.web.healthcheck`) — user confirmed global-only is sufficient for now.
-- `disable: true` flag to skip health polling for all containers — not needed; containers without HEALTHCHECK already warn and pass.
-
-</deferred>
 
 ---
 
