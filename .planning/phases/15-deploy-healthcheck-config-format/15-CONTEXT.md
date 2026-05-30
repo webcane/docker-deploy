@@ -39,7 +39,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
   ```
 - **D-02:** Duration values use Docker-style strings (`10s`, `1m30s`, `2m`). Parsed via `time.ParseDuration`. Plain integers are not accepted in the new block.
 - **D-03:** `retries` is a plain integer (not a duration). Represents maximum consecutive unhealthy results before declaring failure.
-- **D-04:** Defaults: `interval: 5s`, `timeout: 60s`, `retries: 3`.
+- **D-04:** Defaults: `interval: 10s`, `timeout: 30s`, `retries: 3`.
 - **D-05:** The old flat `health_timeout` / `health_interval` keys are fully removed from `TargetConfig`. yaml.v3 ignores unknown fields silently; emit an explicit warning to stderr if either old key is detected in deploy.yaml (detect via a separate strict-mode unmarshal or a custom YAML check).
 
 ### Config Resolution (three-tier precedence)
@@ -75,7 +75,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 
 ### Existing Implementation (read before modifying)
 - `internal/config/config.go` — `TargetConfig`, `Config`, `FlagOpts`, `Resolve()` — all need updating; `HealthTimeout` / `HealthInterval` fields are removed and replaced
-- `internal/health/poll.go` — `PollHealth()` / `pollHealthWithRunner()` — needs retries counter per container; currently uses `cfg.HealthTimeout` / `cfg.HealthInterval` as `time.Duration` casts
+- `internal/health/poll.go` — `PollHealth()` / `pollHealthWithRunner()` — needs retries counter per container; currently uses `cfg.HealthTimeout` / `cfg.HealthInterval` as `time.Duration` casts; default interval changes from 5s to 10s, timeout from 60s to 30s
 - `internal/config/config_test.go` — existing health field tests must be migrated to new format
 - `internal/health/poll_test.go` — existing polling tests must be migrated to new `time.Duration` config fields
 - `cmd/docker-deploy/main.go` — flag registration for `--healthcheck-timeout`, `--healthcheck-interval`, `--healthcheck-retries`
