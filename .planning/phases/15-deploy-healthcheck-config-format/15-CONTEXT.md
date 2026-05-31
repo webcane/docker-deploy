@@ -40,7 +40,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 - **D-02:** Duration values use Docker-style strings (`10s`, `1m30s`, `2m`). Parsed via `time.ParseDuration`. Plain integers are not accepted in the new block.
 - **D-03:** `retries` is a plain integer (not a duration). Represents maximum consecutive unhealthy results before declaring failure.
 - **D-04:** No hardcoded defaults. Default values are defined in the global config (`~/.docker/cli-plugins/deploy.yaml`) pre-populated with `interval: 10s`, `timeout: 30s`, `retries: 3` (commented out, discoverable). If the `healthcheck:` block is absent from both global and local config, health polling is skipped entirely.
-- **D-05:** The old flat `health_timeout` / `health_interval` keys are fully removed from `TargetConfig`. yaml.v3 silently ignores unknown fields — rely on the same common unknown-field handling already in place; no special deprecation warning.
+- **D-05:** ~~yaml.v3 silently ignores unknown fields~~ **REVISED (2026-05-31):** `LoadFile()` uses `yaml.NewDecoder` with `KnownFields(true)` — ALL unknown fields in `deploy.yaml` are a hard parse error. This makes typos in `healthcheck:` keys (e.g. `retrise` instead of `retries`) immediately visible rather than silently producing zero values. Old flat keys (`health_timeout`, `health_interval`) now produce a parse error, prompting users to migrate. This is a deliberate breaking change accepted after UAT gap finding.
 
 ### Config Resolution (four-tier precedence)
 
@@ -55,7 +55,7 @@ Replace the existing flat `health_timeout` / `health_interval` integer keys in `
 
 ### Backward Compatibility
 
-- **D-11:** Hard remove of old flat keys. yaml.v3 silently ignores unknown fields — no special deprecation warning; same behaviour as any other unknown key in deploy.yaml.
+- **D-11:** ~~yaml.v3 silently ignores unknown fields~~ **REVISED (2026-05-31, aligned with D-05):** With `KnownFields(true)` active on `LoadFile()`, old flat keys (`health_timeout`, `health_interval`) produce a clear parse error rather than being silently ignored. No special deprecation message is needed — the parse error is the signal.
 - **D-12:** Existing unit tests for old flat keys should be updated to test the new `healthcheck:` block format.
 
 ### Claude's Discretion
