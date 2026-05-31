@@ -372,13 +372,15 @@ Plans:
 **Goal**: Define a `deploy.yaml` config format for customising health-polling behaviour (timeout, interval) per service so operators aren't locked into global defaults
 **Depends on**: Phase 9
 **Requirements**: TBD
-**Plans**: 2 plans
+**Plans**: 3 plans (2 + 1 gap closure)
 
 **Success Criteria** (what must be TRUE):
   1. Users can set `target.healthcheck.{interval,timeout,retries}` in `deploy.yaml` using Docker-style duration strings and the values are respected during polling
   2. Omitting the `healthcheck` block skips health polling entirely (no hardcoded defaults in code; defaults live in the global config file per D-04)
   3. CLI flags `--healthcheck-timeout`, `--healthcheck-interval`, `--healthcheck-retries` override `deploy.yaml`
   4. Retries semantics: per-container consecutive-unhealthy counter; resets on healthy; trips fail when `>= retries`
+  5. YAML typos in healthcheck keys return a parse error (KnownFields strict mode)
+  6. `--dry-run` output includes resolved healthcheck config unconditionally
 
 Plans:
 
@@ -387,6 +389,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [x] 15-02-PLAN.md — Health polling retries semantics (consume cfg.Healthcheck.{Interval,Timeout,Retries}; per-container failCount; reset on healthy; poll tests)
+
+**Gap Closure**
+- [x] 15-03-PLAN.md — Strict YAML parsing (KnownFields) + dry-run healthcheck row (completed 2026-05-31)
 
 ### Phase 16: Release Tooling Enhancement
 **Goal**: Extend `/gsd:release-tag` so a release is one command: run local checks (tests, linter) to catch failures before they hit CI, update STATE.md with the new version and date, generate a meaningful commit message body from `.planning/research/SUMMARY.md` requirements, then tag and push; also add a terminal demo recording to README so visitors immediately see the tool in action
