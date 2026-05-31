@@ -150,7 +150,7 @@ func pollHealthWithRunner(ctx context.Context, runner sessionOpener, projectName
 			// T-15-02-04: timeout fires regardless of retries setting.
 			for _, c := range containers {
 				if !done[c] {
-					fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet running\n", cfg.Healthcheck.Timeout, c)
+					fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet healthy\n", cfg.Healthcheck.Timeout, c)
 				}
 			}
 			return fmt.Errorf("health: timed out waiting for containers to become healthy")
@@ -179,7 +179,7 @@ func listContainers(runner sessionOpener, projectName string) ([]string, error) 
 	// containing '=' would produce a malformed filter. Directory names with '=' are
 	// an edge case but worth documenting as a known Docker CLI limitation.
 	filterVal := "label=com.docker.compose.project=" + projectName
-	cmd := "docker ps -a --filter " + filetransfer.ShellQuote(filterVal) + " --format '{{.Names}}'"
+	cmd := "docker ps --filter " + filetransfer.ShellQuote(filterVal) + " --format '{{.Names}}'"
 	session, err := runner.newSession(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("creating session for docker ps: %w", err)

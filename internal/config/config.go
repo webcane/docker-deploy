@@ -91,16 +91,17 @@ type Config struct {
 // HealthcheckTimeout and HealthcheckInterval, and an integer for HealthcheckRetries.
 // Precedence: flag > local deploy.yaml target.healthcheck > global config target.healthcheck > absent (zero value).
 type FlagOpts struct {
-	Host                string
-	Path                string
-	Excludes            []string
-	Force               bool
-	ComposeFile         string
-	HealthcheckTimeout  string
-	HealthcheckInterval string
-	HealthcheckRetries  int
-	SkipEnv             bool
-	Verbose             bool
+	Host                   string
+	Path                   string
+	Excludes               []string
+	Force                  bool
+	ComposeFile            string
+	HealthcheckTimeout     string
+	HealthcheckInterval    string
+	HealthcheckRetries     int
+	HealthcheckRetriesSet  bool // true when --healthcheck-retries was explicitly provided (allows 0 to override file config)
+	SkipEnv                bool
+	Verbose                bool
 }
 
 // isValidUnixUsername reports whether s is a valid Unix username, i.e. it
@@ -315,7 +316,8 @@ func resolveHostString(raw, configPath string) (Host, error) {
 // ComposeFile: opts.ComposeFile > file.Target.ComposeFile > auto-detect (compose.yaml, docker-compose.yml).
 // Healthcheck.Interval: --healthcheck-interval > local deploy.yaml > global config > 0 (zero = skip).
 // Healthcheck.Timeout: --healthcheck-timeout > local deploy.yaml > global config > 0 (zero = skip).
-// Healthcheck.Retries: --healthcheck-retries (> 0) > local deploy.yaml (> 0) > global config (> 0) > 0 (zero = skip).
+// Healthcheck.Retries: --healthcheck-retries (if opts.HealthcheckRetriesSet) > local deploy.yaml (> 0) > global config (> 0) > 0 (zero = skip).
+//   HealthcheckRetriesSet must be true for the flag value (including 0) to override file config.
 // SkipEnv: opts.SkipEnv || file.Target.SkipEnv; when true, ".env" is appended to Excludes.
 // Verbose: opts.Verbose; enables detailed output lines to stderr.
 //
@@ -455,9 +457,10 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 		// else: leave cfg.Healthcheck.Timeout at zero (no hardcoded default per D-04)
 	}
 
-	// 4. Resolve Retries: flag (> 0) > local file (> 0) > global file (> 0) > zero.
+	// 4. Resolve Retries: flag (if explicitly set) > local file (> 0) > global file (> 0) > zero.
+	// HealthcheckRetriesSet distinguishes --healthcheck-retries=0 (immediate-fail) from "flag not provided".
 	switch {
-	case opts.HealthcheckRetries > 0:
+	case opts.HealthcheckRetriesSet:
 		cfg.Healthcheck.Retries = opts.HealthcheckRetries
 	case file.Target.Healthcheck.Retries > 0:
 		cfg.Healthcheck.Retries = file.Target.Healthcheck.Retries

@@ -63,13 +63,16 @@ func buildDeployCmd() *cobra.Command {
 	var verbose bool
 
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy a docker-compose project to a remote host",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Use:          "deploy",
+		Short:        "Deploy a docker-compose project to a remote host",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(c *cobra.Command, _ []string) error {
+			healthcheckRetriesSet := c.Flags().Changed("healthcheck-retries")
 			if dryRun {
-				return runDryRun(host, path, excludes, force, composeFile, healthcheckTimeout, healthcheckInterval, healthcheckRetries, skipEnv, verbose)
+				return runDryRun(host, path, excludes, force, composeFile, healthcheckTimeout, healthcheckInterval, healthcheckRetries, healthcheckRetriesSet, skipEnv, verbose)
 			}
-			return runDeploy(host, path, excludes, force, composeFile, healthcheckTimeout, healthcheckInterval, healthcheckRetries, skipEnv, verbose)
+			return runDeploy(host, path, excludes, force, composeFile, healthcheckTimeout, healthcheckInterval, healthcheckRetries, healthcheckRetriesSet, skipEnv, verbose)
 		},
 	}
 
@@ -236,7 +239,7 @@ func formatHostTarget(hostname string, port int, path string) string {
 // The composeFile parameter is accepted for API symmetry with runDeploy but is not
 // used during dry-run, since dry-run only verifies SSH connectivity and config resolution
 // (IN-02).
-func runDryRun(host, path string, excludes []string, force bool, _ string, healthcheckTimeout, healthcheckInterval string, healthcheckRetries int, skipEnv bool, verbose bool) error {
+func runDryRun(host, path string, excludes []string, force bool, _ string, healthcheckTimeout, healthcheckInterval string, healthcheckRetries int, healthcheckRetriesSet bool, skipEnv bool, verbose bool) error {
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -259,16 +262,17 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, healt
 	// 4. Resolve config with four-tier precedence: flag > local file > global file > zero.
 	// A sentinel composeFile value is passed to skip auto-detection for dry-run.
 	resolved, err := config.Resolve(config.FlagOpts{
-		Host:                host,
-		Path:                path,
-		Excludes:            excludes,
-		Force:               force,
-		ComposeFile:         "docker-compose.yml", // sentinel: skips auto-detect; value is unused in dry-run
-		HealthcheckTimeout:  healthcheckTimeout,
-		HealthcheckInterval: healthcheckInterval,
-		HealthcheckRetries:  healthcheckRetries,
-		SkipEnv:             skipEnv,
-		Verbose:             verbose,
+		Host:                  host,
+		Path:                  path,
+		Excludes:              excludes,
+		Force:                 force,
+		ComposeFile:           "docker-compose.yml", // sentinel: skips auto-detect; value is unused in dry-run
+		HealthcheckTimeout:    healthcheckTimeout,
+		HealthcheckInterval:   healthcheckInterval,
+		HealthcheckRetries:    healthcheckRetries,
+		HealthcheckRetriesSet: healthcheckRetriesSet,
+		SkipEnv:               skipEnv,
+		Verbose:               verbose,
 	}, fileConfig, globalCfg, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
@@ -320,7 +324,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, healt
 
 // runDeploy implements the full deploy flow:
 // Resolve() -> Dial() -> exists-check -> prompt-or-skip -> Upload() -> RunCompose() -> success.
-func runDeploy(host, path string, excludes []string, force bool, composeFile string, healthcheckTimeout, healthcheckInterval string, healthcheckRetries int, skipEnv bool, verbose bool) error { //nolint:gocognit // orchestrates full deploy pipeline (resolve→dial→preflight→upload→compose→health) with verbose branching and warning collection
+func runDeploy(host, path string, excludes []string, force bool, composeFile string, healthcheckTimeout, healthcheckInterval string, healthcheckRetries int, healthcheckRetriesSet bool, skipEnv bool, verbose bool) error { //nolint:gocognit // orchestrates full deploy pipeline (resolve→dial→preflight→upload→compose→health) with verbose branching and warning collection
 	// 1. Determine projectName from the working directory basename.
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -342,16 +346,17 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 
 	// 4. Resolve config with four-tier precedence: flag > local file > global file > zero.
 	resolved, err := config.Resolve(config.FlagOpts{
-		Host:                host,
-		Path:                path,
-		Excludes:            excludes,
-		Force:               force,
-		ComposeFile:         composeFile,
-		HealthcheckTimeout:  healthcheckTimeout,
-		HealthcheckInterval: healthcheckInterval,
-		HealthcheckRetries:  healthcheckRetries,
-		SkipEnv:             skipEnv,
-		Verbose:             verbose,
+		Host:                  host,
+		Path:                  path,
+		Excludes:              excludes,
+		Force:                 force,
+		ComposeFile:           composeFile,
+		HealthcheckTimeout:    healthcheckTimeout,
+		HealthcheckInterval:   healthcheckInterval,
+		HealthcheckRetries:    healthcheckRetries,
+		HealthcheckRetriesSet: healthcheckRetriesSet,
+		SkipEnv:               skipEnv,
+		Verbose:               verbose,
 	}, fileConfig, globalCfg, projectName, cwd)
 	if err != nil {
 		return fmt.Errorf("resolving config: %w", err)
@@ -372,7 +377,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		return fmt.Errorf("compose file must be a filename, not a path: %q", resolved.ComposeFile)
 	}
 
-	// 5. Build ssh.DialConfig from the resolved config.
+	// 6. Build ssh.DialConfig from the resolved config.
 	port := resolved.Host.Port
 	if port == 0 {
 		port = 22
@@ -386,7 +391,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		UserOutput: os.Stderr,
 	}
 
-	// 6. Dial the SSH server.
+	// 7. Dial the SSH server.
 	client, err := sshpkg.Dial(context.Background(), dialCfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "SSH connection failed: %v\n", err)
@@ -394,13 +399,13 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	}
 	defer client.Close() //nolint:errcheck
 
-	// 6a. Initialize the warning collector (D-02, T-07-02-02).
+	// 7a. Initialize the warning collector (D-02, T-07-02-02).
 	// Non-blocking warnings are accumulated here. At the end of runDeploy():
 	//   - If verbose=true: each warning is printed inline as it occurs.
 	//   - If verbose=false and len(warnings)>0: single rollup message is printed.
 	var warnings []string
 
-	// 6b. Skip-env warning (D-09, T-07-02-01).
+	// 7b. Skip-env warning (D-09, T-07-02-01).
 	// When SkipEnv is true, .env is already excluded via cfg.Excludes (config.Resolve).
 	// Emit the warning inline when verbose, or collect for rollup when not verbose.
 	if resolved.SkipEnv {
@@ -412,14 +417,14 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		}
 	}
 
-	// 6c. Run pre-flight checks before any file operations.
+	// 7c. Run pre-flight checks before any file operations.
 	results, err := preflight.RunPreflightChecks(context.Background(), preflight.NewSSHRunner(client), resolved)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Pre-flight failed: %v\n", err)
 		return fmt.Errorf("pre-flight checks: %w", err)
 	}
 
-	// 6d. Render pre-flight checklist and collect pre-flight warnings.
+	// 7d. Render pre-flight checklist and collect pre-flight warnings.
 	if resolved.Verbose {
 		// Verbose: print full checklist to stderr (D-01, Phase 5 deferral fulfilled).
 		for _, r := range results {
@@ -434,9 +439,9 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		}
 	}
 
-	// 7. (confirm prompt is now inside Upload() — see force bool parameter)
+	// 8. (confirm prompt is now inside Upload() — see force bool parameter)
 
-	// 8. Upload files via SFTP with atomic staging.
+	// 9. Upload files via SFTP with atomic staging.
 	// Upload returns the actual count of files transferred (single filesystem walk).
 	// creds (SudoCreds) captures the sudo password if the interactive fallback fires and
 	// reuses it across all SudoExec calls — single prompt per deploy (SC-6).
@@ -459,26 +464,26 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		warnings = append(warnings, "WARNING: passwordless sudo not configured; you may be prompted for a password")
 	}
 
-	// 9. Execute docker compose up on the remote host, streaming output locally.
+	// 10. Execute docker compose up on the remote host, streaming output locally.
 	// RunCompose() writes the failure line to os.Stderr on non-zero exit; no
 	// additional wrapping is needed here.
 	if err := compose.RunCompose(context.Background(), client, resolved.Path, resolved.ComposeFile, resolved.Verbose); err != nil {
 		return fmt.Errorf("compose up: %w", err)
 	}
 
-	// 9b. Poll container health after compose up completes.
+	// 10b. Poll container health after compose up completes.
 	if err := health.PollHealth(context.Background(), client, projectName, resolved); err != nil {
 		return fmt.Errorf("health poll: %w", err)
 	}
 
-	// 10. Warning rollup (D-02, T-07-02-02).
+	// 11. Warning rollup (D-02, T-07-02-02).
 	// Always print when warnings occurred. In non-verbose mode adds the --verbose hint
 	// since details were suppressed; in verbose mode details were already printed inline.
 	if len(warnings) > 0 {
 		fmt.Fprintln(os.Stderr, rollupMsg(resolved.Verbose))
 	}
 
-	// 11. Print success summary after compose completes successfully.
+	// 12. Print success summary after compose completes successfully.
 	fmt.Fprintf(os.Stdout, "Deploy complete: %d files copied to %s\n", fileCount, formatHostTarget(resolved.Host.Hostname, port, resolved.Path))
 
 	return nil

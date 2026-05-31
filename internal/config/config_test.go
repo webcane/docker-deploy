@@ -719,10 +719,11 @@ func TestResolveHealthcheck_FlagOverridesLocalFile(t *testing.T) {
 		},
 	}
 	opts := FlagOpts{
-		ComposeFile:         "compose.yaml",
-		HealthcheckInterval: "5s",
-		HealthcheckTimeout:  "10s",
-		HealthcheckRetries:  2,
+		ComposeFile:           "compose.yaml",
+		HealthcheckInterval:   "5s",
+		HealthcheckTimeout:    "10s",
+		HealthcheckRetries:    2,
+		HealthcheckRetriesSet: true,
 	}
 	cfg, err := Resolve(opts, file, FileConfig{}, "proj", dir)
 	if err != nil {
@@ -1024,7 +1025,7 @@ func TestResolveHealthcheck_NegativeRetriesInFlag(t *testing.T) {
 		t.Fatalf("creating compose.yaml: %v", err)
 	}
 
-	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckRetries: -1}, FileConfig{}, FileConfig{}, "proj", dir)
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml", HealthcheckRetries: -1, HealthcheckRetriesSet: true}, FileConfig{}, FileConfig{}, "proj", dir)
 	if err == nil {
 		t.Fatal("Resolve() expected error for negative retries in flag, got nil")
 	}
@@ -1033,6 +1034,24 @@ func TestResolveHealthcheck_NegativeRetriesInFlag(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), ">= 0") {
 		t.Errorf("error = %q, want it to mention '>= 0'", err.Error())
+	}
+}
+
+// TestResolveHealthcheck_ZeroRetriesFlagOverridesFile verifies that --healthcheck-retries=0
+// (immediate-fail) overrides a non-zero value from deploy.yaml when HealthcheckRetriesSet is true.
+func TestResolveHealthcheck_ZeroRetriesFlagOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+	file := FileConfig{Target: TargetConfig{Healthcheck: healthcheckYAML{Retries: 5}}}
+	opts := FlagOpts{ComposeFile: "compose.yaml", HealthcheckRetries: 0, HealthcheckRetriesSet: true}
+	cfg, err := Resolve(opts, file, FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.Healthcheck.Retries != 0 {
+		t.Errorf("Healthcheck.Retries = %d, want 0 (flag=0 must override file retries=5)", cfg.Healthcheck.Retries)
 	}
 }
 
