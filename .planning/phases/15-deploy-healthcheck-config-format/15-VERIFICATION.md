@@ -5,6 +5,16 @@ status: passed
 score: 14/14 must-haves verified
 overrides_applied: 0
 re_verification: false
+gap_closure:
+  plan: "15-03"
+  verified: 2026-05-31T00:00:00Z
+  status: passed
+  score: 3/3 gap-closure must-haves verified
+  gaps_closed:
+    - "A typo in a YAML healthcheck key (e.g. 'retrise' instead of 'retries') returns a parse error, not silent zero"
+    - "An unknown top-level key in deploy.yaml returns a parse error"
+    - "--dry-run output always includes a Healthcheck row showing resolved interval/timeout/retries or 'disabled'"
+  gaps_remaining: []
 ---
 
 # Phase 15: Deploy Healthcheck Config Format — Verification Report
@@ -110,5 +120,57 @@ Phase 15 goal is fully achieved. All 14 must-have truths are VERIFIED with direc
 
 ---
 
+## Gap Closure Verification (Plan 15-03)
+
+**Verified:** 2026-05-31
+**Status:** PASSED
+**Score:** 3/3 gap-closure must-haves verified
+
+The two UAT gaps from Phase 15 are fully closed.
+
+### Gap-Closure Must-Haves
+
+| # | Must-Have | Status | Evidence |
+|---|-----------|--------|---------|
+| 1 | A typo in a YAML healthcheck key (e.g. 'retrise' instead of 'retries') returns a parse error, not silent zero | VERIFIED | `TestLoadFile_UnknownHealthcheckKey` at config_test.go:1397 writes `retrise: 3`, asserts non-nil error containing "retrise"; `go test ./internal/config/... -run TestLoadFile_UnknownHealthcheckKey` exits 0 PASS |
+| 2 | An unknown top-level key in deploy.yaml returns a parse error | VERIFIED | `TestLoadFile_UnknownTopLevelKey` at config_test.go:1418 writes `boguskey: true`, asserts non-nil error containing "boguskey"; `go test ./internal/config/... -run TestLoadFile_UnknownTopLevelKey` exits 0 PASS |
+| 3 | --dry-run output always includes a Healthcheck row showing resolved interval/timeout/retries or 'disabled' | VERIFIED | `formatHealthcheckRow` helper at main.go:230; `runDryRun()` calls `fmt.Fprintln(os.Stdout, formatHealthcheckRow(resolved.Healthcheck))` at line 331 unconditionally; `TestFormatHealthcheckRow` at main_test.go:412 tests disabled and non-zero cases; all 3 sub-tests PASS |
+
+### Gap-Closure Artifact Verification
+
+| Artifact | Required Evidence | Status |
+|----------|-------------------|--------|
+| `internal/config/config.go` LoadFile() | Uses `yaml.NewDecoder(bytes.NewReader(data))` with `.KnownFields(true)` | VERIFIED — lines 195-197 |
+| `internal/config/config_test.go` | Contains `TestLoadFile_UnknownHealthcheckKey` and `TestLoadFile_UnknownTopLevelKey` | VERIFIED — lines 1397 and 1418 |
+| `cmd/docker-deploy/main.go` | Contains `formatHealthcheckRow` function and `runDryRun()` calls it unconditionally | VERIFIED — function at line 230; call at line 331 |
+| `cmd/docker-deploy/main_test.go` | Contains `TestFormatHealthcheckRow` with disabled and non-zero sub-cases | VERIFIED — line 412; 3 sub-tests all pass |
+
+### Gap-Closure Key Links
+
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `LoadFile()` | `yaml.Decoder.KnownFields(true)` | `yaml.NewDecoder(bytes.NewReader(data))` | VERIFIED |
+| `runDryRun()` | `resolved.Healthcheck` | `fmt.Fprintln(os.Stdout, formatHealthcheckRow(resolved.Healthcheck))` after Status line | VERIFIED |
+
+### Gap-Closure Behavioral Spot-Checks
+
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| Strict YAML: typo key rejected | `go test ./internal/config/... -run TestLoadFile_UnknownHealthcheckKey -v` | PASS | PASS |
+| Strict YAML: unknown top-level key rejected | `go test ./internal/config/... -run TestLoadFile_UnknownTopLevelKey -v` | PASS | PASS |
+| formatHealthcheckRow helper tests | `go test ./cmd/docker-deploy/... -run TestFormatHealthcheckRow -v` | 3 sub-tests PASS | PASS |
+| Full build clean | `go build ./...` | exit 0, no output | PASS |
+
+### Gap-Closure Summary
+
+Both UAT gaps are closed with substantive implementation and passing tests:
+
+1. **[major] YAML healthcheck field typos silently ignored** — closed by replacing `yaml.Unmarshal` with `yaml.NewDecoder` + `KnownFields(true)` in `LoadFile()`. Any unknown key in deploy.yaml now returns a parse error naming the offending field. Two new tests (`TestLoadFile_UnknownHealthcheckKey`, `TestLoadFile_UnknownTopLevelKey`) confirm the behaviour; regression test `TestLoadFile_ValidHealthcheckParsed` confirms valid configs still parse correctly.
+
+2. **[minor] --dry-run output omits resolved healthcheck config** — closed by extracting `formatHealthcheckRow(hc config.HealthcheckConfig) string` helper and calling it unconditionally in `runDryRun()` after the `Status: OK` line. The helper returns `"  Healthcheck:  disabled"` for zero config and `"  Healthcheck:  interval=Xs timeout=Ys retries=N"` otherwise. Three sub-tests in `TestFormatHealthcheckRow` cover disabled, fully non-zero, and partial (interval only) cases.
+
+---
+
 _Verified: 2026-05-30_
+_Gap closure verified: 2026-05-31_
 _Verifier: Claude (gsd-verifier)_
