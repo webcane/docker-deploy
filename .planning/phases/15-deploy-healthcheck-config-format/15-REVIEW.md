@@ -1,203 +1,167 @@
 ---
 phase: 15-deploy-healthcheck-config-format
-reviewed: 2026-05-30T00:00:00Z
+reviewed: 2026-05-31T00:00:00Z
 depth: standard
-files_reviewed: 6
+files_reviewed: 7
 files_reviewed_list:
   - cmd/docker-deploy/main.go
-  - integration/compose_test.go
+  - cmd/docker-deploy/main_test.go
   - internal/config/config.go
   - internal/config/config_test.go
   - internal/health/poll.go
   - internal/health/poll_test.go
+  - integration/compose_test.go
 findings:
   critical: 2
-  warning: 3
-  info: 2
+  warning: 4
+  info: 1
   total: 7
 status: issues_found
 ---
 
 # Phase 15: Code Review Report
 
-**Reviewed:** 2026-05-30
+**Reviewed:** 2026-05-31T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 6
+**Files Reviewed:** 7
 **Status:** issues_found
 
 ## Summary
 
-Six files reviewed across the healthcheck config format phase: the main deploy command, integration tests, config resolution, and the health poll loop. The config resolution logic is well-structured with correct four-tier precedence and thorough test coverage. The poll loop correctly handles the core healthy/unhealthy/exited/timeout paths.
-
-Two critical defects were found. First, `listContainers` uses `docker ps -a` (all containers) rather than `docker ps` (running only), which causes the health poller to immediately fail with "stopped unexpectedly" whenever a stopped container from a previous deploy (same project name, not yet pruned) is present. Second, the `--healthcheck-retries=0` flag value is indistinguishable from "flag not provided" due to using `> 0` as the presence test, breaking the documented flag-overrides-file precedence for that specific value.
-
-Three warnings were also found, including double-printing of SSH errors, a stale step number comment, and misleading timeout error message text.
-
----
+Phase 15 introduced a `target.healthcheck` YAML sub-block, four-tier config precedence, per-container retry semantics, and `KnownFields(true)` strict parsing. The config resolution logic and YAML parsing are well-implemented with thorough test coverage for boundary cases. However, two blocker-level bugs exist in the interaction between the documented D-04 "zero means skip" contract and the actual polling behavior in `poll.go`, one of which can cause resource exhaustion on the remote host. Four additional warnings cover test accuracy, UX consistency, and documentation gaps.
 
 ## Critical Issues
 
-### CR-01: `docker ps -a` causes false "stopped unexpectedly" errors from stale containers
+### CR-01: `PollHealth` called unconditionally — violates D-04 "zero means skip" contract, can fail deploys
 
-**File:** `internal/health/poll.go:182`
+**File:** `cmd/docker-deploy/main.go:486`
+**Issue:** `health.PollHealth` is called on every deploy regardless of whether any healthcheck fields were configured. The `HealthcheckConfig` docstring explicitly states: *"Fields are zero values when no healthcheck block is present in any config source, which signals that health polling should be skipped entirely (per D-04)."* The code does not honor this contract. When no healthcheck is configured (all fields zero), `pollHealthWithRunner` proceeds: it makes an SSH call to list containers, and if any containers have a Docker `HEALTHCHECK` instruction, it enters the poll loop with the `healthTimeout` guard of 1 second. Any container still in `"starting"` health state after 1 second causes the deploy to return a `"health: timed out"` error — a regression for every user who deploys containers with `HEALTHCHECK` but has not yet migrated to the new `target.healthcheck` config block.
 
-**Issue:** `listContainers` uses `docker ps -a` (the `-a` flag enumerates all containers, including stopped/exited ones). After a deploy, any previously exited container for the same compose project that has not been pruned (e.g. containers from a prior failed deploy, or any container with `restart: "no"` that has since exited) will appear in the list. `inspectHealth` will return `"exited"` for such a container, and `pollContainers` will immediately return `"health: container X stopped unexpectedly"` — causing the deploy to report failure even though the current compose stack is running correctly.
-
-This is triggered in any real-world scenario where:
-- The operator runs `docker deploy` a second time without first running `docker compose down`.
-- Any service uses `restart: "no"` (one-shot tasks, DB migrations, etc.) and has since exited.
-- The integration test `TestCompose_Healthy_NoHealthcheck` would spuriously fail if a prior test run left a stopped container with project label `compose-test-healthy`.
-
-**Fix:** Remove the `-a` flag so only running/starting containers are enumerated:
-
+**Fix:**
 ```go
-// Before:
-cmd := "docker ps -a --filter " + filetransfer.ShellQuote(filterVal) + " --format '{{.Names}}'"
-
-// After:
-cmd := "docker ps --filter " + filetransfer.ShellQuote(filterVal) + " --format '{{.Names}}'"
+// cmd/docker-deploy/main.go, replace line 485-488
+// 10b. Poll container health after compose up completes.
+// Per D-04: skip polling entirely when no healthcheck block was configured.
+if resolved.Healthcheck.Interval > 0 || resolved.Healthcheck.Timeout > 0 || resolved.Healthcheck.Retries > 0 {
+    if err := health.PollHealth(context.Background(), client, projectName, resolved); err != nil {
+        return fmt.Errorf("health poll: %w", err)
+    }
+}
 ```
-
-Containers that have truly exited/stopped will be picked up by `inspectHealth` returning `"exited"` or `"dead"` only if they were running when enumeration occurred — which is the correct model. If a container was never started or has already been cleaned up it simply will not appear.
 
 ---
 
-### CR-02: `--healthcheck-retries=0` cannot override a non-zero value from deploy.yaml or global config
+### CR-02: Timeout-only config hammers remote with ~1000 SSH sessions per second
 
-**File:** `internal/config/config.go:459-467`
+**File:** `internal/health/poll.go:122-134`
+**Issue:** When `Healthcheck.Interval` is zero but `Healthcheck.Timeout` is non-zero (e.g. a user sets only `timeout: 30s` in the YAML), the zero-guard on line 123 silently replaces the zero interval with `1ms`. This creates a ticker that fires 1000 times per second. Each tick opens a new SSH session via `newSession()` to call `docker inspect` for every container. For a 30-second timeout this means approximately 30,000 SSH sessions per container — effectively a denial of service against the target VPS. The user receives no warning that their partial config is being interpreted this way.
 
-**Issue:** The retries resolution switch uses `opts.HealthcheckRetries > 0` as the "flag was provided" test:
+**Fix:** Add a cross-field validation in `Resolve()` that rejects an Interval-Timeout combination where exactly one of the two is zero. Alternatively, guard the zero-interval replacement to only apply when BOTH fields are zero (i.e. the fallback/test-fast path), and return an error from `Resolve()` for the partial case:
 
 ```go
-switch {
-case opts.HealthcheckRetries > 0:
-    cfg.Healthcheck.Retries = opts.HealthcheckRetries
-case file.Target.Healthcheck.Retries > 0:
-    cfg.Healthcheck.Retries = file.Target.Healthcheck.Retries
-case globalFile.Target.Healthcheck.Retries > 0:
-    cfg.Healthcheck.Retries = globalFile.Target.Healthcheck.Retries
+// internal/config/config.go, add after the Timeout resolution block (~line 463)
+// Reject partial healthcheck config: if one of Interval/Timeout is set, both must be set.
+if (cfg.Healthcheck.Interval > 0) != (cfg.Healthcheck.Timeout > 0) {
+    return Config{}, fmt.Errorf("healthcheck: both interval and timeout must be set together (one is zero)")
 }
 ```
-
-The cobra flag is registered with default `0` (main.go line 84). There is no mechanism to distinguish "user passed `--healthcheck-retries=0`" from "user did not pass the flag at all". Consequently, if `deploy.yaml` or the global config sets `retries: 3`, a user cannot override it back to 0 (immediate-fail behaviour) with `--healthcheck-retries=0`. The documented four-tier precedence "flag > local file > global file" is violated for this specific value.
-
-**Fix:** Use cobra's `Changed()` method to detect explicit flag provision, or use a sentinel value (e.g. `-1` means "not set" and is rejected as invalid separately from the negative-value check). The cleanest fix without changing the flag type is to accept the sentinel pattern at the `FlagOpts` level:
-
-Option A — sentinel in FlagOpts (requires changing flag default in main.go):
-```go
-// In buildDeployCmd(): register default as -1 (sentinel for "not provided")
-cmd.Flags().IntVar(&healthcheckRetries, "healthcheck-retries", -1, "...")
-
-// In Resolve(): treat -1 as "not set"; treat 0 as explicit "immediate fail"
-if opts.HealthcheckRetries == -1 {
-    // flag not provided — fall through to file/global
-} else {
-    // flag was explicitly set (0 = immediate fail, >0 = threshold)
-    cfg.Healthcheck.Retries = opts.HealthcheckRetries
-}
-```
-
-Option B — add a `HealthcheckRetriesSet bool` field to `FlagOpts` and set it when the cobra flag is `Changed()`.
-
-Note: the negative retries validation at lines 390-392 must be updated accordingly if the sentinel is changed to -1.
 
 ---
 
 ## Warnings
 
-### WR-01: Double-printing of errors in `runDryRun` and `runDeploy`
+### WR-01: Interval-only config always fails due to 1-second minimum timeout guard
 
-**File:** `cmd/docker-deploy/main.go:298-300, 392-394, 454-457`
+**File:** `internal/health/poll.go:127-128`
+**Issue:** When `Healthcheck.Interval` is set (e.g. `10s`) but `Healthcheck.Timeout` is zero, the guard on line 127 sets `healthTimeout = 1s`. The first ticker tick fires at `T+10s`, but the timeout fires at `T+1s`, so the deploy always returns a timeout error immediately. The user sees `"health: timed out waiting for containers to become healthy"` with no indication that the real cause is their partial configuration. This is distinct from CR-02 (which covers the opposite order) but shares the same root cause: the cross-field validation in `Resolve()` described in the CR-02 fix would also prevent this scenario.
 
-**Issue:** Several error paths explicitly print to stderr and then also return the error to cobra's `RunE`. Because the deploy command does not set `SilenceErrors: true`, cobra's default error handler will also print the returned error, producing duplicate output. For example an SSH failure produces:
+**Fix:** Same as CR-02 fix — add cross-field validation in `Resolve()` to reject partial interval/timeout configs.
 
-```
-SSH connection failed: <raw error>        ← from fmt.Fprintf at line 299
-Error: SSH dial: <raw error>              ← from cobra's RunE error printing
-```
+---
 
-The same double-print occurs for upload errors (lines 454-457). The `validate` and `version` subcommands correctly set `SilenceUsage: true` but none of the commands set `SilenceErrors`.
+### WR-02: `TestPollHealth_DeadImmediate` tests `"unhealthy"`, not `"dead"` state — misnaming and coverage gap
 
-**Fix:** Either set `SilenceErrors: true` on the deploy command and rely solely on the explicit `fmt.Fprintf` calls, or remove the explicit `fmt.Fprintf` calls and let cobra print the returned (wrapped) error. The former is preferred because the explicit messages give cleaner user-facing context:
+**File:** `internal/health/poll_test.go:118-132`
+**Issue:** The test is named `TestPollHealth_DeadImmediate` and its comment says *"container with HEALTHCHECK returns 'unhealthy' immediately"* — but both the name and the intent say "dead". The `fakeSession` output is `"unhealthy"`, not `"dead"`. The `pollContainers` function has a separate `case "exited", "dead":` branch (poll.go:246-249) that is completely untested by unit tests. This means a regression in the `"exited"`/`"dead"` case would not be caught.
+
+**Fix:** Rename the test to `TestPollHealth_UnhealthyImmediate` and add a new test `TestPollHealth_ExitedContainer` that injects `"exited"` as the inspect response and asserts the error contains `"stopped unexpectedly"`:
 
 ```go
-cmd := &cobra.Command{
-    Use:          "deploy",
-    Short:        "Deploy a docker-compose project to a remote host",
-    SilenceErrors: true,  // add this
-    SilenceUsage:  true,  // consider adding this too
-    RunE: func(...) error { ... },
+func TestPollHealth_ExitedContainer(t *testing.T) {
+    fc := newFakeClient(
+        fakeSessionOut("exited-container\n"),
+        fakeSessionOut("exited"),
+    )
+    err := pollHealthWithRunner(context.Background(), fc, "myproject", defaultCfg(10, 1))
+    if err == nil {
+        t.Fatal("expected non-nil error for exited container, got nil")
+    }
+    if !strings.Contains(err.Error(), "stopped unexpectedly") {
+        t.Errorf("expected error to mention 'stopped unexpectedly', got: %v", err)
+    }
 }
 ```
 
 ---
 
-### WR-02: Duplicate step label "// 5." in `runDeploy`
+### WR-03: `retries=1` is functionally identical to `retries=0` (immediate-fail) — silent UX trap
 
-**File:** `cmd/docker-deploy/main.go:360,375`
+**File:** `internal/health/poll.go:261-273`
+**Issue:** In `recordUnhealthy`, when `retries > 0`, the code increments `failCount` and checks `failCount[container] >= retries`. With `retries=1`, the check fires on the very first unhealthy result (`failCount=1 >= 1`), which is identical behavior to `retries=0` (immediate fail). A user who sets `healthcheck-retries: 1` expecting "allow one retry before failing" gets no retries at all. The flag description `"max consecutive unhealthy results before failing"` technically permits this interpretation, but `retries=1` meaning "zero retries allowed" is counterintuitive and will surprise users.
 
-**Issue:** `runDeploy` has two separate comment blocks both numbered "// 5.": line 360 (`// 5. Validate that a host was resolved.`) and line 375 (`// 5. Build ssh.DialConfig from the resolved config.`). The second "// 5." should be "// 6." (and all subsequent steps should be renumbered). The existing "// 6." comment at line 390 then collides with this. This is a maintenance issue that causes confusion when reading through the deploy flow.
+**Fix:** Either document this explicitly in the flag description, or shift the semantics so `retries=N` means "fail after N+1 consecutive unhealthy" (i.e. allow N retries), or add a minimum-effective-value validation:
 
-**Fix:** Renumber so the flow reads: 1 (cwd), 2 (load local config), 3 (load global config), 4 (resolve), 5 (validate host), 5b (validate compose file), 6 (build dial config), 7 (dial), etc. — or simply relabel step 5b as step 6 and push subsequent numbers up by one.
+```go
+// cmd/docker-deploy/main.go flag registration
+cmd.Flags().IntVar(&healthcheckRetries, "healthcheck-retries", 0,
+    "max consecutive unhealthy results before failing the deploy (0=fail immediately, 1+ allows N-1 retries)")
+```
 
 ---
 
-### WR-03: Misleading timeout error message for containers with HEALTHCHECK
+### WR-04: No test for D-04 skip-polling contract
 
-**File:** `internal/health/poll.go:153`
+**File:** `internal/health/poll_test.go` and `cmd/docker-deploy/main_test.go`
+**Issue:** The `HealthcheckConfig` documentation states that zero value signals health polling should be skipped entirely (D-04). There is no unit test that verifies this contract. If a future refactor changes the zero-guard behavior or the call site in `runDeploy`, the regression would be undetected. Combined with CR-01 (the contract is already violated), the lack of a test means the bug could ship silently.
 
-**Issue:** When the polling timeout fires, the per-container error message reads:
+**Fix:** After fixing CR-01, add a test to verify the skip behavior:
 
 ```go
-fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet running\n", ...)
-```
-
-The phrase "is not yet running" is inaccurate for containers that have a HEALTHCHECK defined. Those containers are running (their `State.Status` is `"running"`) but their health check is still in `"starting"` state — they are not yet *healthy*. The message misleads the operator into thinking the container process hasn't started, when in fact Docker is still executing the HEALTHCHECK probes.
-
-**Fix:**
-```go
-fmt.Fprintf(os.Stderr, "Health check timed out after %s: container %s is not yet healthy\n",
-    cfg.Healthcheck.Timeout, c)
+// internal/health/poll_test.go
+func TestPollHealth_ZeroConfigMakesNoSSHCalls(t *testing.T) {
+    // fakeClient with no scripted responses; any call panics/errors
+    fc := newFakeClient()
+    cfg := config.Config{Healthcheck: config.HealthcheckConfig{}} // all zero
+    // With the CR-01 fix, PollHealth should NOT be called from runDeploy.
+    // This test ensures pollHealthWithRunner itself does not make SSH calls when
+    // zero config is somehow passed through.
+    // Currently this WILL call listContainers (1 session) and return nil only
+    // if containers list is empty; adjust expectations per implementation.
+    err := pollHealthWithRunner(context.Background(), fc, "proj", cfg)
+    if err != nil {
+        t.Fatalf("zero config should not fail: %v", err)
+    }
+}
 ```
 
 ---
 
 ## Info
 
-### IN-01: Integration test comments misrepresent the health status mechanism
+### IN-01: Integration test comment implies a `time.Sleep` that does not exist
 
-**File:** `integration/compose_test.go:26-27, 38`
+**File:** `integration/compose_test.go:111-113`
+**Issue:** The comment on line 111 reads *"Allow a short pause for the container to exit before polling."* No `time.Sleep` or delay follows. The comment implies an intentional sleep was planned or removed, which could mislead future maintainers into thinking this delay is present. In practice the busybox container exits so fast that the 2-second poll interval catches it, but the comment is inaccurate.
 
-**Issue:** Lines 26-27 state "PollHealth polls `{{.State.Status}}` — 'running' is the terminal-success state." Line 38 repeats "poll.go checks `{{.State.Status}}` (running/exited/dead)". This is incorrect: `inspectHealth` in poll.go uses a compound Go template that checks `State.Status` for `"exited"/"dead"` but for a running container returns `State.Health.Status` (when present) or `"no-healthcheck"` — never the string `"running"`. The actual terminal-success status handled by `pollContainers` is `"no-healthcheck"` (or `"healthy"`), not `"running"`.
-
-The tests themselves are correct (nginx:alpine has no HEALTHCHECK so `inspectHealth` returns `"no-healthcheck"`, which `pollContainers` correctly handles). Only the comments are wrong.
-
-**Fix:** Update the comment at line 26-27 and 38 to accurately describe what the poller returns:
+**Fix:** Remove or rewrite the misleading comment:
 
 ```go
-// PollHealth returns nil because inspectHealth() returns "no-healthcheck" for containers
-// without a HEALTHCHECK directive, which pollContainers treats as a terminal-success state.
+// No explicit delay needed: busybox exits immediately; the 2s poll interval
+// in PollHealth will catch the "exited" state on the first tick.
 ```
 
 ---
 
-### IN-02: TODO comment for image pinning left in integration test
-
-**File:** `integration/compose_test.go:20-23`
-
-**Issue:** A TODO comment notes that `nginx:alpine` and `busybox` should be pinned to fixed digest or version tags to avoid pulling "latest" on every CI run. This has correctness implications (image changes could break the test) but is categorised as info because the current behaviour is functional.
-
-**Fix:** Pin both images to a specific version tag:
-```yaml
-# composeHealthyYAML
-image: nginx:1.27-alpine
-
-# composeUnhealthyYAML  
-image: busybox:1.36
-```
-
----
-
-_Reviewed: 2026-05-30_
+_Reviewed: 2026-05-31T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
