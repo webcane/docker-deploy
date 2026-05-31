@@ -1138,7 +1138,9 @@ target:
 
 	t.Run("deploy.yaml schema uses target subsection not flat keys", func(t *testing.T) {
 		dir := t.TempDir()
-		// Flat keys (old-style) should NOT populate Target fields
+		// Flat keys (old-style) are unknown fields — strict parsing rejects them with an error.
+		// This prevents silent misconfiguration where a user writes 'host:' at the top level
+		// and wonders why it has no effect.
 		content := `version: 1
 host: ssh://user@myhost.com:22
 path: /opt/myapp
@@ -1146,13 +1148,9 @@ path: /opt/myapp
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		fc, _, err := LoadFile(dir)
-		if err != nil {
-			t.Fatalf("LoadFile() unexpected error: %v", err)
-		}
-		// Flat keys should be ignored — target subsection is the schema
-		if fc.Target.Host != "" {
-			t.Errorf("flat 'host' key should not populate Target.Host, got %q", fc.Target.Host)
+		_, _, err := LoadFile(dir)
+		if err == nil {
+			t.Fatal("LoadFile() expected error for flat 'host' key (unknown field with KnownFields(true)), got nil")
 		}
 	})
 

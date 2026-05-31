@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"os"
@@ -190,7 +191,9 @@ func LoadFile(dir string) (FileConfig, bool, error) {
 	}
 
 	var fc FileConfig
-	if err := yaml.Unmarshal(data, &fc); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&fc); err != nil {
 		return FileConfig{}, true, fmt.Errorf("parsing deploy.yaml: %w", err)
 	}
 
