@@ -63,8 +63,8 @@ func buildDeployCmd() *cobra.Command {
 	var verbose bool
 
 	cmd := &cobra.Command{
-		Use:          "deploy",
-		Short:        "Deploy a docker-compose project to a remote host",
+		Use:           "deploy",
+		Short:         "Deploy a docker-compose project to a remote host",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(c *cobra.Command, _ []string) error {

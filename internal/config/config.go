@@ -91,17 +91,17 @@ type Config struct {
 // HealthcheckTimeout and HealthcheckInterval, and an integer for HealthcheckRetries.
 // Precedence: flag > local deploy.yaml target.healthcheck > global config target.healthcheck > absent (zero value).
 type FlagOpts struct {
-	Host                   string
-	Path                   string
-	Excludes               []string
-	Force                  bool
-	ComposeFile            string
-	HealthcheckTimeout     string
-	HealthcheckInterval    string
-	HealthcheckRetries     int
-	HealthcheckRetriesSet  bool // true when --healthcheck-retries was explicitly provided (allows 0 to override file config)
-	SkipEnv                bool
-	Verbose                bool
+	Host                  string
+	Path                  string
+	Excludes              []string
+	Force                 bool
+	ComposeFile           string
+	HealthcheckTimeout    string
+	HealthcheckInterval   string
+	HealthcheckRetries    int
+	HealthcheckRetriesSet bool // true when --healthcheck-retries was explicitly provided (allows 0 to override file config)
+	SkipEnv               bool
+	Verbose               bool
 }
 
 // isValidUnixUsername reports whether s is a valid Unix username, i.e. it
@@ -317,7 +317,9 @@ func resolveHostString(raw, configPath string) (Host, error) {
 // Healthcheck.Interval: --healthcheck-interval > local deploy.yaml > global config > 0 (zero = skip).
 // Healthcheck.Timeout: --healthcheck-timeout > local deploy.yaml > global config > 0 (zero = skip).
 // Healthcheck.Retries: --healthcheck-retries (if opts.HealthcheckRetriesSet) > local deploy.yaml (> 0) > global config (> 0) > 0 (zero = skip).
-//   HealthcheckRetriesSet must be true for the flag value (including 0) to override file config.
+//
+//	HealthcheckRetriesSet must be true for the flag value (including 0) to override file config.
+//
 // SkipEnv: opts.SkipEnv || file.Target.SkipEnv; when true, ".env" is appended to Excludes.
 // Verbose: opts.Verbose; enables detailed output lines to stderr.
 //
