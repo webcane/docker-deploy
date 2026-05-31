@@ -224,6 +224,16 @@ func formatCheckResult(r preflight.CheckResult) string {
 	return fmt.Sprintf("  [%s] %s: %s", strings.ToUpper(r.Status), r.Name, r.Message)
 }
 
+// formatHealthcheckRow formats a single line for the dry-run summary's Healthcheck field.
+// When all fields are zero (no healthcheck configured), it returns "  Healthcheck:  disabled".
+// Otherwise it returns "  Healthcheck:  interval=Xs timeout=Ys retries=N".
+func formatHealthcheckRow(hc config.HealthcheckConfig) string {
+	if hc.Interval == 0 && hc.Timeout == 0 && hc.Retries == 0 {
+		return "  Healthcheck:  disabled"
+	}
+	return fmt.Sprintf("  Healthcheck:  interval=%s timeout=%s retries=%d", hc.Interval, hc.Timeout, hc.Retries)
+}
+
 // formatHostTarget formats the host+path portion of the deploy complete message.
 // When port is 0 or 22 (the default SSH port), the colon separator is omitted to
 // avoid the confusing "host:/path" appearance (host:port with empty port).
@@ -318,6 +328,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, healt
 	fmt.Fprintf(os.Stdout, "  Auth method: %s\n", authMethod)
 	fmt.Fprintf(os.Stdout, "  Server:      %s\n", string(client.ServerVersion()))
 	fmt.Fprintf(os.Stdout, "  Status:      OK\n")
+	fmt.Fprintln(os.Stdout, formatHealthcheckRow(resolved.Healthcheck))
 
 	return nil
 }

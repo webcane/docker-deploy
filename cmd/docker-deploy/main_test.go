@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/webcane/docker-deploy/internal/config"
 	"github.com/webcane/docker-deploy/internal/preflight"
 )
 
@@ -400,6 +402,47 @@ func TestFormatHostTarget(t *testing.T) {
 			if got != tc.want {
 				t.Errorf("formatHostTarget(%q, %d, %q) = %q; want %q",
 					tc.hostname, tc.port, tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormatHealthcheckRow verifies the formatHealthcheckRow helper produces the correct
+// output for both disabled (zero) and enabled (non-zero) healthcheck configurations.
+func TestFormatHealthcheckRow(t *testing.T) {
+	tests := []struct {
+		name string
+		hc   config.HealthcheckConfig
+		want string
+	}{
+		{
+			name: "disabled when all zero",
+			hc:   config.HealthcheckConfig{},
+			want: "  Healthcheck:  disabled",
+		},
+		{
+			name: "shows values when non-zero",
+			hc: config.HealthcheckConfig{
+				Interval: 30 * time.Second,
+				Timeout:  10 * time.Second,
+				Retries:  3,
+			},
+			want: "  Healthcheck:  interval=30s timeout=10s retries=3",
+		},
+		{
+			name: "shows only interval non-zero",
+			hc: config.HealthcheckConfig{
+				Interval: 1 * time.Minute,
+			},
+			want: "  Healthcheck:  interval=1m0s timeout=0s retries=0",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatHealthcheckRow(tc.hc)
+			if got != tc.want {
+				t.Errorf("formatHealthcheckRow(%+v) = %q; want %q", tc.hc, got, tc.want)
 			}
 		})
 	}

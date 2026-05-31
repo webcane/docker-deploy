@@ -1157,7 +1157,9 @@ target:
 
 	t.Run("deploy.yaml schema uses target subsection not flat keys", func(t *testing.T) {
 		dir := t.TempDir()
-		// Flat keys (old-style) should NOT populate Target fields
+		// Flat keys (old-style) are unknown fields — strict parsing rejects them with an error.
+		// This prevents silent misconfiguration where a user writes 'host:' at the top level
+		// and wonders why it has no effect.
 		content := `version: 1
 host: ssh://user@myhost.com:22
 path: /opt/myapp
@@ -1165,13 +1167,9 @@ path: /opt/myapp
 		if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
 			t.Fatalf("writing deploy.yaml: %v", err)
 		}
-		fc, _, err := LoadFile(dir)
-		if err != nil {
-			t.Fatalf("LoadFile() unexpected error: %v", err)
-		}
-		// Flat keys should be ignored — target subsection is the schema
-		if fc.Target.Host != "" {
-			t.Errorf("flat 'host' key should not populate Target.Host, got %q", fc.Target.Host)
+		_, _, err := LoadFile(dir)
+		if err == nil {
+			t.Fatal("LoadFile() expected error for flat 'host' key (unknown field with KnownFields(true)), got nil")
 		}
 	})
 
@@ -1390,4 +1388,79 @@ target:
 			t.Errorf("expected zero FileConfig for empty dir, got %+v", fc)
 		}
 	})
+}
+
+// TestLoadFile_UnknownHealthcheckKey verifies that a typo in a healthcheck YAML key
+// (e.g. "retrise" instead of "retries") is rejected with a parse error naming the
+// offending key. This prevents silent misconfiguration where the wrong field is silently
+// ignored and the user gets retries=0 with no feedback.
+func TestLoadFile_UnknownHealthcheckKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `target:
+  host: "ssh://user@host"
+  healthcheck:
+    retrise: 3
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	_, _, err := LoadFile(dir)
+	if err == nil {
+		t.Fatal("LoadFile() expected error for unknown healthcheck key 'retrise', got nil")
+	}
+	if !strings.Contains(err.Error(), "retrise") {
+		t.Fatalf("LoadFile() error %q does not mention 'retrise'", err.Error())
+	}
+}
+
+// TestLoadFile_UnknownTopLevelKey verifies that an unrecognised top-level key in
+// deploy.yaml is rejected with a parse error naming the offending key.
+func TestLoadFile_UnknownTopLevelKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `boguskey: true
+target:
+  host: "ssh://user@host"
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	_, _, err := LoadFile(dir)
+	if err == nil {
+		t.Fatal("LoadFile() expected error for unknown top-level key 'boguskey', got nil")
+	}
+	if !strings.Contains(err.Error(), "boguskey") {
+		t.Fatalf("LoadFile() error %q does not mention 'boguskey'", err.Error())
+	}
+}
+
+// TestLoadFile_ValidHealthcheckParsed is a regression test verifying that valid
+// healthcheck fields are still parsed correctly after switching to strict mode.
+func TestLoadFile_ValidHealthcheckParsed(t *testing.T) {
+	dir := t.TempDir()
+	content := `target:
+  host: "ssh://user@host"
+  healthcheck:
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	fc, found, err := LoadFile(dir)
+	if err != nil {
+		t.Fatalf("LoadFile() unexpected error: %v", err)
+	}
+	if !found {
+		t.Fatal("LoadFile() expected found=true for existing deploy.yaml, got false")
+	}
+	if fc.Target.Healthcheck.Interval != "30s" {
+		t.Errorf("Target.Healthcheck.Interval = %q, want %q", fc.Target.Healthcheck.Interval, "30s")
+	}
+	if fc.Target.Healthcheck.Timeout != "10s" {
+		t.Errorf("Target.Healthcheck.Timeout = %q, want %q", fc.Target.Healthcheck.Timeout, "10s")
+	}
+	if fc.Target.Healthcheck.Retries != 3 {
+		t.Errorf("Target.Healthcheck.Retries = %d, want 3", fc.Target.Healthcheck.Retries)
+	}
 }
