@@ -1372,3 +1372,78 @@ target:
 		}
 	})
 }
+
+// TestLoadFile_UnknownHealthcheckKey verifies that a typo in a healthcheck YAML key
+// (e.g. "retrise" instead of "retries") is rejected with a parse error naming the
+// offending key. This prevents silent misconfiguration where the wrong field is silently
+// ignored and the user gets retries=0 with no feedback.
+func TestLoadFile_UnknownHealthcheckKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `target:
+  host: "ssh://user@host"
+  healthcheck:
+    retrise: 3
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	_, _, err := LoadFile(dir)
+	if err == nil {
+		t.Fatal("LoadFile() expected error for unknown healthcheck key 'retrise', got nil")
+	}
+	if !strings.Contains(err.Error(), "retrise") {
+		t.Fatalf("LoadFile() error %q does not mention 'retrise'", err.Error())
+	}
+}
+
+// TestLoadFile_UnknownTopLevelKey verifies that an unrecognised top-level key in
+// deploy.yaml is rejected with a parse error naming the offending key.
+func TestLoadFile_UnknownTopLevelKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `boguskey: true
+target:
+  host: "ssh://user@host"
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	_, _, err := LoadFile(dir)
+	if err == nil {
+		t.Fatal("LoadFile() expected error for unknown top-level key 'boguskey', got nil")
+	}
+	if !strings.Contains(err.Error(), "boguskey") {
+		t.Fatalf("LoadFile() error %q does not mention 'boguskey'", err.Error())
+	}
+}
+
+// TestLoadFile_ValidHealthcheckParsed is a regression test verifying that valid
+// healthcheck fields are still parsed correctly after switching to strict mode.
+func TestLoadFile_ValidHealthcheckParsed(t *testing.T) {
+	dir := t.TempDir()
+	content := `target:
+  host: "ssh://user@host"
+  healthcheck:
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	fc, found, err := LoadFile(dir)
+	if err != nil {
+		t.Fatalf("LoadFile() unexpected error: %v", err)
+	}
+	if !found {
+		t.Fatal("LoadFile() expected found=true for existing deploy.yaml, got false")
+	}
+	if fc.Target.Healthcheck.Interval != "30s" {
+		t.Errorf("Target.Healthcheck.Interval = %q, want %q", fc.Target.Healthcheck.Interval, "30s")
+	}
+	if fc.Target.Healthcheck.Timeout != "10s" {
+		t.Errorf("Target.Healthcheck.Timeout = %q, want %q", fc.Target.Healthcheck.Timeout, "10s")
+	}
+	if fc.Target.Healthcheck.Retries != 3 {
+		t.Errorf("Target.Healthcheck.Retries = %d, want 3", fc.Target.Healthcheck.Retries)
+	}
+}
