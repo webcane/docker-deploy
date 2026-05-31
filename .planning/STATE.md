@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Phase 15 gap closure verified (15-03 passed)
-last_updated: "2026-05-31T00:00:00Z"
-last_activity: 2026-05-31 -- Phase 15 gap closure complete (strict YAML + dry-run healthcheck row)
+last_updated: "2026-05-31T07:27:30Z"
+last_activity: 2026-05-31 -- Released v0.12.2
 progress:
   total_phases: 16
   completed_phases: 13
