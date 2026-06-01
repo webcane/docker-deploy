@@ -154,6 +154,52 @@ scan:
 	return entry, true
 }
 
+// ListHosts reads configPath (typically ~/.ssh/config) and returns all
+// non-wildcard Host block aliases in file order. Wildcard patterns (containing
+// '*' or '?') are excluded. Returns nil if the file cannot be opened, is empty,
+// or if the scanner encounters an error.
+func ListHosts(configPath string) []string {
+	f, err := os.Open(configPath) //nolint:gosec // configPath is ~/.ssh/config, a user-controlled trusted path
+	if err != nil {
+		return nil
+	}
+	defer f.Close() //nolint:errcheck
+
+	var (
+		aliases []string
+		scanner = bufio.NewScanner(f)
+	)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip blank lines and comments.
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+		keyword := strings.ToLower(parts[0])
+
+		if keyword == "host" {
+			for _, pattern := range parts[1:] {
+				if !strings.ContainsAny(pattern, "*?") {
+					aliases = append(aliases, pattern)
+				}
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil
+	}
+
+	return aliases
+}
+
 // LoadSigners reads configPath (typically ~/.ssh/config), finds the Host
 // block(s) that match hostname, and returns a []gossh.Signer for each
 // successfully-loaded IdentityFile.
