@@ -16,161 +16,109 @@ files_reviewed_list:
   - cmd/docker-deploy/main_test.go
 findings:
   critical: 0
-  warning: 3
-  info: 4
-  total: 7
+  warning: 2
+  info: 2
+  total: 4
 status: issues_found
 ---
 
 # Phase 10: Code Review Report
 
-**Reviewed:** 2026-06-01T00:00:00Z
+**Reviewed:** 2026-06-01
 **Depth:** standard
 **Files Reviewed:** 10
 **Status:** issues_found
 
 ## Summary
 
-Phase 10 introduces shell tab-completion support via a new `internal/completion` package, a `completion [bash|zsh]` subcommand in `cmd/docker-deploy/main.go`, and a new `internal/sshconfig` package that parses `~/.ssh/config` to power the `--host` flag completions. The implementation is generally sound and handles the D-03 silent-failure contract correctly throughout.
+Phase 10 delivers shell tab completion via a `completion` subcommand (`bash`/`zsh`) and a `ListHosts` function that reads `~/.ssh/config` to supply dynamic `--host` flag candidates. The overall design is sound: the `completion` package is well-isolated, the D-03 silent-failure contract is correctly observed throughout, and the main wiring in `buildCompletionCmd`/`buildDeployCmd` is clean. No security issues were found.
 
-Three warnings were found: a whitespace-split parser that silently truncates IdentityFile paths containing spaces, a missing port-range validation that could store an invalid port from a corrupt SSH config, and an implicit cross-file dependency in the test suite. Four informational items cover a known OpenSSH multi-block behaviour gap, the shadowed `min` builtin, inconsistent `os.Stat` usage in `ComposeFileCompletionFunc`, and an unexpanded bare `~` edge case.
-
-No critical/security issues were found.
+Two correctness bugs were found in the SSH config parser (`sshconfig.go`): both stem from the same root cause — the `strings.Fields` splitter does not account for the OpenSSH-documented `Keyword = Value` (equals-sign) syntax. Two low-severity quality items round out the report.
 
 ## Warnings
 
-### WR-01: `value := parts[1]` silently truncates IdentityFile paths containing spaces
+### WR-01: SSH config `Keyword = Value` format silently stores `"="` as the directive value
 
-**File:** `internal/sshconfig/sshconfig.go:80`
-**Issue:** The parser extracts directive values with `value := parts[1]`, where `parts` is `strings.Fields(line)`. Any SSH config directive whose value contains whitespace (e.g. `IdentityFile "/home/user/my keys/id_ed25519"` or an unquoted path with a backslash-escaped space) is silently truncated to the first whitespace-delimited token. For `IdentityFile`, this produces an invalid path that `loadSigner` will silently skip — meaning keys in paths with spaces are never loaded, with no diagnostic. `HostName` and `User` directives are also affected if they contain spaces (an edge case, but legal in quoted SSH config values).
+**File:** `internal/sshconfig/sshconfig.go:65-80`
 
-**Fix:** Reconstruct the full value from `parts[1:]` using `strings.Join`, which at minimum handles the common unquoted multi-word case. Full SSH config quoting semantics (quoted strings, backslash escapes) are out of scope for this parser, but joining all remaining tokens is strictly better than taking only the first:
-```go
-// Replace line 80:
-value := strings.Join(parts[1:], " ")
+**Issue:** The parser splits each config line with `strings.Fields()` and unconditionally takes `parts[1]` as the directive value. OpenSSH's `ssh_config(5)` documents that keyword–value pairs may be separated by either whitespace _or_ whitespace-padded `=`: `"HostName = 192.168.1.50"` is valid. When the equals-sign form is used, `strings.Fields` produces `["HostName", "=", "192.168.1.50"]`, so `value := parts[1]` is `"="` instead of the hostname:
+
 ```
-Add a comment noting that quoted-string parsing per `ssh_config(5)` is not implemented, consistent with the existing D-11 note on Include.
+HostName = 192.168.1.50   →  entry.HostName = "="       (wrong)
+Port = 2222               →  strconv.Atoi("=") fails silently, entry.Port = 0
+IdentityFile = ~/.ssh/id  →  rawIdentityFiles appended with "="
+User = deploy             →  entry.User = "="            (wrong)
+```
+
+This causes silent SSH dial failures for users who write their `~/.ssh/config` in the equals-sign style. The same bug exists identically in `LookupHost` (line 80) and `ListHosts` (line 181 context).
+
+**Fix:** Before extracting the value, strip a bare `=` token at `parts[1]` so both styles are normalised:
+
+```go
+// After "parts := strings.Fields(line)" and the "if len(parts) < 2" guard,
+// normalise "Keyword = Value" to "Keyword Value" form:
+if len(parts) >= 3 && parts[1] == "=" {
+    parts = append(parts[:1], parts[2:]...)
+}
+value := parts[1]
+```
+
+Apply this normalization in both the `LookupHost` scanner loop (around line 65) and the `ListHosts` scanner loop (around line 181).
 
 ---
 
-### WR-02: No port-range validation — out-of-range Port stored and propagated
+### WR-02: `ListHosts` emits `"="` as a spurious shell-completion candidate
 
-**File:** `internal/sshconfig/sshconfig.go:111`
-**Issue:** `strconv.Atoi(value)` succeeds for any integer including values outside the valid TCP port range (1–65535), e.g. `Port 99999` or `Port 0`. These values are stored in `entry.Port` and propagated to `sshpkg.DialConfig.Port`. The SSH dial will then fail with a confusing OS-level error rather than an actionable "invalid port" message. `Port 0` is a special concern: the caller treats 0 as "unset, default to 22" (main.go line 326), so a literal `Port 0` in the SSH config would incorrectly become port 22 instead of being rejected.
+**File:** `internal/sshconfig/sshconfig.go:187-192`
 
-**Fix:**
-```go
-case "port":
-    if active && !found {
-        if p, err := strconv.Atoi(value); err == nil && p >= 1 && p <= 65535 {
-            entry.Port = p
-        }
-        // values outside 1-65535 silently ignored (invalid SSH config)
-    }
-```
+**Issue:** When a config line reads `Host = minipc`, `parts[1:]` is `["=", "minipc"]`. Neither token contains `*` or `?`, so both are appended to `aliases`. Shell completion then offers `"="` as a valid `--host` value alongside the real alias. This is a distinct observable failure from WR-01 (polluted completions rather than wrong resolved value) but has the same root cause.
+
+**Fix:** Apply the same `parts[1] == "="` strip described in WR-01 before iterating `parts[1:]` in the `ListHosts` `keyword == "host"` branch.
 
 ---
 
-### WR-03: `zsh_test.go` calls `min()` defined only in `bash_test.go` — implicit cross-file test dependency
+## Info
 
-**File:** `internal/completion/zsh_test.go:29`
-**Issue:** `zsh_test.go` calls `min(100, len(out))` without defining `min`. The function is defined in `bash_test.go` (lines 33–37). Both files share the `completion_test` package so this compiles, but it creates an implicit coupling: `zsh_test.go` depends on `bash_test.go` being present. If `bash_test.go` were deleted or renamed, the build would fail with a confusing "undefined: min" error. With Go 1.21+ the builtin `min` is available, making the `bash_test.go` definition redundant AND `zsh_test.go`'s implicit dependency invisible (the builtin would be used instead if `bash_test.go` is gone), masking the issue but not eliminating it.
+### IN-01: `bash_test.go` defines a `min()` helper that shadows the Go 1.21+ builtin
 
-**Fix:** Delete `func min` from `bash_test.go` (lines 33–37) — it shadows the Go 1.21+ builtin. Both `bash_test.go` and `zsh_test.go` should use the builtin `min` directly. No import or definition needed:
+**File:** `internal/completion/bash_test.go:33-37`
+
+**Issue:** Go 1.21 promoted `min` to a language builtin. The project uses Go 1.26.3. The local `func min(a, b int) int` in `bash_test.go` shadows the builtin. `zsh_test.go` (same `completion_test` package) calls `min()` at line 29 without defining it, relying on the `bash_test.go` definition — an implicit cross-file dependency. Deleting or renaming `bash_test.go` would break `zsh_test.go` with a non-obvious error.
+
+**Fix:** Delete the `min` function from `bash_test.go` entirely. Both `bash_test.go:29` and `zsh_test.go:29` then use the language builtin automatically:
+
 ```go
-// bash_test.go — remove these lines:
+// Remove from bash_test.go (lines 33-37):
 func min(a, b int) int {
     if a < b {
         return a
     }
     return b
 }
-```
-
-## Info
-
-### IN-01: OpenSSH multi-block directive inheritance not implemented — only first matching block is applied
-
-**File:** `internal/sshconfig/sshconfig.go:86-91`
-**Issue:** OpenSSH processes ALL matching `Host` blocks and applies each directive from the first block that specifies it (first-match-wins per directive). The current parser stops collecting directives as soon as the matching block ends (sets `found=true` and breaks on the next `Host` line). A common pattern — specific alias block followed by a `Host *` defaults block — means directives like `User`, `IdentityFile`, and `Port` in the `Host *` block are silently ignored for the matched alias if the specific block omits them.
-
-**Example that silently fails:**
-```
-Host myserver
-  HostName 192.168.1.10
-
-Host *
-  User deploy
-  IdentityFile ~/.ssh/id_ed25519
-```
-`LookupHost("myserver")` returns `User=""` and no IdentityFiles, instead of the OpenSSH-expected `User="deploy"` and `~/.ssh/id_ed25519`.
-
-This is an architectural decision consistent with the D-11 note on silently skipping Include directives. No fix is required unless the completion use case demands full OpenSSH compatibility, but the limitation should be documented in the `LookupHost` godoc:
-```go
-// NOTE: Only the first matching Host block is applied. Subsequent blocks
-// (including "Host *" defaults) are not merged. This differs from OpenSSH's
-// first-match-wins-per-directive behaviour.
+// No change needed at the call sites — builtin min takes over.
 ```
 
 ---
 
-### IN-02: `ComposeFileCompletionFunc` uses implicit cwd via bare `os.Stat` — inconsistent with sibling functions
+### IN-02: `TestLoadSigners_DelegatesLookupHost` discards `*testing.T`, preventing failure reporting if the test is extended
 
-**File:** `internal/completion/completion.go:65`
-**Issue:** `ComposeFileCompletionFunc` calls `os.Stat(name)` with a bare filename (`"compose.yaml"`, `"docker-compose.yml"`), relying implicitly on the process's current working directory. The sibling functions `HostCompletionFunc` and `PathCompletionFunc` both call `os.Getwd()` explicitly. The implicit approach works correctly at runtime but is harder to test in isolation (tests must `os.Chdir` — which they do, but tests run sequentially with shared cwd state) and does not produce a clear error if `os.Getwd()` would have failed.
+**File:** `internal/sshconfig/sshconfig_test.go:125`
 
-**Fix:** For consistency, acquire cwd explicitly:
+**Issue:** The function signature uses a blank identifier: `func TestLoadSigners_DelegatesLookupHost(_ *testing.T)`. This makes it impossible to call `t.Fatal`, `t.Error`, or `t.Skip` inside the test body. The current intent (no-panic check only) is fine, but the pattern silently absorbs failures if the function is ever extended with an assertion. It also reads as an oversight to future contributors.
+
+**Fix:** Name the parameter and add a comment to make the intent explicit:
+
 ```go
-func ComposeFileCompletionFunc(_ *cobra.Command, _ []string, _ string) ([]cobra.Completion, cobra.ShellCompDirective) {
-    cwd, err := os.Getwd()
-    if err != nil {
-        return nil, cobra.ShellCompDirectiveNoFileComp
-    }
-    var suggestions []cobra.Completion
-    for _, name := range []string{"compose.yaml", "docker-compose.yml"} {
-        if _, err := os.Stat(filepath.Join(cwd, name)); err == nil {
-            suggestions = append(suggestions, cobra.Completion(name))
-        }
-    }
-    return suggestions, cobra.ShellCompDirectiveNoFileComp
+func TestLoadSigners_DelegatesLookupHost(t *testing.T) {
+    t.Helper()
+    // Only verifies no panic; keys may be absent in CI.
+    signers := LoadSigners("/nonexistent/path", "anyhost")
+    _ = signers
 }
 ```
 
 ---
 
-### IN-03: `expandPath` does not expand bare `~` (without trailing slash)
-
-**File:** `internal/sshconfig/sshconfig.go:245-247`
-**Issue:** The tilde expansion guard is `strings.HasPrefix(path, "~/")`, which requires a slash after `~`. A bare `IdentityFile ~` (without a path component) is not expanded and is passed literally as `"~"` to `loadSigner`, which then fails with a file-not-found error (silently skipped per design). This is a very rare edge case — `IdentityFile ~` is not a valid key path — but the behaviour is surprising and undocumented.
-
-**Fix:** Add handling for the exact `"~"` case, or document the limitation:
-```go
-if path == "~" {
-    path = homeDir
-} else if strings.HasPrefix(path, "~/") {
-    path = filepath.Join(homeDir, path[2:])
-}
-```
-
----
-
-### IN-04: `Register` silently discards completion registration errors — typo in flag name would be undetectable
-
-**File:** `internal/completion/completion.go:19-21`
-**Issue:** All three `RegisterFlagCompletionFunc` calls discard their errors with `_ =`. If a flag name is misspelled (e.g., `"composefile"` instead of `"compose-file"`), the completion function is silently not registered. The comment acknowledges this. At present the flag names match exactly, so this is not a bug. However, there is no test that verifies registration actually succeeded by checking the returned error — the existing tests only verify `GetFlagCompletionFunc` returns ok, not that Register returned no error internally.
-
-**Fix:** Not required given the flags are verified by test. Optionally, panic in dev builds if registration fails, using a build tag:
-```go
-// In Register(), for defensive debugging during development:
-if err := cmd.RegisterFlagCompletionFunc("host", HostCompletionFunc); err != nil {
-    // Flag not defined yet — caller must define flags before calling Register.
-    // This is a programming error, not a runtime error.
-    panic(fmt.Sprintf("completion.Register: %v", err))
-}
-```
-
----
-
-_Reviewed: 2026-06-01T00:00:00Z_
+_Reviewed: 2026-06-01_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
