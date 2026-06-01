@@ -342,17 +342,17 @@ cmd.Root().GenZshCompletion(os.Stdout)
 | A1 | cobra's built-in auto-completion injection is suppressed when `buildCompletionCmd()` is manually added | Anti-Patterns | If not suppressed, two `completion` subcommands appear; test coverage catches this |
 | A2 | `plugin.Run()` does not introduce additional wrapping layers that change `cmd.Root()` behavior | Pitfall 6 | GenBashCompletion would generate an unusable script; catch with smoke test |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **GenBashCompletion V1 vs V2 — which to ship?**
    - What we know: V2 is preferred, supports descriptions, produces cleaner scripts; V1 is legacy.
    - What's unclear: Whether end-user bash versions in target environments support the V2 format (requires bash 4.1+; macOS ships bash 3.2).
-   - Recommendation: Ship V2 (`GenBashCompletionV2(w, false)`) as it is the current standard. macOS users who need completion typically use `brew install bash` (bash 5.x).
+   - RESOLVED: Ship `GenBashCompletionV2(w, false)` — V2 is the current standard. macOS users who need completion typically use `brew install bash` (bash 5.x).
 
 2. **Should `--host` completion include the `ssh://` URL prefix?**
    - What we know: deploy.yaml hosts may be stored as bare aliases (`minipc`) or full URLs (`ssh://user@host`). SSH config aliases are bare names.
    - What's unclear: D-02 says "deploy.yaml host value" — if it is `ssh://user@host`, should that be a completion candidate?
-   - Recommendation: Return the raw value from deploy.yaml unchanged; return bare alias names from SSH config. The user can Tab-complete to either form.
+   - RESOLVED: Return the raw value from deploy.yaml unchanged; return bare alias names from SSH config. The user can Tab-complete to either form.
 
 ## Environment Availability
 
