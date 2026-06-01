@@ -29,4 +29,3 @@ func TestGenerateBash_OutputContainsBashHeader(t *testing.T) {
 		t.Errorf("GenerateBash output does not contain '#'; got: %q", out[:min(100, len(out))])
 	}
 }
-
