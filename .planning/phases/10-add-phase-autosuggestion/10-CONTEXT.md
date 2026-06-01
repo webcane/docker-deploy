@@ -28,6 +28,16 @@ Add shell tab completion to the `docker deploy` CLI plugin. Users press Tab to g
 - **D-06:** `--path` suggests `/opt/<cwd-basename>` as a completion candidate (e.g., in `~/projects/myapp`, suggest `/opt/myapp`). Matches the built-in default path resolution logic.
 - **D-07:** `--compose-file` scans cwd with a lightweight `os.ReadDir(".")` and suggests `compose.yaml` and/or `docker-compose.yml` if they exist. Matches the auto-detect logic in config resolution.
 
+### Package Structure
+- **D-08:** Completion logic lives in its own `internal/completion/` package, not in `cmd/docker-deploy/main.go`. Structure:
+  ```
+  internal/completion/
+  ├── completion.go   — RegisterFlagCompletionFunc calls + dynamic completion functions (--host, --path, --compose-file)
+  ├── bash.go         — bash script generation (wraps cmd.Root().GenBashCompletionV2)
+  └── zsh.go          — zsh script generation (wraps cmd.Root().GenZshCompletion)
+  ```
+  `cmd/docker-deploy/main.go` only wires the `completion` subcommand via `buildCompletionCmd()` and calls `completion.Register(cmd)` to attach flag completions. No completion logic in `main.go`.
+
 </decisions>
 
 <canonical_refs>
