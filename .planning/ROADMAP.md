@@ -259,12 +259,25 @@ Plans:
 - [ ] 09-04-PLAN.md — Supporting docs: PREREQUISITES.md, COMPARISON.md, TROUBLESHOOTING.md, DEPLOY_CONFIG.md
 
 ### Phase 10: Add Phase Autosuggestion
-**Goal**: add phase autosuggestion
+**Goal**: Add shell tab completion to the `docker deploy` CLI plugin — `completion bash` and `completion zsh` subcommand, plus dynamic `--host`, `--path`, and `--compose-file` suggestions sourced from deploy.yaml and ~/.ssh/config
 **Depends on**: Phase 8
 **Plans**: 2 plans
 
 **Success Criteria** (what must be TRUE):
-  1. TBD
+  1. `docker deploy completion bash` writes a bash completion script to stdout; piping it to a file and sourcing it makes Tab work in bash
+  2. `docker deploy completion zsh` writes a zsh completion script to stdout; piping it to a file enables Tab in zsh
+  3. Pressing Tab on `--host` shows candidates merged from deploy.yaml `target.host` and all non-wildcard Host block aliases in `~/.ssh/config`
+  4. Pressing Tab on `--path` suggests `/opt/<cwd-basename>`
+  5. Pressing Tab on `--compose-file` suggests `compose.yaml` and/or `docker-compose.yml` if they exist in cwd
+  6. All completion functions return empty candidates (not an error) when their data sources are missing or unreadable
+
+Plans:
+
+**Wave 1**
+- [ ] 10-01-PLAN.md — sshconfig.ListHosts TDD (add ListHosts enumeration function + tests)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (completion subcommand, --host/--path/--compose-file completions, tests)
 
 ### Phase 11: CI & Tooling Polish
 **Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
