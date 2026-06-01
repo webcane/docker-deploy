@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/webcane/docker-deploy/internal/compose"
+	"github.com/webcane/docker-deploy/internal/completion"
 	"github.com/webcane/docker-deploy/internal/config"
 	filetransfer "github.com/webcane/docker-deploy/internal/filetransfer"
 	"github.com/webcane/docker-deploy/internal/health"
@@ -88,8 +89,11 @@ func buildDeployCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&skipEnv, "skip-env", false, "Exclude .env from upload, leaving remote .env unchanged")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Print per-file transfer lines, SSH commands, and pre-flight checklist to stderr")
 
+	completion.Register(cmd)
+
 	cmd.AddCommand(buildVersionCmd())
 	cmd.AddCommand(buildValidateCmd())
+	cmd.AddCommand(buildCompletionCmd())
 
 	return cmd
 }
@@ -140,6 +144,29 @@ func buildValidateCmd() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runValidate()
+		},
+	}
+}
+
+// buildCompletionCmd returns a cobra.Command for the "completion" subcommand.
+// It generates shell completion scripts by delegating to the completion package.
+// Supported shells: bash and zsh (D-01, D-04, D-05).
+func buildCompletionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:          "completion [bash|zsh]",
+		Short:        "Generate shell completion script",
+		ValidArgs:    []string{"bash", "zsh"},
+		Args:         cobra.ExactValidArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return completion.GenerateBash(cmd, os.Stdout)
+			case "zsh":
+				return completion.GenerateZsh(cmd, os.Stdout)
+			default:
+				return nil // unreachable: cobra's ExactValidArgs rejects other values before RunE fires
+			}
 		},
 	}
 }
