@@ -461,7 +461,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
-| 10. Add Phase Autosuggestion | 1/2 | In Progress|  |
+| 10. Add Phase Autosuggestion | 2/2 | Complete   | 2026-06-01 |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
