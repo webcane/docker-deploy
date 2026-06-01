@@ -222,6 +222,93 @@ func TestLookupHost_PercentD_WithoutRemoteUser(t *testing.T) {
 	}
 }
 
+// --- ListHosts tests ---
+
+// TestListHosts_HappyPath verifies that ListHosts returns all non-wildcard Host
+// aliases in file order.
+func TestListHosts_HappyPath(t *testing.T) {
+	cfg := "Host minipc\n  HostName 192.168.1.50\nHost devbox\n  HostName 10.0.0.5\n"
+	tmpFile := writeTempSSHConfig(t, cfg)
+
+	got := ListHosts(tmpFile)
+	want := []string{"minipc", "devbox"}
+	if len(got) != len(want) {
+		t.Fatalf("ListHosts() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("ListHosts()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestListHosts_SkipsWildcards verifies that wildcard Host patterns are excluded.
+func TestListHosts_SkipsWildcards(t *testing.T) {
+	cfg := "Host *\n  ServerAliveInterval 60\nHost *.example.com\n  User admin\nHost prod\n  HostName 1.2.3.4\n"
+	tmpFile := writeTempSSHConfig(t, cfg)
+
+	got := ListHosts(tmpFile)
+	want := []string{"prod"}
+	if len(got) != len(want) {
+		t.Fatalf("ListHosts() = %v, want %v", got, want)
+	}
+	if got[0] != "prod" {
+		t.Errorf("ListHosts()[0] = %q, want %q", got[0], "prod")
+	}
+}
+
+// TestListHosts_MultiPatternLine verifies that only non-wildcard patterns are
+// collected from a Host line with multiple patterns.
+func TestListHosts_MultiPatternLine(t *testing.T) {
+	cfg := "Host web app *.internal\n  User deploy\n"
+	tmpFile := writeTempSSHConfig(t, cfg)
+
+	got := ListHosts(tmpFile)
+	want := []string{"web", "app"}
+	if len(got) != len(want) {
+		t.Fatalf("ListHosts() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("ListHosts()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestListHosts_MissingFile verifies that ListHosts returns nil without panicking
+// when the config file does not exist.
+func TestListHosts_MissingFile(t *testing.T) {
+	got := ListHosts(t.TempDir() + "/nonexistent")
+	if got != nil {
+		t.Errorf("ListHosts() = %v, want nil for missing file", got)
+	}
+}
+
+// TestListHosts_EmptyFile verifies that ListHosts returns nil for an empty file.
+func TestListHosts_EmptyFile(t *testing.T) {
+	tmpFile := writeTempSSHConfig(t, "")
+	got := ListHosts(tmpFile)
+	if got != nil {
+		t.Errorf("ListHosts() = %v, want nil for empty file", got)
+	}
+}
+
+// TestListHosts_CommentsAndBlankLines verifies that comment and blank lines are
+// skipped and the real Host alias is returned.
+func TestListHosts_CommentsAndBlankLines(t *testing.T) {
+	cfg := "# global settings\n\nHost real\n  HostName 1.2.3.4\n"
+	tmpFile := writeTempSSHConfig(t, cfg)
+
+	got := ListHosts(tmpFile)
+	want := []string{"real"}
+	if len(got) != len(want) {
+		t.Fatalf("ListHosts() = %v, want %v", got, want)
+	}
+	if got[0] != "real" {
+		t.Errorf("ListHosts()[0] = %q, want %q", got[0], "real")
+	}
+}
+
 // writeTempSSHConfig writes content to a temp file and returns the path.
 func writeTempSSHConfig(t *testing.T, content string) string {
 	t.Helper()
