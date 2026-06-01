@@ -274,7 +274,7 @@ Plans:
 Plans:
 
 **Wave 1**
-- [ ] 10-01-PLAN.md — sshconfig.ListHosts TDD (add ListHosts enumeration function + tests)
+- [x] 10-01-PLAN.md — sshconfig.ListHosts TDD (add ListHosts enumeration function + tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (completion subcommand, --host/--path/--compose-file completions, tests)
@@ -461,7 +461,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
-| 10. Add Phase Autosuggestion | 0/? | Not started | - |
+| 10. Add Phase Autosuggestion | 1/2 | In Progress|  |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
@@ -475,7 +475,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 **Goal:** A developer can run `--init` to set up a fresh VPS deploy target via root SSH and have deploy.yaml written automatically
 **Requirements:** INIT-01, INIT-02, INIT-03, INIT-04
-**Plans:** 2/2 plans complete
+**Plans:** 1/2 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. `docker deploy --init` triggers an interactive wizard that accepts root SSH credentials separate from the deploy user credentials
