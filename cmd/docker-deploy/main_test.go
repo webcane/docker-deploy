@@ -407,6 +407,18 @@ func TestFormatHostTarget(t *testing.T) {
 	}
 }
 
+// TestCompletionCmd_Registered verifies that buildDeployCmd() has a subcommand
+// with Use == "completion [bash|zsh]" (D-04, D-05).
+func TestCompletionCmd_Registered(t *testing.T) {
+	cmd := buildDeployCmd()
+	for _, sub := range cmd.Commands() {
+		if sub.Use == "completion [bash|zsh]" {
+			return
+		}
+	}
+	t.Fatal("deploy command has no 'completion' subcommand registered")
+}
+
 // TestFormatHealthcheckRow verifies the formatHealthcheckRow helper produces the correct
 // output for both disabled (zero) and enabled (non-zero) healthcheck configurations.
 func TestFormatHealthcheckRow(t *testing.T) {
