@@ -77,6 +77,10 @@ scan:
 		if len(parts) < 2 {
 			continue
 		}
+		// Normalise "Keyword = Value" (equals-sign form) to "Keyword Value".
+		if len(parts) >= 3 && parts[1] == "=" {
+			parts = append(parts[:1], parts[2:]...)
+		}
 		value := parts[1]
 
 		switch keyword {
@@ -183,6 +187,10 @@ func ListHosts(configPath string) []string {
 			continue
 		}
 		keyword := strings.ToLower(parts[0])
+		// Normalise "Keyword = Value" (equals-sign form) to "Keyword Value".
+		if len(parts) >= 3 && parts[1] == "=" {
+			parts = append(parts[:1], parts[2:]...)
+		}
 
 		if keyword == "host" {
 			for _, pattern := range parts[1:] {
