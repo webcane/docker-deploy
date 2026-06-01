@@ -1,6 +1,7 @@
 package completion
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -12,5 +13,8 @@ import (
 // The cmd parameter is the completion subcommand received from RunE;
 // cmd.Root() is the deploy command (confirmed by Pitfall 6 in RESEARCH.md).
 func GenerateBash(cmd *cobra.Command, w io.Writer) error {
-	return cmd.Root().GenBashCompletionV2(w, false)
+	if err := cmd.Root().GenBashCompletionV2(w, false); err != nil {
+		return fmt.Errorf("generating bash completion: %w", err)
+	}
+	return nil
 }

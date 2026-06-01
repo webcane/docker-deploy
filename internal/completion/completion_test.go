@@ -65,7 +65,7 @@ func TestHostCompletionFunc_SilentOnMissingFiles(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck
+	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck,gosec
 
 	_, directive := completion.HostCompletionFunc(nil, nil, "")
 	if directive != cobra.ShellCompDirectiveNoFileComp {
@@ -100,7 +100,7 @@ func TestComposeFileCompletionFunc_EmptyWhenNoneExist(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck
+	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck,gosec
 
 	candidates, _ := completion.ComposeFileCompletionFunc(nil, nil, "")
 	if len(candidates) != 0 {
@@ -119,7 +119,7 @@ func TestComposeFileCompletionFunc_SuggestsWhenPresent(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck
+	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck,gosec
 
 	// Create compose.yaml in the tmpdir.
 	if err := os.WriteFile("compose.yaml", []byte(""), 0o600); err != nil {

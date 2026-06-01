@@ -19,8 +19,8 @@ import (
 	"github.com/docker/cli/cli/command"
 	"github.com/spf13/cobra"
 
-	"github.com/webcane/docker-deploy/internal/compose"
 	"github.com/webcane/docker-deploy/internal/completion"
+	"github.com/webcane/docker-deploy/internal/compose"
 	"github.com/webcane/docker-deploy/internal/config"
 	filetransfer "github.com/webcane/docker-deploy/internal/filetransfer"
 	"github.com/webcane/docker-deploy/internal/health"
@@ -156,7 +156,7 @@ func buildCompletionCmd() *cobra.Command {
 		Use:          "completion [bash|zsh]",
 		Short:        "Generate shell completion script",
 		ValidArgs:    []string{"bash", "zsh"},
-		Args:         cobra.ExactValidArgs(1),
+		Args:         cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {

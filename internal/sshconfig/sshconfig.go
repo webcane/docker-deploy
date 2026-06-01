@@ -55,33 +55,13 @@ func LookupHost(configPath, alias string) (HostEntry, bool) { //nolint:gocognit 
 
 scan:
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip blank lines and comments.
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.Fields(line)
-		if len(parts) < 1 {
-			continue
-		}
-		keyword := strings.ToLower(parts[0])
-
-		// Per D-11: skip Include directives silently.
+		keyword, values := parseConfigLine(scanner.Text())
+		// Per D-11: skip blank lines, comments, and Include directives silently.
 		// TODO: Include directives not implemented — only the named config file is parsed.
-		if keyword == "include" {
+		if keyword == "" || keyword == "include" {
 			continue
 		}
-
-		if len(parts) < 2 {
-			continue
-		}
-		// Normalise "Keyword = Value" (equals-sign form) to "Keyword Value".
-		if len(parts) >= 3 && parts[1] == "=" {
-			parts = append(parts[:1], parts[2:]...)
-		}
-		value := parts[1]
+		value := values[0]
 
 		switch keyword {
 		case "host":
@@ -95,7 +75,7 @@ scan:
 			}
 			// SSH config allows multiple patterns: "Host a b *.c"
 			active = false
-			for _, pattern := range parts[1:] {
+			for _, pattern := range values {
 				if hostMatches(pattern, alias) {
 					active = true
 					break
@@ -175,28 +155,13 @@ func ListHosts(configPath string) []string {
 	)
 
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip blank lines and comments.
-		if line == "" || strings.HasPrefix(line, "#") {
+		keyword, values := parseConfigLine(scanner.Text())
+		if keyword != "host" {
 			continue
 		}
-
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
-			continue
-		}
-		keyword := strings.ToLower(parts[0])
-		// Normalise "Keyword = Value" (equals-sign form) to "Keyword Value".
-		if len(parts) >= 3 && parts[1] == "=" {
-			parts = append(parts[:1], parts[2:]...)
-		}
-
-		if keyword == "host" {
-			for _, pattern := range parts[1:] {
-				if !strings.ContainsAny(pattern, "*?") {
-					aliases = append(aliases, pattern)
-				}
+		for _, pattern := range values {
+			if !strings.ContainsAny(pattern, "*?") {
+				aliases = append(aliases, pattern)
 			}
 		}
 	}
@@ -235,6 +200,27 @@ func LoadSigners(configPath, hostname string) []gossh.Signer {
 		signers = append(signers, s)
 	}
 	return signers
+}
+
+// parseConfigLine parses a single ssh_config line and returns the lower-case
+// keyword and its value tokens, normalising the "Keyword = Value" equals-sign
+// form documented in ssh_config(5). Returns ("", nil) for blank lines,
+// comments, and lines that have no value token.
+func parseConfigLine(line string) (keyword string, values []string) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return "", nil
+	}
+	parts := strings.Fields(line)
+	if len(parts) < 2 {
+		return "", nil
+	}
+	keyword = strings.ToLower(parts[0])
+	// Normalise "Keyword = Value" to "Keyword Value" so both forms are handled.
+	if len(parts) >= 3 && parts[1] == "=" {
+		parts = append(parts[:1], parts[2:]...)
+	}
+	return keyword, parts[1:]
 }
 
 // hostMatches reports whether the Host pattern in an SSH config file matches
