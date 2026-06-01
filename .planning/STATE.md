@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 10 Plan 01 complete (sshconfig.ListHosts TDD)
-last_updated: "2026-06-01T07:58:17.224Z"
+stopped_at: Phase 10 Plan 02 complete (internal/completion package + main.go wiring)
+last_updated: "2026-06-01T08:30:00.000Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 16
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 10 of 16 (Add Phase Autosuggestion) — READY TO EXECUTE
-Plan: 1 of 2 complete
-Status: Ready to execute
+Plan: 2 of 2 complete
+Status: Phase 10 complete — ready for next phase
 Last activity: 2026-06-01
 Resume file: None
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 15-deploy-healthcheck-config-format P01 | 56 | 3 tasks (TDD) | 5 files |
 | Phase 15-deploy-healthcheck-config-format P02 | 10 | 2 tasks | 3 files |
 | Phase 10 P01 | 3min | 1 tasks | 2 files |
+| Phase 10 P02 | 8min | 2 tasks (TDD) | 8 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase ?]: retries==0 preserves immediate-fail on unhealthy (backward compat); retries>0 deferred-fail gate via per-container failCount map
 - [Phase ?]: 15-02: healthy/no-healthcheck resets failCount[container]=0 per D-09; timeout error uses Duration.String() via %s format
 - [Phase 10]: ListHosts uses strings.ContainsAny(pattern, "*?") for wildcard detection — satisfies D-03 silent-fail contract; returns nil (not empty slice) on all error paths
+- [Phase 10-02]: Test assertions use cmd.GetFlagCompletionFunc() not flag.Annotations — cobra v1.10.2 stores completion funcs in global map, not as flag annotations
+- [Phase 10-02]: buildCompletionCmd() uses cobra.ExactValidArgs(1) + ValidArgs=[bash,zsh] to reject unsupported shells before RunE fires (T-10-02-04)
 
 ### Roadmap Evolution
 
@@ -153,8 +156,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-01T07:58:17.219Z
-Stopped at: Phase 10 Plan 01 complete (sshconfig.ListHosts TDD)
+Last session: 2026-06-01T08:30:00.000Z
+Stopped at: Phase 10 Plan 02 complete (internal/completion package + main.go wiring)
 Resume file: None
 Last activity: 2026-05-30 - Completed quick task 260530-hkb: Fix SSH host key capture in DinD integration tests
 | 2026-05-24 | fast | add /release-tag skill | ✅ |

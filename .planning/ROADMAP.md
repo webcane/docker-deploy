@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: v2 — Leftovers** - Expanded default excludes, `--skip-env` / `skip_env` setting, and `--verbose` flag — completed 2026-05-20
 - [x] **Phase 8: Integration Tests** - Testcontainers-based suite verifies all requirements automatically against a real SSH daemon — completed 2026-05-22
 - [x] **Phase 9: Documentation** - README.md tells the full story: why, how to install, use-cases, comparison table, prerequisites, troubleshooting, and project badges
-- [ ] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion
+- [x] **Phase 10: Add Phase Autosuggestion** - add phase autosuggestion — completed 2026-06-01
 - [x] **Phase 11: CI & Tooling Polish** - Fix Codecov, bump GitHub Actions versions, add Brew auto-symlink on install and cleanup on uninstall (completed 2026-05-23)
 - [x] **Phase 12: Docs Polish** - Fix help description, sharpen README value prop, restructure install docs to INSTALL.md, add comparison feedback link (completed 2026-05-24)
 - [x] **Phase 13: CLI Subcommands & Deploy UX** - Resolve `deploy.yaml` relative to cwd; `version` and `validate` subcommands; consolidate sudo into one SSH session; verbose pre-confirm file diff; path-aware sudo detection (completed 2026-05-26)
@@ -277,7 +277,7 @@ Plans:
 - [x] 10-01-PLAN.md — sshconfig.ListHosts TDD (add ListHosts enumeration function + tests)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (completion subcommand, --host/--path/--compose-file completions, tests)
+- [x] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (completion subcommand, --host/--path/--compose-file completions, tests)
 
 ### Phase 11: CI & Tooling Polish
 **Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
