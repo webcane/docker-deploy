@@ -408,11 +408,18 @@ func TestFormatHostTarget(t *testing.T) {
 }
 
 // TestCompletionCmd_Registered verifies that buildDeployCmd() has a subcommand
-// with Use == "completion [bash|zsh]" (D-04, D-05).
+// with Use == "completion [bash|zsh]" (D-02, D-04, D-05) and that the subcommand
+// is marked Hidden and DisableFlagsInUseLine per D-02.
 func TestCompletionCmd_Registered(t *testing.T) {
 	cmd := buildDeployCmd()
 	for _, sub := range cmd.Commands() {
 		if sub.Use == "completion [bash|zsh]" {
+			if sub.Hidden != true {
+				t.Errorf("completion subcommand Hidden = %v; want true (D-02)", sub.Hidden)
+			}
+			if sub.DisableFlagsInUseLine != true {
+				t.Errorf("completion subcommand DisableFlagsInUseLine = %v; want true (D-02)", sub.DisableFlagsInUseLine)
+			}
 			return
 		}
 	}
