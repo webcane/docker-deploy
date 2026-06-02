@@ -122,7 +122,12 @@ scan:
 	}
 
 	// Expand IdentityFile paths now that HostName and User are fully resolved.
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Cannot expand IdentityFile paths without a home directory.
+		// Return found=true with empty IdentityFiles so the caller falls back to defaults.
+		return entry, true
+	}
 	localUser := ""
 	if u, err := user.Current(); err == nil {
 		localUser = u.Username
@@ -211,12 +216,19 @@ func parseConfigLine(line string) (keyword string, values []string) {
 	if line == "" || strings.HasPrefix(line, "#") {
 		return "", nil
 	}
+	// Handle "Keyword=Value" with no spaces before splitting on whitespace.
+	if idx := strings.IndexByte(line, '='); idx > 0 {
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		if key != "" && val != "" {
+			return strings.ToLower(key), strings.Fields(val)
+		}
+	}
 	parts := strings.Fields(line)
 	if len(parts) < 2 {
 		return "", nil
 	}
 	keyword = strings.ToLower(parts[0])
-	// Normalise "Keyword = Value" to "Keyword Value" so both forms are handled.
 	if len(parts) >= 3 && parts[1] == "=" {
 		parts = append(parts[:1], parts[2:]...)
 	}
