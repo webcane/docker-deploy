@@ -18,6 +18,7 @@ import (
 	"github.com/docker/cli/cli-plugins/plugin"
 	"github.com/docker/cli/cli/command"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/webcane/docker-deploy/internal/completion"
 	"github.com/webcane/docker-deploy/internal/compose"
@@ -153,6 +154,11 @@ func buildValidateCmd() *cobra.Command {
 // The subcommand is hidden (D-02, D-03): it does not appear in `docker deploy --help`
 // and is intended only for `make completions` and the release pipeline — not for end users.
 // Dynamic flag completion hooks (RegisterFlagCompletionFunc) are not registered (D-03).
+//
+// Generated scripts target standalone `docker-deploy` invocation (not the docker plugin
+// root). A temporary root cobra.Command named "docker-deploy" is built from the parent
+// deploy command's flags so the output headers read `#compdef docker-deploy` /
+// `bash completion V2 for docker-deploy` (D-05).
 func buildCompletionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                   "completion [bash|zsh]",
@@ -163,16 +169,49 @@ func buildCompletionCmd() *cobra.Command {
 		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		SilenceUsage:          true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Build a standalone root named "docker-deploy" so the generated
+			// scripts contain the correct command name (D-05). The deploy parent
+			// flags are added to this root so all flags are completable.
+			root := buildStandaloneRootForCompletion(cmd)
 			switch args[0] {
 			case "bash":
-				return completion.GenerateBash(cmd, os.Stdout)
+				return completion.GenerateBash(root, os.Stdout)
 			case "zsh":
-				return completion.GenerateZsh(cmd, os.Stdout)
+				return completion.GenerateZsh(root, os.Stdout)
 			default:
 				return nil // unreachable: cobra's ExactValidArgs rejects other values before RunE fires
 			}
 		},
 	}
+}
+
+// buildStandaloneRootForCompletion creates a minimal *cobra.Command named
+// "docker-deploy" whose flag set mirrors the deploy parent command. This is
+// used by buildCompletionCmd() so that the generated bash/zsh scripts use
+// "docker-deploy" as the command name rather than the docker plugin root name
+// (which is "docker" when running via plugin.Run).
+//
+// Only the persistent and local flags from the deploy parent are copied; the
+// plugin framework's global docker flags are intentionally omitted since end
+// users invoke docker-deploy directly, not via the docker CLI.
+func buildStandaloneRootForCompletion(completionCmd *cobra.Command) *cobra.Command {
+	root := &cobra.Command{
+		Use:           "docker-deploy",
+		Short:         "Deploy a docker-compose project to a remote host",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	// Copy the deploy parent's local flags onto the standalone root so all
+	// flags are available for completion. The parent is the "deploy" subcommand;
+	// completionCmd.Parent() returns it when wired via buildDeployCmd().
+	if parent := completionCmd.Parent(); parent != nil {
+		parent.Flags().VisitAll(func(f *pflag.Flag) {
+			root.Flags().AddFlag(f)
+		})
+	}
+
+	return root
 }
 
 // runValidate validates deploy.yaml from the current working directory without
