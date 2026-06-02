@@ -11,7 +11,7 @@ import (
 func stubSecurity(t *testing.T, out string, err error) (restore func()) {
 	t.Helper()
 	orig := execSecurityFunc
-	execSecurityFunc = func(args ...string) (string, error) { return out, err }
+	execSecurityFunc = func(_ ...string) (string, error) { return out, err }
 	return func() { execSecurityFunc = orig }
 }
 

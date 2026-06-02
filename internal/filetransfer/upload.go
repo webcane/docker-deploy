@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
-	"github.com/webcane/docker-deploy/internal/keychain"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/term"
+
+	"github.com/webcane/docker-deploy/internal/keychain"
 )
 
 // ErrDeployCancelled is returned by Upload() when the user declines the
@@ -102,13 +103,55 @@ func sshRun(client *gossh.Client, cmd string, pw []byte) error {
 	return nil
 }
 
+// tryKeychainAuth attempts to authenticate using a password stored in the macOS
+// Keychain. Returns true and caches the password in creds if the stored
+// password succeeds. Returns false (without error) when no entry exists, the
+// security binary is absent, or the stored password is rejected — all of which
+// should fall through to the interactive prompt.
+func tryKeychainAuth(client *gossh.Client, cmd string, creds *SudoCreds, verbose bool) bool {
+	stored, kErr := keychain.Lookup(creds.Host, creds.User)
+	if kErr != nil || stored == "" {
+		return false
+	}
+	if verbose {
+		fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted — keychain)\n")
+	}
+	if sshRun(client, cmd, []byte(stored)) != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  → exit 1 (keychain creds failed — falling back to prompt)\n")
+		}
+		return false
+	}
+	creds.pw = []byte(stored)
+	if verbose {
+		fmt.Fprintf(os.Stderr, "  → exit 0 (keychain creds)\n")
+	}
+	return true
+}
+
+// offerKeychainSave prompts the user to save pw to the macOS Keychain. Called
+// after a successful interactive sudo prompt when creds.Host and creds.User are
+// set. Prints a warning to stderr if the save fails but does not return an error
+// — the deploy has already succeeded at this point.
+func offerKeychainSave(creds *SudoCreds, pw string) {
+	fmt.Fprintf(os.Stderr, "Save password to macOS Keychain for %s@%s? [y/N] ", creds.User, creds.Host)
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(answer)
+	if strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes") {
+		if saveErr := keychain.Store(creds.Host, creds.User, pw); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not save to Keychain: %v\n", saveErr)
+		}
+	}
+}
+
 // SudoExec runs cmd on the remote with automatic privilege escalation fallback.
 //
 // Step order (D-11):
 //  1. Direct: sshRun(client, cmd, nil) — no sudo
 //  2. Cached: if creds.pw != nil, sshRun with creds.pw
 //  3. Passwordless: sudo -n sh -c <cmd> (NOPASSWD sudoers)
-//  3b. Keychain: if creds.Host/User are set, check macOS Keychain for stored password
+//     3b. Keychain: if creds.Host/User are set, check macOS Keychain for stored password
 //  4. Interactive: prompt up to 3 times; on success cache password in creds.pw;
 //     offer to save to macOS Keychain if creds.Host/User are set
 //
@@ -162,24 +205,9 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 
 	// Step 3b: macOS Keychain — try a stored password before prompting interactively.
 	// Only runs when creds.Host and creds.User are both set (wired from main.go).
-	// Lookup returns ("", nil) on any error (binary missing, item not found) so the
-	// fallback to step 4 is always silent.
-	if creds.Host != "" && creds.User != "" {
-		if stored, kErr := keychain.Lookup(creds.Host, creds.User); kErr == nil && stored != "" {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "[ssh] (sudo password cmd redacted — keychain)\n")
-			}
-			if sshRun(client, cmd, []byte(stored)) == nil {
-				creds.pw = []byte(stored)
-				if verbose {
-					fmt.Fprintf(os.Stderr, "  → exit 0 (keychain creds)\n")
-				}
-				return nil
-			}
-			if verbose {
-				fmt.Fprintf(os.Stderr, "  → exit 1 (keychain creds failed — falling back to prompt)\n")
-			}
-		}
+	// tryKeychainAuth returns false on any error so the fallback to step 4 is silent.
+	if creds.Host != "" && creds.User != "" && tryKeychainAuth(client, cmd, creds, verbose) {
+		return nil
 	}
 
 	// Step 4: Interactive password prompt — up to 3 attempts.
@@ -208,15 +236,7 @@ func SudoExec(client *gossh.Client, cmd string, creds *SudoCreds, warnedOnce *bo
 			// Offer to save the newly entered password to the macOS Keychain so
 			// future deploys skip this prompt entirely (step 3b).
 			if creds.Host != "" && creds.User != "" {
-				fmt.Fprintf(os.Stderr, "Save password to macOS Keychain for %s@%s? [y/N] ", creds.User, creds.Host)
-				reader := bufio.NewReader(os.Stdin)
-				answer, _ := reader.ReadString('\n')
-				answer = strings.TrimSpace(answer)
-				if strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes") {
-					if saveErr := keychain.Store(creds.Host, creds.User, pw); saveErr != nil {
-						fmt.Fprintf(os.Stderr, "Warning: could not save to Keychain: %v\n", saveErr)
-					}
-				}
+				offerKeychainSave(creds, pw)
 			}
 			return nil
 		}

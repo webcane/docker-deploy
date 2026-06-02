@@ -19,7 +19,7 @@ const service = "docker-deploy"
 var execSecurityFunc = execSecurity
 
 func execSecurity(args ...string) (string, error) {
-	cmd := exec.Command("/usr/bin/security", args...)
+	cmd := exec.Command("/usr/bin/security", args...) //nolint:gosec,noctx // G204: binary path is hardcoded; args are package-controlled. noctx: keychain ops are sub-millisecond local calls — context cancellation provides no practical value here
 	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err
 }
