@@ -133,7 +133,13 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 			KeepImage:  false,
 		},
 		ExposedPorts: []string{"22/tcp"},
-		WaitingFor:   wait.ForListeningPort("22/tcp").WithStartupTimeout(120 * time.Second),
+		// wait.ForListeningPort uses docker exec inside the container to verify
+		// the port is bound, and the exec-inspect round-trip times out against
+		// Colima's socket while the container is busy starting dockerd and
+		// pre-pulling images.  wait.ForLog reads the container log stream
+		// directly (no exec) and works regardless of Docker socket latency.
+		// 5 min covers: Ubuntu boot + dockerd init + nginx:alpine + busybox pull + sshd start.
+		WaitingFor: wait.ForLog("Server listening on").WithStartupTimeout(5 * time.Minute),
 		Privileged:   true, // required for Docker-in-Docker
 	}
 
