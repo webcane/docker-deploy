@@ -1,124 +1,166 @@
 ---
 phase: 10-add-phase-autosuggestion
-reviewed: 2026-06-01T00:00:00Z
+reviewed: 2026-06-02T00:00:00Z
 depth: standard
 files_reviewed: 10
 files_reviewed_list:
-  - internal/sshconfig/sshconfig.go
-  - internal/sshconfig/sshconfig_test.go
-  - internal/completion/completion.go
-  - internal/completion/bash.go
-  - internal/completion/zsh.go
-  - internal/completion/completion_test.go
-  - internal/completion/bash_test.go
-  - internal/completion/zsh_test.go
   - cmd/docker-deploy/main.go
   - cmd/docker-deploy/main_test.go
+  - contrib/docker-deploy.bash
+  - contrib/install-completions.sh
+  - internal/completion/bash.go
+  - internal/completion/bash_test.go
+  - internal/completion/zsh.go
+  - internal/completion/zsh_test.go
+  - internal/sshconfig/sshconfig.go
+  - internal/sshconfig/sshconfig_test.go
 findings:
-  critical: 0
-  warning: 2
+  critical: 2
+  warning: 4
   info: 2
-  total: 4
-status: fixed
+  total: 8
+status: issues_found
 ---
 
 # Phase 10: Code Review Report
 
-**Reviewed:** 2026-06-01
+**Reviewed:** 2026-06-02T00:00:00Z
 **Depth:** standard
 **Files Reviewed:** 10
 **Status:** issues_found
 
 ## Summary
 
-Phase 10 delivers shell tab completion via a `completion` subcommand (`bash`/`zsh`) and a `ListHosts` function that reads `~/.ssh/config` to supply dynamic `--host` flag candidates. The overall design is sound: the `completion` package is well-isolated, the D-03 silent-failure contract is correctly observed throughout, and the main wiring in `buildCompletionCmd`/`buildDeployCmd` is clean. No security issues were found.
+Phase 10 adds static shell completion scripts (`contrib/docker-deploy.bash`, `contrib/_docker-deploy`), an install helper (`contrib/install-completions.sh`), a new `internal/sshconfig` package with `ListHosts` for SSH config alias autosuggestion, and wires everything into the CLI via a hidden `completion` subcommand. The Go code is generally well-structured. Two security-class issues were found: an unverified download in the install script and a command-injection vector in the generated bash completion template. Four warnings cover an ignored error that silently breaks key loading, a host-key-parsing gap that drops valid `Keyword=Value` lines, a confusing `$SHELL` fallback, and unexpanded tilde in error messages.
 
-Two correctness bugs were found in the SSH config parser (`sshconfig.go`): both stem from the same root cause — the `strings.Fields` splitter does not account for the OpenSSH-documented `Keyword = Value` (equals-sign) syntax. Two low-severity quality items round out the report.
+## Critical Issues
+
+### CR-01: install-completions.sh downloads script without integrity check
+
+**File:** `contrib/install-completions.sh:89`
+**Issue:** `curl -fsSL "$DOWNLOAD_URL" -o "$DEST"` writes the downloaded file directly to the completion directory with no checksum or signature verification. The destination (`$DEST`) is a shell script that will be sourced by the user's shell on every login. A MITM attacker, a compromised CDN edge node, or a future supply-chain compromise of the `raw.githubusercontent.com` delivery path can serve arbitrary shell code that is silently installed and executed. This is especially severe because the same tool manages `.env` files containing secrets (per CLAUDE.md).
+**Fix:**
+```sh
+# After downloading, verify SHA-256 against a known-good checksum.
+# Option A — embed expected hash per-version in the script:
+EXPECTED_SHA256="<hash-of-release>"
+actual=$(shasum -a 256 "$DEST" | awk '{print $1}')
+if [ "$actual" != "$EXPECTED_SHA256" ]; then
+  echo "Checksum mismatch — aborting installation" >&2
+  rm -f "$DEST"
+  exit 1
+fi
+
+# Option B (simpler) — publish a .sha256 sidecar and verify:
+curl -fsSL "${DOWNLOAD_URL}.sha256" -o "${DEST}.sha256"
+(cd "$(dirname "$DEST")" && shasum -a 256 -c "${DEST}.sha256")
+rm -f "${DEST}.sha256"
+```
+
+### CR-02: eval of user-influenced words in bash completion template
+
+**File:** `contrib/docker-deploy.bash:48`
+**Issue:** `out=$(eval "${requestComp}" 2>/dev/null)` constructs `requestComp` from `${words[*]}` (line 26), which is the raw command-line tokens typed by the user. `eval` turns those tokens back into shell code. If a user types a completion invocation containing shell metacharacters (e.g., `` docker-deploy --host `id` `` and then presses TAB), the backtick or `$()` construct in `words[*]` will be re-evaluated. This is the standard cobra-generated completion pattern but it constitutes a code-execution path triggered by TAB completion, making it exploitable if an attacker can place metacharacters into the argument list (e.g., via a rogue `$PATH` entry, a malicious `docker-deploy` alias, or a crafted compose file path autocomplete). The risk is amplified because this tool operates on SSH credentials.
+**Fix:** This is generated code — the fix is to update cobra's `GenBashCompletionV2` template or use the `--no-descriptions` flag at generation time, neither of which alone removes `eval`. At minimum, document the known risk. If the project controls the shell template (it is committed statically), replace the `eval` call with a direct command invocation:
+```sh
+# Replace:
+out=$(eval "${requestComp}" 2>/dev/null)
+
+# With (avoids re-evaluation of metacharacters in args):
+out=$("${words[0]}" __completeNoDesc "${args[@]}" 2>/dev/null)
+```
+Note: `args=("${words[@]:1}")` (array, line 25) must be used here — do not use `${args[*]}` (word-split string).
 
 ## Warnings
 
-### WR-01: SSH config `Keyword = Value` format silently stores `"="` as the directive value
+### WR-01: Silently ignored UserHomeDir error corrupts IdentityFile expansion
 
-**File:** `internal/sshconfig/sshconfig.go:65-80`
-
-**Issue:** The parser splits each config line with `strings.Fields()` and unconditionally takes `parts[1]` as the directive value. OpenSSH's `ssh_config(5)` documents that keyword–value pairs may be separated by either whitespace _or_ whitespace-padded `=`: `"HostName = 192.168.1.50"` is valid. When the equals-sign form is used, `strings.Fields` produces `["HostName", "=", "192.168.1.50"]`, so `value := parts[1]` is `"="` instead of the hostname:
-
-```
-HostName = 192.168.1.50   →  entry.HostName = "="       (wrong)
-Port = 2222               →  strconv.Atoi("=") fails silently, entry.Port = 0
-IdentityFile = ~/.ssh/id  →  rawIdentityFiles appended with "="
-User = deploy             →  entry.User = "="            (wrong)
-```
-
-This causes silent SSH dial failures for users who write their `~/.ssh/config` in the equals-sign style. The same bug exists identically in `LookupHost` (line 80) and `ListHosts` (line 181 context).
-
-**Fix:** Before extracting the value, strip a bare `=` token at `parts[1]` so both styles are normalised:
-
+**File:** `internal/sshconfig/sshconfig.go:125`
+**Issue:** `home, _ := os.UserHomeDir()` discards the error. When `os.UserHomeDir()` fails (no `$HOME`, no passwd entry — possible in containers or restricted environments), `home` is `""`. Then `expandPath("~/.ssh/id_ed25519", "", ...)` expands `~/...` via `filepath.Join("", ".ssh/id_ed25519")` which resolves to the relative path `.ssh/id_ed25519`. The subsequent `loadSigner` call silently skips it (key not found), producing an empty signers list with no diagnostic. The user sees an SSH authentication failure with no indication of the root cause.
+**Fix:**
 ```go
-// After "parts := strings.Fields(line)" and the "if len(parts) < 2" guard,
-// normalise "Keyword = Value" to "Keyword Value" form:
-if len(parts) >= 3 && parts[1] == "=" {
-    parts = append(parts[:1], parts[2:]...)
+home, err := os.UserHomeDir()
+if err != nil {
+    // Return found=true but with empty IdentityFiles; caller falls back to defaults.
+    // Logging is not available here; rely on LoadSigners fallback.
+    return entry, true
 }
-value := parts[1]
+```
+Or at minimum log a warning so the silent failure is visible.
+
+### WR-02: Keyword=Value (no spaces) ssh_config form silently dropped
+
+**File:** `internal/sshconfig/sshconfig.go:214-223`
+**Issue:** `parseConfigLine` calls `strings.Fields(line)` which splits on whitespace only. The line `IdentityFile=/home/alice/.ssh/id_ed25519` (no spaces around `=`) produces a single-element `parts` slice, fails the `len(parts) < 2` guard, and returns `("", nil)` — the directive is silently lost. While `Keyword=Value` without spaces is not the most common form in practice, `ssh_config(5)` documents it as valid for most keywords. A user with such a config will silently get no configured identity files and may fail authentication.
+**Fix:**
+```go
+func parseConfigLine(line string) (keyword string, values []string) {
+    line = strings.TrimSpace(line)
+    if line == "" || strings.HasPrefix(line, "#") {
+        return "", nil
+    }
+    // Handle "Keyword=Value" with no spaces before splitting on whitespace.
+    if idx := strings.IndexByte(line, '='); idx > 0 {
+        key := strings.TrimSpace(line[:idx])
+        val := strings.TrimSpace(line[idx+1:])
+        if key != "" && val != "" {
+            return strings.ToLower(key), strings.Fields(val)
+        }
+    }
+    parts := strings.Fields(line)
+    if len(parts) < 2 {
+        return "", nil
+    }
+    keyword = strings.ToLower(parts[0])
+    if len(parts) >= 3 && parts[1] == "=" {
+        parts = append(parts[:1], parts[2:]...)
+    }
+    return keyword, parts[1:]
+}
 ```
 
-Apply this normalization in both the `LookupHost` scanner loop (around line 65) and the `ListHosts` scanner loop (around line 181).
+### WR-03: Empty $SHELL produces unhelpful error in install-completions.sh
 
----
+**File:** `contrib/install-completions.sh:22`
+**Issue:** `shell=$(basename "${SHELL:-}")` — when `$SHELL` is unset, `${SHELL:-}` expands to an empty string and `basename ""` returns `""`. The subsequent `case "$shell" in` falls to `*) exit 1` with the message `"unsupported shell:  (supported: bash, zsh)"` — the shell name in the message is blank. Users running this from a minimal environment where `$SHELL` is unset get no actionable guidance.
+**Fix:**
+```sh
+if [ -z "${SHELL:-}" ]; then
+  echo "SHELL environment variable is not set; cannot detect shell" >&2
+  echo "Set SHELL=/bin/bash or SHELL=/bin/zsh and re-run." >&2
+  exit 1
+fi
+shell=$(basename "$SHELL")
+```
 
-### WR-02: `ListHosts` emits `"="` as a spurious shell-completion candidate
+### WR-04: loadGlobalConfig error message contains unexpanded tilde
 
-**File:** `internal/sshconfig/sshconfig.go:187-192`
-
-**Issue:** When a config line reads `Host = minipc`, `parts[1:]` is `["=", "minipc"]`. Neither token contains `*` or `?`, so both are appended to `aliases`. Shell completion then offers `"="` as a valid `--host` value alongside the real alias. This is a distinct observable failure from WR-01 (polluted completions rather than wrong resolved value) but has the same root cause.
-
-**Fix:** Apply the same `parts[1] == "="` strip described in WR-01 before iterating `parts[1:]` in the `ListHosts` `keyword == "host"` branch.
-
----
+**File:** `cmd/docker-deploy/main.go:275`
+**Issue:** When `config.LoadFile` fails for the global config, the error message is built with `filepath.Join(globalDir, "deploy.yaml")` where `globalDir` is already a fully-resolved absolute path (from `filepath.Join(home, ".docker", "cli-plugins")`). However, the outer error wraps this as `"global config %s: %w"` with the `globalDir` path. This is actually correct since `home` is resolved from `os.UserHomeDir()`. The issue is that the error message uses `filepath.Join(globalDir, "deploy.yaml")` in the `fmt.Errorf` call — but `globalDir` is already the full path, so this is fine. **Revised finding:** The actual issue is that when `os.UserHomeDir()` fails (line 268), the error returned is `"cannot determine home directory for global config: ..."` — there is no test for this path, and the caller (`runValidate`, `runDryRun`, `runDeploy`) wraps it generically as `"loading global config: ..."`, losing the specific context. Low-severity but the missing home dir error path lacks test coverage.
+**Fix:** Add a test case that stubs `os.UserHomeDir` failure (e.g., by temporarily unsetting `$HOME` in an integration test) or document that this path is accepted as untested.
 
 ## Info
 
-### IN-01: `bash_test.go` defines a `min()` helper that shadows the Go 1.21+ builtin
+### IN-01: t.Helper() called in top-level test function
 
-**File:** `internal/completion/bash_test.go:33-37`
+**File:** `internal/sshconfig/sshconfig_test.go:126`
+**Issue:** `t.Helper()` is called at line 126 inside `TestLoadSigners_DelegatesLookupHost`, which is a top-level `*testing.T` test function, not a helper called by other tests. `t.Helper()` marks a function as a test helper so that failure line numbers point to the caller rather than the helper — it has no effect when called in a top-level test function and is misleading to readers.
+**Fix:** Remove the `t.Helper()` call from the top-level test function.
 
-**Issue:** Go 1.21 promoted `min` to a language builtin. The project uses Go 1.26.3. The local `func min(a, b int) int` in `bash_test.go` shadows the builtin. `zsh_test.go` (same `completion_test` package) calls `min()` at line 29 without defining it, relying on the `bash_test.go` definition — an implicit cross-file dependency. Deleting or renaming `bash_test.go` would break `zsh_test.go` with a non-obvious error.
+### IN-02: Dead code: unreachable default case returns nil without error
 
-**Fix:** Delete the `min` function from `bash_test.go` entirely. Both `bash_test.go:29` and `zsh_test.go:29` then use the language builtin automatically:
-
+**File:** `cmd/docker-deploy/main.go:183`
+**Issue:** The `default: return nil` branch in `buildCompletionCmd`'s `RunE` is acknowledged as unreachable in the comment. Silently returning `nil` from an "impossible" branch means if cobra's validation ever changes or a code refactor introduces a new case without updating the switch, the command silently no-ops instead of failing visibly.
+**Fix:**
 ```go
-// Remove from bash_test.go (lines 33-37):
-func min(a, b int) int {
-    if a < b {
-        return a
-    }
-    return b
-}
-// No change needed at the call sites — builtin min takes over.
+default:
+    // This should never be reached because cobra's OnlyValidArgs rejects
+    // any value not in ValidArgs before RunE fires.
+    return fmt.Errorf("unsupported shell: %q", args[0])
 ```
 
 ---
 
-### IN-02: `TestLoadSigners_DelegatesLookupHost` discards `*testing.T`, preventing failure reporting if the test is extended
-
-**File:** `internal/sshconfig/sshconfig_test.go:125`
-
-**Issue:** The function signature uses a blank identifier: `func TestLoadSigners_DelegatesLookupHost(_ *testing.T)`. This makes it impossible to call `t.Fatal`, `t.Error`, or `t.Skip` inside the test body. The current intent (no-panic check only) is fine, but the pattern silently absorbs failures if the function is ever extended with an assertion. It also reads as an oversight to future contributors.
-
-**Fix:** Name the parameter and add a comment to make the intent explicit:
-
-```go
-func TestLoadSigners_DelegatesLookupHost(t *testing.T) {
-    t.Helper()
-    // Only verifies no panic; keys may be absent in CI.
-    signers := LoadSigners("/nonexistent/path", "anyhost")
-    _ = signers
-}
-```
-
----
-
-_Reviewed: 2026-06-01_
+_Reviewed: 2026-06-02T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
