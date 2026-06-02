@@ -259,25 +259,32 @@ Plans:
 - [ ] 09-04-PLAN.md — Supporting docs: PREREQUISITES.md, COMPARISON.md, TROUBLESHOOTING.md, DEPLOY_CONFIG.md
 
 ### Phase 10: Add Phase Autosuggestion
-**Goal**: Add shell tab completion to the `docker deploy` CLI plugin — `completion bash` and `completion zsh` subcommand, plus dynamic `--host`, `--path`, and `--compose-file` suggestions sourced from deploy.yaml and ~/.ssh/config
+**Goal**: Provide shell tab-completion for `docker deploy` via static cobra-generated scripts. The dynamic per-flag completion approach from the original phase is replaced with statically generated bash and zsh completion files shipped in release tarballs and installed automatically via Homebrew.
 **Depends on**: Phase 8
-**Plans**: 2 plans
+**Plans**: 5 plans (10-01 and 10-02 completed under the original dynamic design; 10-03 through 10-05 implement the static-rework per CONTEXT.md D-01..D-09)
 
 **Success Criteria** (what must be TRUE):
-  1. `docker deploy completion bash` writes a bash completion script to stdout; piping it to a file and sourcing it makes Tab work in bash
-  2. `docker deploy completion zsh` writes a zsh completion script to stdout; piping it to a file enables Tab in zsh
-  3. Pressing Tab on `--host` shows candidates merged from deploy.yaml `target.host` and all non-wildcard Host block aliases in `~/.ssh/config`
-  4. Pressing Tab on `--path` suggests `/opt/<cwd-basename>`
-  5. Pressing Tab on `--compose-file` suggests `compose.yaml` and/or `docker-compose.yml` if they exist in cwd
-  6. All completion functions return empty candidates (not an error) when their data sources are missing or unreadable
+  1. The `completion [bash|zsh]` subcommand exists but is HIDDEN (not in `docker deploy --help`); it is used only by `make completions` and the release pipeline
+  2. No dynamic `RegisterFlagCompletionFunc` hooks remain; `internal/completion/completion.go` is deleted
+  3. `make completions` regenerates `contrib/_docker-deploy` and `contrib/docker-deploy.bash` deterministically from the current binary
+  4. Goreleaser tarballs include both files; Homebrew formula installs them to `share/zsh/site-functions/` and `share/bash-completion/completions/`
+  5. `contrib/install-completions.sh` lets non-Homebrew users install the right file for their shell
+  6. INSTALL.md documents the Shell Completions install paths; README.md is NOT modified
 
 Plans:
 
-**Wave 1**
+**Wave 1** *(superseded by rework — historical record)*
 - [x] 10-01-PLAN.md — sshconfig.ListHosts TDD (add ListHosts enumeration function + tests)
 
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (completion subcommand, --host/--path/--compose-file completions, tests)
+**Wave 2** *(superseded by rework — historical record)*
+- [x] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (now reverted by 10-03)
+
+**Rework Wave 1** *(static-completion rework)*
+- [ ] 10-03-PLAN.md — Code rework: delete dynamic completion code, hide completion subcommand, drop sshconfig dep from completion pkg
+
+**Rework Wave 2** *(blocked on 10-03)*
+- [ ] 10-04-PLAN.md — Tooling: `make completions` target, generated `contrib/_docker-deploy` and `contrib/docker-deploy.bash`, `contrib/install-completions.sh`
+- [ ] 10-05-PLAN.md — Release & docs: `.goreleaser.yaml` extra_files + brews.install; INSTALL.md Shell Completions section
 
 ### Phase 11: CI & Tooling Polish
 **Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
