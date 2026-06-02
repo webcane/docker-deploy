@@ -14,6 +14,43 @@ import (
 	"github.com/webcane/docker-deploy/internal/preflight"
 )
 
+// TestDeployCmd_UseAndShortDescription verifies that buildDeployCmd() returns a cobra.Command
+// with Use=="deploy" and a non-empty Short description (PLUG-02). These fields drive the
+// `docker deploy --help` output — wrong or empty values break the Docker CLI plugin UX.
+func TestDeployCmd_UseAndShortDescription(t *testing.T) {
+	cmd := buildDeployCmd()
+	if cmd.Use != "deploy" {
+		t.Errorf("buildDeployCmd().Use = %q; want %q", cmd.Use, "deploy")
+	}
+	if cmd.Short == "" {
+		t.Error("buildDeployCmd().Short is empty; want a non-empty description for --help output")
+	}
+}
+
+// TestPluginMetadata_ContractFields verifies the plugin metadata struct fields required
+// by the Docker CLI plugin protocol (PLUG-03). The Docker CLI parses this JSON when
+// discovering plugins; incorrect values cause `docker deploy` to be invisible or misidentified.
+//
+//   - SchemaVersion must be "0.1.0" — the only version the Docker CLI handshake accepts today.
+//   - Vendor must be non-empty — Docker CLI displays it in `docker info --format '{{.ClientInfo.Plugins}}'`.
+//   - ShortDescription must be non-empty — shown in `docker --help` plugin listing.
+//   - Version must be the package-level `version` var ("dev" in tests) — must equal version so
+//     ldflags injection propagates to the metadata at build time.
+func TestPluginMetadata_ContractFields(t *testing.T) {
+	if pluginMetadata.SchemaVersion != "0.1.0" {
+		t.Errorf("pluginMetadata.SchemaVersion = %q; want %q", pluginMetadata.SchemaVersion, "0.1.0")
+	}
+	if pluginMetadata.Vendor == "" {
+		t.Error("pluginMetadata.Vendor is empty; Docker CLI plugin discovery requires a non-empty Vendor")
+	}
+	if pluginMetadata.ShortDescription == "" {
+		t.Error("pluginMetadata.ShortDescription is empty; shown in `docker --help` plugin listing")
+	}
+	if pluginMetadata.Version != version {
+		t.Errorf("pluginMetadata.Version = %q; want package-level version var %q — ldflags injection will be silently ignored if these diverge", pluginMetadata.Version, version)
+	}
+}
+
 // TestSkipEnvFlagRegistered verifies that the deploy command registers --skip-env
 // as a boolean flag (required for Phase 7 feature delivery).
 // This test calls buildDeployCmd() which must exist in main.go.

@@ -32,15 +32,21 @@ var version = "dev"
 var gitCommit = "unknown"
 var buildTime = "unknown"
 
+// pluginMetadata is the Docker CLI plugin metadata returned when the binary is
+// invoked with "docker-cli-plugin-metadata" as argv[1] (PLUG-03).
+// Extracted from main() to allow unit tests to assert the contract fields
+// (SchemaVersion, Vendor, ShortDescription, Version) without shelling out.
+var pluginMetadata = metadata.Metadata{
+	SchemaVersion:    "0.1.0",
+	Vendor:           "webcane",
+	Version:          version,
+	ShortDescription: "Deploy a docker-compose project to a remote host",
+}
+
 func main() {
 	plugin.Run(func(_ command.Cli) *cobra.Command {
 		return buildDeployCmd()
-	}, metadata.Metadata{
-		SchemaVersion:    "0.1.0",
-		Vendor:           "webcane",
-		Version:          version,
-		ShortDescription: "Deploy a docker-compose project to a remote host",
-	})
+	}, pluginMetadata)
 }
 
 // buildDeployCmd constructs the deploy cobra.Command with all flags registered.
