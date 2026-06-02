@@ -280,11 +280,11 @@ Plans:
 - [x] 10-02-PLAN.md — buildCompletionCmd + RegisterFlagCompletionFunc wiring (now reverted by 10-03)
 
 **Rework Wave 1** *(static-completion rework)*
-- [ ] 10-03-PLAN.md — Code rework: delete dynamic completion code, hide completion subcommand, drop sshconfig dep from completion pkg
+- [x] 10-03-PLAN.md — Code rework: delete dynamic completion code, hide completion subcommand, drop sshconfig dep from completion pkg
 
 **Rework Wave 2** *(blocked on 10-03)*
-- [ ] 10-04-PLAN.md — Tooling: `make completions` target, generated `contrib/_docker-deploy` and `contrib/docker-deploy.bash`, `contrib/install-completions.sh`
-- [ ] 10-05-PLAN.md — Release & docs: `.goreleaser.yaml` extra_files + brews.install; INSTALL.md Shell Completions section
+- [x] 10-04-PLAN.md — Tooling: `make completions` target, generated `contrib/_docker-deploy` and `contrib/docker-deploy.bash`, `contrib/install-completions.sh`
+- [x] 10-05-PLAN.md — Release & docs: `.goreleaser.yaml` extra_files + brews.install; INSTALL.md Shell Completions section
 
 ### Phase 11: CI & Tooling Polish
 **Goal**: Restore Codecov coverage reporting, bump all GitHub Actions to current stable versions, add golangci-lint enforcement, and make the Homebrew formula handle plugin symlink lifecycle automatically on install and uninstall
@@ -468,7 +468,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 7. v2 — Leftovers | 2/2 | Complete | 2026-05-20 |
 | 8. Integration Tests | 6/6 | Complete | 2026-05-22 |
 | 9. Distribution & Documentation | 4/4 | Complete | 2026-05-23 |
-| 10. Add Phase Autosuggestion | 2/2 | Complete   | 2026-06-01 |
+| 10. Add Phase Autosuggestion | 5/5 | Complete   | 2026-06-02 |
 | 11. CI & Tooling Polish | 4/4 | Complete   | 2026-05-23 |
 | 12. Docs Polish | 0/4 | Not started | - |
 | 13. CLI Subcommands & Deploy UX | 7/7 | Complete | 2026-05-26 |
