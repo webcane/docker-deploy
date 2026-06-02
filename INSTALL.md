@@ -69,3 +69,73 @@ GOBIN=$HOME/.docker/cli-plugins go install github.com/webcane/docker-deploy/cmd/
 ```
 
 `GOBIN` must be set to `$HOME/.docker/cli-plugins` — Docker CLI plugins must live in that directory, not in the standard `$GOPATH/bin`. Without `GOBIN`, `docker deploy` will not be discoverable by the Docker CLI.
+
+## Shell Completions
+
+Shell completions are provided for **bash** and **zsh**. They complete flag names (e.g. `--host`, `--path`, `--compose-file`) and subcommand names for the `docker deploy` command.
+
+### Homebrew (automatic)
+
+If you installed via Homebrew, completions are set up automatically — no extra steps needed.
+
+```bash
+brew tap webcane/docker-deploy
+brew install docker-deploy
+```
+
+**zsh:** The completion file is installed to Homebrew's `share/zsh/site-functions/` directory, which is already on `$FPATH` on Homebrew-managed macOS. Restart your shell or run `compinit` to activate:
+
+```bash
+autoload -Uz compinit && compinit
+```
+
+**bash:** The completion file is installed to `share/bash-completion/completions/`. This directory is loaded automatically by the `bash-completion` package. If you do not have it installed yet:
+
+```bash
+brew install bash-completion@2
+```
+
+After installing `bash-completion@2`, add the following to your `~/.bashrc` or `~/.bash_profile` if it is not already present (check your existing profile — Homebrew prints the snippet during install):
+
+```bash
+[[ -r "$(brew --prefix)/etc/profile.d/bash_completion.sh" ]] && . "$(brew --prefix)/etc/profile.d/bash_completion.sh"
+```
+
+### Manual install (non-Homebrew)
+
+For non-Homebrew installs, use the `contrib/install-completions.sh` script from the release. The script auto-detects your shell (bash or zsh) and installs the matching completion file.
+
+Pinned to a release tag (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/v0.12.2/contrib/install-completions.sh | sh
+```
+
+Or from the latest `master` (less stable):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/master/contrib/install-completions.sh | sh
+```
+
+The script installs to the standard system completion directories when it can. If system directories are not writable, it falls back to user-level directories and prints the one-line snippet you need to add to your shell profile:
+
+- **zsh fallback:** `~/.zsh/completions/` — add to `~/.zshrc`:
+  ```bash
+  fpath=(~/.zsh/completions $fpath)
+  autoload -Uz compinit && compinit
+  ```
+
+- **bash fallback:** `~/.bash_completion.d/` — add to `~/.bashrc`:
+  ```bash
+  source ~/.bash_completion.d/docker-deploy.bash
+  ```
+
+### Verify
+
+After installation, open a new shell and confirm completions are active:
+
+```bash
+docker deploy --<TAB>
+```
+
+You should see flag names listed, for example `--compose-file`, `--host`, `--path`, and others.
