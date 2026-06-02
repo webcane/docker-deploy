@@ -51,6 +51,45 @@ func TestPluginMetadata_ContractFields(t *testing.T) {
 	}
 }
 
+// TestHostFlagRegistered verifies that the deploy command registers --host as a
+// string flag (CFG-02: flag registration for Phase 2 SSH transport config).
+func TestHostFlagRegistered(t *testing.T) {
+	cmd := buildDeployCmd()
+	f := cmd.Flags().Lookup("host")
+	if f == nil {
+		t.Fatal("--host flag not registered on deploy command")
+	}
+	if f.Value.Type() != "string" {
+		t.Errorf("--host flag type = %q; want %q", f.Value.Type(), "string")
+	}
+}
+
+// TestPathFlagRegistered verifies that the deploy command registers --path as a
+// string flag (CFG-02: flag registration for Phase 2 SSH transport config).
+func TestPathFlagRegistered(t *testing.T) {
+	cmd := buildDeployCmd()
+	f := cmd.Flags().Lookup("path")
+	if f == nil {
+		t.Fatal("--path flag not registered on deploy command")
+	}
+	if f.Value.Type() != "string" {
+		t.Errorf("--path flag type = %q; want %q", f.Value.Type(), "string")
+	}
+}
+
+// TestDryRunFlagRegistered verifies that the deploy command registers --dry-run as a
+// bool flag (CFG-02: flag registration for Phase 2 SSH transport config).
+func TestDryRunFlagRegistered(t *testing.T) {
+	cmd := buildDeployCmd()
+	f := cmd.Flags().Lookup("dry-run")
+	if f == nil {
+		t.Fatal("--dry-run flag not registered on deploy command")
+	}
+	if f.Value.Type() != "bool" {
+		t.Errorf("--dry-run flag type = %q; want %q", f.Value.Type(), "bool")
+	}
+}
+
 // TestSkipEnvFlagRegistered verifies that the deploy command registers --skip-env
 // as a boolean flag (required for Phase 7 feature delivery).
 // This test calls buildDeployCmd() which must exist in main.go.
