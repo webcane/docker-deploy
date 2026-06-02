@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 10 complete (static cobra completion rework — 5/5 plans)
-last_updated: "2026-06-02T13:11:13Z"
-last_activity: 2026-06-02 -- Released v0.13.0
+last_updated: "2026-06-02T18:31:44Z"
+last_activity: 2026-06-02 -- Released v0.13.1
 progress:
   total_phases: 16
   completed_phases: 13
