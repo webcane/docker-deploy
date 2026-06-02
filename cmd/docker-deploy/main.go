@@ -32,7 +32,6 @@ var version = "dev"
 var gitCommit = "unknown"
 var buildTime = "unknown"
 
-
 func main() {
 	plugin.Run(func(_ command.Cli) *cobra.Command {
 		return buildDeployCmd()
