@@ -19,7 +19,12 @@ VERSION="${INSTALL_VERSION:-latest}"
 # ---------------------------------------------------------------------------
 # Detect shell
 # ---------------------------------------------------------------------------
-shell=$(basename "${SHELL:-}")
+if [ -z "${SHELL:-}" ]; then
+  echo "SHELL environment variable is not set; cannot detect shell" >&2
+  echo "Set SHELL=/bin/bash or SHELL=/bin/zsh and re-run." >&2
+  exit 1
+fi
+shell=$(basename "$SHELL")
 
 case "$shell" in
   zsh)
@@ -87,6 +92,15 @@ DEST="${INSTALL_DIR}/${COMPLETION_FILE}"
 # ---------------------------------------------------------------------------
 echo "Downloading ${COMPLETION_FILE} from ${DOWNLOAD_URL} ..."
 curl -fsSL "$DOWNLOAD_URL" -o "$DEST"
+
+# Verify integrity against the published SHA-256 sidecar file.
+curl -fsSL "${DOWNLOAD_URL}.sha256" -o "${DEST}.sha256"
+(cd "$(dirname "$DEST")" && shasum -a 256 -c "${DEST}.sha256") || {
+  echo "Checksum verification failed — aborting installation" >&2
+  rm -f "$DEST" "${DEST}.sha256"
+  exit 1
+}
+rm -f "${DEST}.sha256"
 
 echo "Installed to: ${DEST}"
 
