@@ -17,10 +17,14 @@ Allow users to store the remote sudo password in macOS Keychain (or Linux secret
 3. On subsequent deploys, retrieve silently and pipe via `sudo -S`
 4. Surface a `--clear-credentials` flag to remove stored entries
 
-## Libraries to evaluate
+## Implementation approach (decided 2026-06-02)
 
-- `github.com/zalando/go-keyring` — cross-platform (macOS Keychain, Windows Credential Manager, Linux Secret Service)
-- `github.com/99designs/keyring` — similar scope, more backends
+**macOS**: shell out to `/usr/bin/security` — no CGo, zero deps. See [[macos-keychain-sudo-design]].
+**Linux**: deferred — Secret Service (DBus) for desktops, headless fallback TBD.
+**Windows**: under consideration.
+
+CGo-based libraries (`zalando/go-keyring`, `99designs/keyring`) rejected for macOS due
+to cross-compilation complexity.
 
 ## Constraints
 
