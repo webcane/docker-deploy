@@ -163,11 +163,11 @@ func generateTestKeyFile(t *testing.T) (string, gossh.Signer) {
 // host (192.0.2.1 — TEST-NET, guaranteed non-routable) does not respond.
 func TestDial_Timeout(t *testing.T) {
 	cfg := internalssh.DialConfig{
-		User:     "nobody",
-		Hostname: "192.0.2.1",
-		Port:     22,
-		Timeout:  500 * time.Millisecond,
-		Stdin:    strings.NewReader(""),
+		User:       "nobody",
+		Hostname:   "192.0.2.1",
+		Port:       22,
+		Timeout:    500 * time.Millisecond,
+		Stdin:      strings.NewReader(""),
 		UserOutput: os.Stderr,
 	}
 	_, err := internalssh.Dial(context.Background(), cfg)
