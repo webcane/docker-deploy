@@ -122,7 +122,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-_(none — version support todo folded into Phase 13; release-tag todo folded into Phase 16)_
+- **Add ssh_dial_timeout to TargetConfig** (general) — 2026-05-26
+- **Add flag to do clean-up on remote** (general) — 2026-06-02
 
 ### Blockers/Concerns
 
