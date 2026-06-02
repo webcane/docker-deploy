@@ -1464,3 +1464,95 @@ func TestLoadFile_ValidHealthcheckParsed(t *testing.T) {
 		t.Errorf("Target.Healthcheck.Retries = %d, want 3", fc.Target.Healthcheck.Retries)
 	}
 }
+
+// --- SSHDialTimeout resolution tests ---
+
+// TestResolveSSHDialTimeout_AbsentIsZero verifies that when ssh.dial_timeout is absent
+// from all config tiers, SSHDialTimeout resolves to zero (Dial() applies its 10s default).
+func TestResolveSSHDialTimeout_AbsentIsZero(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, FileConfig{}, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.SSHDialTimeout != 0 {
+		t.Errorf("SSHDialTimeout = %v, want 0 (no hardcoded default — Dial() applies 10s)", cfg.SSHDialTimeout)
+	}
+}
+
+// TestResolveSSHDialTimeout_GlobalConfigApplied verifies that ssh.dial_timeout in global config
+// is resolved into SSHDialTimeout.
+func TestResolveSSHDialTimeout_GlobalConfigApplied(t *testing.T) {
+	dir := t.TempDir()
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			SSH: sshYAML{DialTimeout: "30s"},
+		},
+	}
+	cfg, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err != nil {
+		t.Fatalf("Resolve() unexpected error: %v", err)
+	}
+	if cfg.SSHDialTimeout != 30*time.Second {
+		t.Errorf("SSHDialTimeout = %v, want 30s (from global config)", cfg.SSHDialTimeout)
+	}
+}
+
+// TestResolveSSHDialTimeout_InvalidDurationErrors verifies that an invalid duration string
+// in global config returns an error naming "global config: ssh.dial_timeout".
+func TestResolveSSHDialTimeout_InvalidDurationErrors(t *testing.T) {
+	dir := t.TempDir()
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			SSH: sshYAML{DialTimeout: "notaduration"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for invalid duration, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: ssh.dial_timeout") {
+		t.Errorf("error = %q, want it to mention global config: ssh.dial_timeout", err.Error())
+	}
+}
+
+// TestResolveSSHDialTimeout_NegativeDurationErrors verifies that a negative duration
+// in global config (e.g. dial_timeout: -5s) is rejected.
+func TestResolveSSHDialTimeout_NegativeDurationErrors(t *testing.T) {
+	dir := t.TempDir()
+	globalFile := FileConfig{
+		Target: TargetConfig{
+			SSH: sshYAML{DialTimeout: "-5s"},
+		},
+	}
+	_, err := Resolve(FlagOpts{ComposeFile: "compose.yaml"}, FileConfig{}, globalFile, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() expected error for negative duration, got nil")
+	}
+	if !strings.Contains(err.Error(), "global config: ssh.dial_timeout") {
+		t.Errorf("error = %q, want it to mention global config: ssh.dial_timeout", err.Error())
+	}
+}
+
+// TestLoadFile_ValidSSHDialTimeoutParsed verifies that ssh.dial_timeout is parsed from deploy.yaml.
+func TestLoadFile_ValidSSHDialTimeoutParsed(t *testing.T) {
+	dir := t.TempDir()
+	content := `target:
+  host: "ssh://user@host"
+  ssh:
+    dial_timeout: "30s"
+`
+	if err := os.WriteFile(filepath.Join(dir, "deploy.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("writing deploy.yaml: %v", err)
+	}
+	fc, found, err := LoadFile(dir)
+	if err != nil {
+		t.Fatalf("LoadFile() unexpected error: %v", err)
+	}
+	if !found {
+		t.Fatal("LoadFile() expected found=true for existing deploy.yaml, got false")
+	}
+	if fc.Target.SSH.DialTimeout != "30s" {
+		t.Errorf("Target.SSH.DialTimeout = %q, want %q", fc.Target.SSH.DialTimeout, "30s")
+	}
+}

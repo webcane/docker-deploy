@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/docker/cli/cli-plugins/metadata"
 	"github.com/docker/cli/cli-plugins/plugin"
@@ -33,10 +32,6 @@ var version = "dev"
 var gitCommit = "unknown"
 var buildTime = "unknown"
 
-// sshDialTimeout is the maximum time to wait for the full SSH handshake
-// (TCP dial + protocol negotiation + authentication) to complete.
-// Enforced via goroutine + select in internal/ssh.Dial per CLAUDE.md Rule 2.
-const sshDialTimeout = 10 * time.Second
 
 func main() {
 	plugin.Run(func(_ command.Cli) *cobra.Command {
@@ -372,7 +367,7 @@ func runDryRun(host, path string, excludes []string, force bool, _ string, healt
 		User:       resolved.Host.User,
 		Hostname:   resolved.Host.Hostname,
 		Port:       port,
-		Timeout:    sshDialTimeout,
+		Timeout:    resolved.SSHDialTimeout,
 		Stdin:      os.Stdin,
 		UserOutput: os.Stderr,
 	}
@@ -467,7 +462,7 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 		User:       resolved.Host.User,
 		Hostname:   resolved.Host.Hostname,
 		Port:       port,
-		Timeout:    sshDialTimeout,
+		Timeout:    resolved.SSHDialTimeout,
 		Stdin:      os.Stdin,
 		UserOutput: os.Stderr,
 	}

@@ -33,6 +33,12 @@ type Host struct {
 	Port     int
 }
 
+// sshYAML is the YAML-parsing form of the target.ssh sub-block.
+// Duration values are strings (e.g. "30s") and are converted to time.Duration by Resolve().
+type sshYAML struct {
+	DialTimeout string `yaml:"dial_timeout"`
+}
+
 // healthcheckYAML is the YAML-parsing form of the target.healthcheck sub-block.
 // Duration values are strings (e.g. "10s", "1m30s") and are converted to
 // time.Duration by Resolve(). This struct is unexported; callers use HealthcheckConfig.
@@ -54,6 +60,7 @@ type HealthcheckConfig struct {
 // TargetConfig holds the single-target subsection of deploy.yaml.
 // Future phases will add a "targets" (plural) map for named targets.
 // The Healthcheck sub-block uses Docker-style duration strings (e.g. "10s", "1m30s").
+// The SSH sub-block holds SSH connection settings (e.g. dial_timeout: "30s").
 // Precedence: CLI flags > local deploy.yaml > global config > absent (zero value).
 type TargetConfig struct {
 	Host        string          `yaml:"host"`
@@ -62,6 +69,7 @@ type TargetConfig struct {
 	Force       bool            `yaml:"force"`
 	ComposeFile string          `yaml:"compose_file"`
 	Healthcheck healthcheckYAML `yaml:"healthcheck"`
+	SSH         sshYAML         `yaml:"ssh"`
 	SkipEnv     bool            `yaml:"skip_env"`
 }
 
@@ -74,15 +82,16 @@ type FileConfig struct {
 
 // Config is the fully resolved runtime configuration.
 type Config struct {
-	Host        Host
-	Path        string
-	DryRun      bool
-	Excludes    []string          // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
-	Force       bool              // flag || file.Target.Force (flag > deploy.yaml > false)
-	ComposeFile string            // resolved compose filename basename (flag > deploy.yaml > auto-detect)
-	Healthcheck HealthcheckConfig // resolved health polling config; zero value means skip polling (per D-04)
-	SkipEnv     bool              // opts.SkipEnv || file.Target.SkipEnv; appends .env to Excludes when true
-	Verbose     bool              // opts.Verbose; enables detailed output lines
+	Host           Host
+	Path           string
+	DryRun         bool
+	Excludes       []string          // merged: defaultExcludes + file.Target.Exclude + flagExcludes, deduplicated
+	Force          bool              // flag || file.Target.Force (flag > deploy.yaml > false)
+	ComposeFile    string            // resolved compose filename basename (flag > deploy.yaml > auto-detect)
+	Healthcheck    HealthcheckConfig // resolved health polling config; zero value means skip polling (per D-04)
+	SSHDialTimeout time.Duration     // global config only; zero means use Dial()'s 10s built-in default
+	SkipEnv        bool              // opts.SkipEnv || file.Target.SkipEnv; appends .env to Excludes when true
+	Verbose        bool              // opts.Verbose; enables detailed output lines
 }
 
 // FlagOpts holds all CLI-flag values passed to Resolve().
@@ -325,6 +334,7 @@ func resolveHostString(raw, configPath string) (Host, error) {
 //
 // SkipEnv: opts.SkipEnv || file.Target.SkipEnv; when true, ".env" is appended to Excludes.
 // Verbose: opts.Verbose; enables detailed output lines to stderr.
+// SSHDialTimeout: global config only (ssh.dial_timeout) > zero (Dial() uses 10s built-in default).
 //
 // T-02-02: invalid host URLs (non-ssh scheme, empty hostname) are rejected
 // here via ParseHost.
@@ -472,6 +482,18 @@ func Resolve(opts FlagOpts, file FileConfig, globalFile FileConfig, projectName 
 	case globalFile.Target.Healthcheck.Retries > 0:
 		cfg.Healthcheck.Retries = globalFile.Target.Healthcheck.Retries
 		// else: leave cfg.Healthcheck.Retries at zero (no hardcoded default per D-04)
+	}
+
+	// Resolve SSHDialTimeout: global config only > zero (Dial() applies 10s built-in default when zero).
+	if globalFile.Target.SSH.DialTimeout != "" {
+		d, err := time.ParseDuration(globalFile.Target.SSH.DialTimeout)
+		if err != nil {
+			return Config{}, fmt.Errorf("global config: ssh.dial_timeout: invalid duration %q: %w", globalFile.Target.SSH.DialTimeout, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("global config: ssh.dial_timeout: duration must be >= 0, got %s", globalFile.Target.SSH.DialTimeout)
+		}
+		cfg.SSHDialTimeout = d
 	}
 
 	// Validate that the remote path is absolute (WR-03).
