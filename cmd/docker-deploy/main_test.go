@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/webcane/docker-deploy/internal/config"
 	"github.com/webcane/docker-deploy/internal/preflight"
 )
@@ -424,6 +425,34 @@ func TestCompletionCmd_Registered(t *testing.T) {
 		}
 	}
 	t.Fatal("deploy command has no 'completion' subcommand registered")
+}
+
+// TestCompletionCmd_InvalidShell verifies that passing an unsupported shell name to the
+// completion subcommand returns a non-nil error (D-01). cobra.MatchAll(ExactArgs(1),
+// OnlyValidArgs) with ValidArgs=["bash","zsh"] must reject "fish" before RunE fires.
+func TestCompletionCmd_InvalidShell(t *testing.T) {
+	cmd := buildDeployCmd()
+	// Find the completion subcommand so we can invoke its Args validator directly.
+	var completionCmd *cobra.Command
+	for _, sub := range cmd.Commands() {
+		if sub.Use == "completion [bash|zsh]" {
+			completionCmd = sub
+			break
+		}
+	}
+	if completionCmd == nil {
+		t.Fatal("deploy command has no 'completion' subcommand registered")
+	}
+
+	// cobra.Command.Args is the validation function set by cobra.MatchAll(...).
+	// Calling it directly with an unsupported shell name must return a non-nil error.
+	if completionCmd.Args == nil {
+		t.Fatal("completion subcommand has no Args validator set")
+	}
+	err := completionCmd.Args(completionCmd, []string{"fish"})
+	if err == nil {
+		t.Error("completion subcommand Args validator accepted 'fish'; want rejection error")
+	}
 }
 
 // TestFormatHealthcheckRow verifies the formatHealthcheckRow helper produces the correct
