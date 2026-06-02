@@ -147,7 +147,7 @@ None yet.
 | 260527-brw | Fix brew install missing ~/.docker/cli-plugins symlink — restore post_install + sandbox_allowlist? = true (correctly combined) | 2026-05-27 | 8b4ef05 | [260527-brw-brew-symlink-post-install](./quick/260527-brw-brew-symlink-post-install/) |
 | 260527-bsi | Add Apple Silicon Homebrew note to INSTALL.md — Docker does not search /opt/homebrew path by default, document symlink and cliPluginsExtraDirs options | 2026-05-27 | ff6ab48 | [260527-bsi-brew-silicon-install-note](./quick/260527-bsi-brew-silicon-install-note/) |
 | 260530-hkb | Fix SSH host key capture in DinD integration tests — bound full SSH handshake per attempt via net.DialTimeout + conn.SetDeadline | 2026-05-30 | d65cccc | — |
-| 260602-001 | Fix brew install: goreleaser archive missing _docker-deploy at root — add strip_parent: true to contrib files | 2026-06-02 | HEAD | [260602-001-fix-brew-install-goreleaser](./quick/260602-001-fix-brew-install-goreleaser/) |
+| 260602-001 | Fix brew install: goreleaser archive missing _docker-deploy at root — add strip_parent: true to contrib files | 2026-06-02 | 0dd82b4 | [260602-001-fix-brew-install-goreleaser](./quick/260602-001-fix-brew-install-goreleaser/) |
 
 ## Deferred Items
 
