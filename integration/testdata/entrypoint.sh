@@ -23,7 +23,7 @@ fi
 # Pre-pull test images so docker compose up finds them cached (avoids Docker Hub
 # rate limits and pull timeouts during test execution). Retry up to 3 times to
 # handle transient registry errors.
-for image in nginx:alpine busybox; do
+for image in nginx:1.27-alpine busybox:1.37.0; do
     for attempt in 1 2 3; do
         if timeout 120 docker pull "$image"; then
             break

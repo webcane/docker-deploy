@@ -1,5 +1,5 @@
 services:
   web:
-    image: busybox
+    image: busybox:1.37.0
     command: ["sh", "-c", "exit 1"]
     restart: "no"
