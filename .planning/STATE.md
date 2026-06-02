@@ -168,3 +168,4 @@ Last activity: 2026-05-30 - Completed quick task 260530-hkb: Fix SSH host key ca
 | 2026-05-29 | fast | pre-pull nginx:alpine and busybox in entrypoint to avoid Docker Hub rate limits during IT | ✅ |
 | 2026-06-02 | fast | fix DinD container startup timeout | ✅ |
 | 2026-06-02 | fast | add package comment to completion/bash.go | ✅ |
+| 2026-06-02 | fast | fix gocritic badCall: filepath.Join single arg in knownhosts_test.go | ✅ |
