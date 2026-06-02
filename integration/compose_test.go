@@ -17,29 +17,24 @@ import (
 	"github.com/webcane/docker-deploy/internal/health"
 )
 
-// TODO: pin nginx:alpine and busybox to fixed digest or version tag (e.g. nginx:1.27-alpine,
-// busybox:1.36) so CI does not pull "latest" on every run. Alternatively, pre-pull images
-// into the testcontainers base image or add a pull-cache layer to the CI workflow so the
-// images are reused across runs instead of fetched fresh each time.
-
-// composeHealthyYAML is nginx:alpine with no HEALTHCHECK. The container starts
+// composeHealthyYAML is nginx:1.27-alpine with no HEALTHCHECK. The container starts
 // quickly, reaches "running" state, and PollHealth returns nil (HEALTH-01/HEALTH-02).
 // PollHealth polls {{.State.Status}} — "running" is the terminal-success state.
 const composeHealthyYAML = `services:
   web:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     ports:
       - "80"
 `
 
-// composeUnhealthyYAML uses busybox with "exit 1" as the command so the container
+// composeUnhealthyYAML uses busybox:1.37.0 with "exit 1" as the command so the container
 // exits immediately. PollHealth detects state="exited" and returns a non-nil error
 // (HEALTH-03: deploy fails when containers stop unexpectedly).
 // NOTE: poll.go checks {{.State.Status}} (running/exited/dead), not HEALTHCHECK status.
 // A container that exits is the reliable way to trigger PollHealth's error path.
 const composeUnhealthyYAML = `services:
   web:
-    image: busybox
+    image: busybox:1.37.0
     command: ["sh", "-c", "exit 1"]
     restart: "no"
 `

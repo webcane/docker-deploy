@@ -62,7 +62,7 @@ func startSSHContainer(t *testing.T) *sshContainer {
 // newSSHContainer is the internal startup helper used by TestMain (no *testing.T).
 func newSSHContainer(ctx context.Context) (*sshContainer, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "lscr.io/linuxserver/openssh-server:latest",
+		Image:        "lscr.io/linuxserver/openssh-server:10.2_p1-r0-ls226",
 		ExposedPorts: []string{"2222/tcp"},
 		Env: map[string]string{
 			"PUID":            "1000",
@@ -138,7 +138,7 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 		// Colima's socket while the container is busy starting dockerd and
 		// pre-pulling images.  wait.ForLog reads the container log stream
 		// directly (no exec) and works regardless of Docker socket latency.
-		// 10 min covers: Ubuntu boot + dockerd init + nginx:alpine + busybox pull + sshd start.
+		// 10 min covers: Ubuntu boot + dockerd init + nginx:1.27-alpine + busybox:1.37.0 pull + sshd start.
 		WaitingFor: wait.ForLog("Server listening on").WithStartupTimeout(10 * time.Minute),
 		Privileged:   true, // required for Docker-in-Docker
 	}
