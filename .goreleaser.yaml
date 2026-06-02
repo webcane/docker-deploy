@@ -19,6 +19,9 @@ builds:
 archives:
   - format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: contrib/_docker-deploy
+      - src: contrib/docker-deploy.bash
 
 checksum:
   name_template: checksums.txt
@@ -51,6 +54,8 @@ brews:
     install: |
       bin.install "docker-deploy"
       (lib/"docker/cli-plugins").install_symlink bin/"docker-deploy"
+      (share/"zsh/site-functions").install "_docker-deploy"
+      (share/"bash-completion/completions").install "docker-deploy.bash"
     custom_block: |
       def caveats
         return if Hardware::CPU.intel?
