@@ -140,7 +140,7 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 		// directly (no exec) and works regardless of Docker socket latency.
 		// 10 min covers: Ubuntu boot + dockerd init + nginx:1.27-alpine + busybox:1.37.0 pull + sshd start.
 		WaitingFor: wait.ForLog("Server listening on").WithStartupTimeout(10 * time.Minute),
-		Privileged:   true, // required for Docker-in-Docker
+		Privileged: true, // required for Docker-in-Docker
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
