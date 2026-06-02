@@ -44,8 +44,8 @@ __docker-deploy_get_completion_results() {
     fi
 
     __docker-deploy_debug "Calling ${requestComp}"
-    # Use eval to handle any environment variables and such
-    out=$(eval "${requestComp}" 2>/dev/null)
+    # Direct invocation avoids re-evaluation of shell metacharacters in args.
+    out=$("${words[0]}" __completeNoDesc "${args[@]}" 2>/dev/null)
 
     # Extract the directive integer at the very end of the output following a colon (:)
     directive=${out##*:}
