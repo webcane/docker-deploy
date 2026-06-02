@@ -524,6 +524,8 @@ func runDeploy(host, path string, excludes []string, force bool, composeFile str
 	// warnedOnce is set to true by Upload when passwordless sudo was unavailable;
 	// in non-verbose mode Upload suppresses the inline print so we add it to the rollup here.
 	creds := new(filetransfer.SudoCreds) // SudoCreds captures sudo password for reuse across ops
+	creds.Host = resolved.Host.Hostname  // enables macOS Keychain lookup/save in SudoExec
+	creds.User = resolved.Host.User
 	defer creds.Zero()
 	warnedOnce := new(bool)
 	fileCount, err := filetransfer.Upload(context.Background(), client, cwd, resolved.Path, resolved.Excludes, creds, resolved.Force, warnedOnce, resolved.Verbose)
