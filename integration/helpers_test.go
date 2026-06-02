@@ -138,8 +138,8 @@ func newDinDContainer(ctx context.Context) (*dinDContainer, error) {
 		// Colima's socket while the container is busy starting dockerd and
 		// pre-pulling images.  wait.ForLog reads the container log stream
 		// directly (no exec) and works regardless of Docker socket latency.
-		// 5 min covers: Ubuntu boot + dockerd init + nginx:alpine + busybox pull + sshd start.
-		WaitingFor: wait.ForLog("Server listening on").WithStartupTimeout(5 * time.Minute),
+		// 10 min covers: Ubuntu boot + dockerd init + nginx:alpine + busybox pull + sshd start.
+		WaitingFor: wait.ForLog("Server listening on").WithStartupTimeout(10 * time.Minute),
 		Privileged:   true, // required for Docker-in-Docker
 	}
 

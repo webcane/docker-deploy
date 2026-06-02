@@ -25,7 +25,7 @@ fi
 # handle transient registry errors.
 for image in nginx:alpine busybox; do
     for attempt in 1 2 3; do
-        if docker pull "$image"; then
+        if timeout 120 docker pull "$image"; then
             break
         fi
         echo "WARNING: pull $image attempt $attempt failed, retrying..." >&2
