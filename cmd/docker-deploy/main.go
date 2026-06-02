@@ -89,8 +89,6 @@ func buildDeployCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&skipEnv, "skip-env", false, "Exclude .env from upload, leaving remote .env unchanged")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Print per-file transfer lines, SSH commands, and pre-flight checklist to stderr")
 
-	completion.Register(cmd)
-
 	cmd.AddCommand(buildVersionCmd())
 	cmd.AddCommand(buildValidateCmd())
 	cmd.AddCommand(buildCompletionCmd())
@@ -151,13 +149,19 @@ func buildValidateCmd() *cobra.Command {
 // buildCompletionCmd returns a cobra.Command for the "completion" subcommand.
 // It generates shell completion scripts by delegating to the completion package.
 // Supported shells: bash and zsh (D-01, D-04, D-05).
+//
+// The subcommand is hidden (D-02, D-03): it does not appear in `docker deploy --help`
+// and is intended only for `make completions` and the release pipeline — not for end users.
+// Dynamic flag completion hooks (RegisterFlagCompletionFunc) are not registered (D-03).
 func buildCompletionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:          "completion [bash|zsh]",
-		Short:        "Generate shell completion script",
-		ValidArgs:    []string{"bash", "zsh"},
-		Args:         cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-		SilenceUsage: true,
+		Use:                   "completion [bash|zsh]",
+		Short:                 "Generate shell completion script",
+		Hidden:                true,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		SilenceUsage:          true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":
