@@ -1,110 +1,70 @@
-# Phase 10: Add Phase Autosuggestion - Discussion Log
+# Phase 10: Shell Completion Rework - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-06-01
+**Date:** 2026-06-02
 **Phase:** 10-add-phase-autosuggestion
-**Areas discussed:** Feature clarification, Shell coverage, Dynamic --host completions, Completion install UX, Flag value hints
+**Session:** Rework discussion (supersedes 2026-06-01 log)
+**Areas discussed:** Dynamic completions fate, Package structure, contrib/ files in git, Manual install method
 
 ---
 
-## Feature Clarification
+## Dynamic Completions Fate
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Shell tab completion | cobra's completion subcommand — suggests flags, subcommands, and values when user presses Tab | ✓ |
-| Post-deploy next-step hints | After a deploy run, print actionable suggestions | |
-| Preflight fix suggestions | When a pre-flight check fails, output the exact fix command | |
+| Remove them | Static script completes only flag names; no value suggestions. Simpler, truly static. | ✓ |
+| Keep them | Static script embeds __complete callbacks; runtime reads of deploy.yaml + ~/.ssh/config at Tab-press. | |
+| Keep, but only --host | Remove --path and --compose-file; keep --host only. | |
 
-**User's choice:** Shell tab completion
-**Notes:** Phase description "Add Phase Autosuggestion" was ambiguous; user clarified it means shell completions.
+**User's choice:** Remove them
+
+**Notes:** Followed the "no runtime reads" principle from the rework design note. The `internal/completion/completion.go` file is deleted in full; the package is kept (bash.go + zsh.go) for future extension.
 
 ---
 
-## Shell Coverage
+## Package Structure (follow-up)
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Bash + zsh | The vast majority of Linux/macOS Docker users | ✓ |
-| Bash + zsh + fish | Adds fish shell support | |
-| All four (+ PowerShell) | Adds PowerShell for Windows users | |
+| Inline into main.go | Delete internal/completion/ entirely; call cobra funcs directly in main.go. | |
+| Keep the package | Preserve internal/completion/ for future extension (fish, PowerShell). | ✓ |
 
-**User's choice:** Bash + zsh
-**Notes:** Standard for this user base; install.sh/Homebrew users will have these shells.
+**User's choice:** Keep the package
 
 ---
 
-## Dynamic --host Completions
+## contrib/ Files in Git
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Yes — read deploy.yaml + ~/.ssh/config | Dynamic host suggestions reusing Phase 2 and 14 parsers | ✓ |
-| Static prefix hint only | Just show ssh://user@host:port as a label | |
-| No --host completion | Leave --host as a plain string | |
+| Committed to repo | Generated locally, committed before tagging; always browsable in git. | ✓ |
+| Release tarball only | Only in .tar.gz archives; simpler CI but not in git. | |
 
-**User's choice:** Yes — read deploy.yaml + ~/.ssh/config
-**Notes:** Both parsers already exist; reuse without additional complexity.
+**User's choice:** Committed to repo
 
-**Error handling follow-up:**
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Silent fallback — no suggestions | Return empty list on error | ✓ |
-| Show error in completion output | Return error string as completion entry | |
-
-**User's choice:** Silent fallback
-**Notes:** Completion errors crashing Tab is confusing UX; swallow silently.
+**Notes (follow-up on trigger):** User specified: add `make completions` target; run locally as part of `/gsd:release-tag` skill only — no automated CI commit step. Update homebrew-docker-deploy formula in `.goreleaser.yaml` if necessary.
 
 ---
 
-## Completion Install UX
+## Manual Install Method
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| docker deploy completion <shell> subcommand | Standard piped output pattern | ✓ |
-| Documented eval snippet only | No subcommand needed | |
-| Homebrew auto-installs completions | Zero user steps but Homebrew-only | |
+| INSTALL.md copy-paste commands | Documented section with download + symlink commands. | |
+| contrib/install-completions.sh script | Shell script that downloads and places the correct file. | ✓ |
 
-**User's choice:** docker deploy completion <shell> subcommand
-
-**Visibility follow-up:**
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Visible subcommand at root level | Discoverable via docker deploy --help | ✓ |
-| Hidden subcommand | Not shown in --help | |
-
-**User's choice:** Visible at root level
-**Notes:** Consistent with kubectl, gh, and standard cobra CLIs.
-
----
-
-## Flag Value Hints
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Yes — suggest /opt/<cwd-basename> | Smart default matching built-in default logic | ✓ |
-| No path suggestions | Leave --path as a plain string | |
-
-**User's choice:** Yes — suggest /opt/<cwd-basename>
-
-**--compose-file follow-up:**
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Yes — scan cwd for compose files | Quick os.ReadDir scan; suggest if files exist | ✓ |
-| No file suggestions | Shell's default file completion handles this | |
-
-**User's choice:** Yes — scan cwd
-**Notes:** Matches the auto-detect logic already in config resolution.
+**User's choice:** contrib/install-completions.sh script
 
 ---
 
 ## Claude's Discretion
 
-None — user made all decisions explicitly.
+- Script logic in `contrib/install-completions.sh` (auto-detect shell, pick correct file, handle homebrew vs manual path)
+- Exact Makefile target implementation
+- goreleaser `extra_files` configuration
 
 ## Deferred Ideas
 
-None — discussion stayed within phase scope.
+None — discussion stayed within phase scope

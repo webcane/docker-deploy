@@ -1,12 +1,18 @@
-# Phase 10: Add Phase Autosuggestion - Context
+# Phase 10: Shell Completion Rework - Context
 
-**Gathered:** 2026-06-01
+**Gathered:** 2026-06-02
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-Add shell tab completion to the `docker deploy` CLI plugin. Users press Tab to get suggestions for subcommands, flags, and contextually-aware flag values (`--host` from deploy.yaml/~/.ssh/config, `--path` from cwd name, `--compose-file` from cwd scan). Delivered via a `docker deploy completion <shell>` subcommand.
+Replace the original dynamic-completion implementation with static cobra-generated completion files. Deliver:
+- A hidden `completion [zsh|bash]` subcommand that writes the generated script to stdout
+- A `make completions` target that generates `contrib/_docker-deploy` (zsh) and `contrib/docker-deploy.bash` (bash)
+- `/gsd:release-tag` integration — `make completions` runs before tagging and the `contrib/` files are committed
+- Goreleaser includes the `contrib/` files in release tarballs; the homebrew formula installs the zsh file via `share/"zsh/site-functions"` (zero user fpath config)
+- A `contrib/install-completions.sh` script for non-homebrew users
+- An INSTALL.md section describing how to enable completions
 
 </domain>
 
@@ -14,29 +20,36 @@ Add shell tab completion to the `docker deploy` CLI plugin. Users press Tab to g
 ## Implementation Decisions
 
 ### Shell Coverage
-- **D-01:** Support bash and zsh only. No fish or PowerShell in this phase.
+- **D-01:** bash and zsh only. Fish and PowerShell are out of scope for this phase.
 
-### Dynamic --host Completions
-- **D-02:** `--host` Tab-completes by reading the project `deploy.yaml` host value and `~/.ssh/config` host aliases at completion time. Both parsers exist already from Phase 2 and Phase 14 — reuse them.
-- **D-03:** If reading either file fails (missing, parse error), silently return an empty suggestion list. No errors shown during Tab completion.
+### Completion Subcommand Visibility
+- **D-02:** The `completion [zsh|bash]` subcommand is hidden (`Hidden: true`, `DisableFlagsInUseLine: true`). It does NOT appear in `docker deploy --help`. It is used only by `make completions` and the release pipeline — not documented in README.
 
-### Completion Install UX
-- **D-04:** Expose a visible `docker deploy completion <shell>` subcommand at the root level (not hidden). Users pipe its output to their shell's completions directory (e.g., `docker deploy completion bash > ~/.bash_completion.d/docker-deploy`).
-- **D-05:** Subcommand is discoverable via `docker deploy --help`. Consistent with kubectl, gh, and other cobra-based CLIs.
-
-### Flag Value Hints
-- **D-06:** `--path` suggests `/opt/<cwd-basename>` as a completion candidate (e.g., in `~/projects/myapp`, suggest `/opt/myapp`). Matches the built-in default path resolution logic.
-- **D-07:** `--compose-file` scans cwd with a lightweight `os.ReadDir(".")` and suggests `compose.yaml` and/or `docker-compose.yml` if they exist. Matches the auto-detect logic in config resolution.
+### Dynamic Flag Completions — Removed
+- **D-03:** Remove all `RegisterFlagCompletionFunc` hooks (`--host`, `--path`, `--compose-file`). Delete `internal/completion/completion.go` entirely (HostCompletionFunc, PathCompletionFunc, ComposeFileCompletionFunc, dedupStrings). Remove the `completion.Register(cmd)` call from `cmd/docker-deploy/main.go`. The generated static script completes only flag names and subcommand names — no value suggestions.
 
 ### Package Structure
-- **D-08:** Completion logic lives in its own `internal/completion/` package, not in `cmd/docker-deploy/main.go`. Structure:
+- **D-04:** Keep the `internal/completion/` package but reduce it to `bash.go` and `zsh.go` only. No `completion.go` (deleted per D-03). The package is retained for future extension (e.g., fish).
+
+### contrib/ File Generation
+- **D-05:** Add a `make completions` Makefile target. It builds the binary (or uses the one already in PATH), runs `docker-deploy completion zsh > contrib/_docker-deploy` and `docker-deploy completion bash > contrib/docker-deploy.bash`, then stages both files. The `/gsd:release-tag` skill runs this target before creating the git tag and includes the `contrib/` files in the release commit.
+
+### Release Pipeline
+- **D-06:** No automated CI step generates or commits `contrib/` files. Generation happens locally via `make completions` as part of the `/gsd:release-tag` flow. Goreleaser picks up the `contrib/` files and includes them in the release tarball via `extra_files` in `.goreleaser.yaml`.
+
+### Homebrew Formula
+- **D-07:** Update the `brews.install` block in `.goreleaser.yaml` to add:
   ```
-  internal/completion/
-  ├── completion.go   — RegisterFlagCompletionFunc calls + dynamic completion functions (--host, --path, --compose-file)
-  ├── bash.go         — bash script generation (wraps cmd.Root().GenBashCompletionV2)
-  └── zsh.go          — zsh script generation (wraps cmd.Root().GenZshCompletion)
+  (share/"zsh/site-functions").install "_docker-deploy"
+  (share/"bash-completion/completions").install "docker-deploy.bash"
   ```
-  `cmd/docker-deploy/main.go` only wires the `completion` subcommand via `buildCompletionCmd()` and calls `completion.Register(cmd)` to attach flag completions. No completion logic in `main.go`.
+  This installs completions automatically on `brew install` — zero user configuration required on homebrew-managed macOS.
+
+### Manual Install Script
+- **D-08:** Add `contrib/install-completions.sh` — a shell script that downloads the completion file from the latest release tarball and places it in the correct fpath location (`/opt/homebrew/share/zsh/site-functions/` for Homebrew macOS, `~/.zsh/completions/` fallback). For non-homebrew users.
+
+### Documentation
+- **D-09:** INSTALL.md gets a "Shell Completions" section. README.md does NOT mention completions. The hidden subcommand is not mentioned anywhere in user-facing docs.
 
 </decisions>
 
@@ -45,17 +58,27 @@ Add shell tab completion to the `docker deploy` CLI plugin. Users press Tab to g
 
 **Downstream agents MUST read these before planning or implementing.**
 
-### Existing Parsers to Reuse
-- `internal/config/config.go` — `LoadFile()` and `Resolve()` — read `deploy.yaml`; extract `host` value for `--host` completion
-- `internal/sshconfig/` — SSH config host alias resolution from Phase 14; produces the alias list for `--host` completion
-- `cmd/docker-deploy/main.go` — `buildDeployCmd()` and subcommand registration; this is where the `completion` subcommand is added
+### Core files to modify
+- `cmd/docker-deploy/main.go` — remove `completion.Register(cmd)` call; update `buildCompletionCmd()` to set `Hidden: true`
+- `internal/completion/completion.go` — DELETE this file (D-03)
+- `internal/completion/bash.go` — keep, no change needed
+- `internal/completion/zsh.go` — keep, no change needed
+- `.goreleaser.yaml` — add `extra_files` for `contrib/` and update `brews.install` block (D-06, D-07)
+- `Makefile` — add `completions` target (D-05)
 
-### Cobra Completion API
-- cobra's `RegisterFlagCompletionFunc()` is the mechanism for dynamic flag value completions
-- cobra's `GenBashCompletion()` / `GenZshCompletion()` generate the shell scripts
+### New files to create
+- `contrib/_docker-deploy` — generated zsh completion script (committed, D-05)
+- `contrib/docker-deploy.bash` — generated bash completion script (committed, D-05)
+- `contrib/install-completions.sh` — manual install script (D-08)
+- `INSTALL.md` (existing) — add "Shell Completions" section (D-09)
 
-### Project Conventions
+### Design rationale
+- `.planning/notes/completion-rework-design.md` — original rework design decisions; MUST read before planning
 - `CLAUDE.md` — key technical decisions (cobra, plugin.Run pattern)
+
+### Release flow reference
+- `.planning/todos/pending/replan-phase-10.md` — lists all deliverables for this rework
+- `.planning/todos/pending/amend-phase-10-roadmap.md` — roadmap amendment requirements
 
 </canonical_refs>
 
@@ -63,26 +86,31 @@ Add shell tab completion to the `docker deploy` CLI plugin. Users press Tab to g
 ## Existing Code Insights
 
 ### Reusable Assets
-- `internal/config.LoadFile()`: reads `deploy.yaml` from cwd; returns `FileConfig` with `Host` field — reuse for `--host` completion
-- `internal/sshconfig/`: parses `~/.ssh/config` and returns host alias list — reuse for `--host` completion
-- `cmd/docker-deploy/main.go` `buildDeployCmd()`: where all subcommands are registered with `cmd.AddCommand()`
+- `internal/completion/bash.go` `GenerateBash()` — wraps `cmd.Root().GenBashCompletionV2()`; keep as-is
+- `internal/completion/zsh.go` `GenerateZsh()` — wraps `cmd.Root().GenZshCompletion()`; keep as-is
+- `cmd/docker-deploy/main.go` `buildCompletionCmd()` — already exists; just add `Hidden: true` and remove the `completion.Register(cmd)` call
+
+### Code to Delete
+- `internal/completion/completion.go` — entire file (HostCompletionFunc, PathCompletionFunc, ComposeFileCompletionFunc, dedupStrings, Register)
+- The `completion.Register(cmd)` call in `main.go` imports `"github.com/webcane/docker-deploy/internal/sshconfig"` and `config.LoadFile` — those imports in main.go stay (used elsewhere), but the completion package's dependency on them disappears
 
 ### Established Patterns
-- Subcommands follow the `build<Name>Cmd() *cobra.Command` factory pattern (see `buildVersionCmd`, `buildValidateCmd`)
-- Errors in completion functions must be swallowed silently — completion crashes are invisible but break UX
+- Subcommands follow `build<Name>Cmd() *cobra.Command` factory pattern
+- All test files in same package directory — `internal/completion/` tests will need to drop completion_test.go (tests for deleted funcs)
 
 ### Integration Points
-- New `buildCompletionCmd()` registered in `buildDeployCmd()` via `cmd.AddCommand()`
-- `RegisterFlagCompletionFunc` calls sit alongside flag definitions in `buildDeployCmd()`
+- `buildCompletionCmd()` in main.go: add `Hidden: true` to the returned `*cobra.Command`
+- Remove `completion.Register(cmd)` line from `buildDeployCmd()` in main.go
+- `.goreleaser.yaml` `brews.install` block: add the two completion install lines after `bin.install`
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-- The `completion` subcommand takes the shell name as a positional arg (`bash` or `zsh`) and writes the script to stdout — standard cobra pattern
-- `--host` completion should merge deduplicated suggestions from both deploy.yaml and ~/.ssh/config host list
-- All dynamic completion functions must recover from panics/errors and return `(nil, cobra.ShellCompDirectiveNoFileComp)` on failure
+- `make completions` should be runnable locally even before a release (useful for testing the generated script)
+- The `contrib/install-completions.sh` script should auto-detect the shell and only install the relevant file
+- The INSTALL.md completions section should mention homebrew first, then the manual script fallback
 
 </specifics>
 
@@ -96,4 +124,4 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 10-add-phase-autosuggestion*
-*Context gathered: 2026-06-01*
+*Context gathered: 2026-06-02*
