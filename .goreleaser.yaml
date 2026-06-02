@@ -21,7 +21,9 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
       - src: contrib/_docker-deploy
+        strip_parent: true
       - src: contrib/docker-deploy.bash
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt
