@@ -3,6 +3,7 @@ package ssh
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -128,7 +129,8 @@ func asUnknownHostError(err error, target **UnknownHostError) bool {
 	if err == nil {
 		return false
 	}
-	v, ok := err.(*UnknownHostError)
+	v := &UnknownHostError{}
+	ok := errors.As(err, &v)
 	if ok {
 		*target = v
 	}
@@ -140,7 +142,8 @@ func asKeyMismatchError(err error, target **KeyMismatchError) bool {
 	if err == nil {
 		return false
 	}
-	v, ok := err.(*KeyMismatchError)
+	v := &KeyMismatchError{}
+	ok := errors.As(err, &v)
 	if ok {
 		*target = v
 	}
@@ -190,7 +193,7 @@ func TestBuildAuthMethods_NoPasswordOrKeyboardInteractive(t *testing.T) {
 	// Structural assertion: the source of buildAuthMethods in client.go must not
 	// contain calls to gossh.Password or gossh.KeyboardInteractive.
 	// We verify this by reading the source file and failing if the banned symbols appear.
-	src, err := os.ReadFile(filepath.Join("client.go"))
+	src, err := os.ReadFile("client.go")
 	if err != nil {
 		t.Fatalf("reading client.go for structural check: %v", err)
 	}
