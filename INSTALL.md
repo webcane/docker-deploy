@@ -18,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/webcane/docker-deploy/master/instal
 
 ## Homebrew
 
-macOS / Linux
+macOS
 
 ```bash
 brew tap webcane/docker-deploy
