@@ -7,4 +7,6 @@ on:
 
 jobs:
   ci:
+    permissions:
+      contents: write
     uses: ./.github/workflows/ci-jobs.yml
