@@ -1,9 +1,11 @@
 ---
 created: 2026-06-03T00:00:00Z
+completed: 2026-06-03T00:00:00Z
+commit: 379562e
 title: Replace codecov with tj-actions coverage badge
 area: tooling
 files:
-  - .github/workflows/
+  - .github/workflows/ci-jobs.yml
   - README.md
 ---
 
