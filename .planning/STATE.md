@@ -5,7 +5,7 @@ milestone_name: milestone
 status: complete
 stopped_at: Phase 16 UAT verified complete
 last_updated: "2026-06-03T00:00:00Z"
-last_activity: 2026-06-03 -- Phase 16 (Release Tooling Enhancement) UAT passed; Phase 09 documentation UAT complete (10/11 passed, 1 minor gap)
+last_activity: 2026-06-03 - Completed quick task 260603-abc: promote codecov replacement todo to implementation
 progress:
   total_phases: 16
   completed_phases: 16
@@ -124,7 +124,7 @@ Recent decisions affecting current work:
 - **Add ssh_dial_timeout to TargetConfig** (general) — 2026-05-26
 - **Add flag to do clean-up on remote** (general) — 2026-06-02
 - **[Phase 12 — Docs]** Add shell completion install instructions to README/INSTALL.md — cover Intel (`/usr/local/share/zsh/site-functions/`), Apple Silicon (`/opt/homebrew/share/zsh/site-functions/`), and portable user-local fallback (`~/.zsh/completion/` + fpath). Include bash equivalent. Surfaced during Phase 10 UAT — 2026-06-02
-- **Replace codecov with tj-actions coverage badge** (tooling) — 2026-06-03
+~~**Replace codecov with tj-actions coverage badge** (tooling) — 2026-06-03~~ ✓ done (379562e)
 
 ### Blockers/Concerns
 
@@ -150,6 +150,7 @@ None yet.
 | 260527-bsi | Add Apple Silicon Homebrew note to INSTALL.md — Docker does not search /opt/homebrew path by default, document symlink and cliPluginsExtraDirs options | 2026-05-27 | ff6ab48 | [260527-bsi-brew-silicon-install-note](./quick/260527-bsi-brew-silicon-install-note/) |
 | 260530-hkb | Fix SSH host key capture in DinD integration tests — bound full SSH handshake per attempt via net.DialTimeout + conn.SetDeadline | 2026-05-30 | d65cccc | — |
 | 260602-001 | Fix brew install: goreleaser archive missing _docker-deploy at root — add strip_parent: true to contrib files | 2026-06-02 | 0dd82b4 | [260602-001-fix-brew-install-goreleaser](./quick/260602-001-fix-brew-install-goreleaser/) |
+| 260603-abc | Promote codecov replacement todo to implementation — close pending TODO (implementation in 379562e) | 2026-06-03 | — | [260603-abc-close-codecov-todo](./quick/260603-abc-close-codecov-todo/) |
 
 ## Deferred Items
 
