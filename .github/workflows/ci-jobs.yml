@@ -21,6 +21,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -37,11 +39,18 @@ jobs:
       - name: Run tests
         run: go test -coverprofile=coverage.out ./...
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+      - name: Update coverage badge
+        uses: tj-actions/coverage-badge-go@v2
         with:
-          files: coverage.out
-          fail_ci_if_error: false
+          filename: coverage.out
+
+      - name: Commit coverage badge
+        if: github.ref == 'refs/heads/master'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add coverage.svg
+          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]" && git push
 
   integration:
     needs: [test, lint]
