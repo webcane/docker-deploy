@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: complete
 stopped_at: Phase 16 UAT verified complete
-last_updated: "2026-06-03T00:00:00Z"
-last_activity: 2026-06-03 - Completed quick task 260603-abc: promote codecov replacement todo to implementation
+last_updated: "2026-06-03T07:49:41Z"
+last_activity: 2026-06-03 -- Released v0.14.0
 progress:
   total_phases: 16
   completed_phases: 16
