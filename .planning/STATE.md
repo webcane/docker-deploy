@@ -125,6 +125,7 @@ Recent decisions affecting current work:
 - **Add flag to do clean-up on remote** (general) — 2026-06-02
 - **[Phase 12 — Docs]** Add shell completion install instructions to README/INSTALL.md — cover Intel (`/usr/local/share/zsh/site-functions/`), Apple Silicon (`/opt/homebrew/share/zsh/site-functions/`), and portable user-local fallback (`~/.zsh/completion/` + fpath). Include bash equivalent. Surfaced during Phase 10 UAT — 2026-06-02
 ~~**Replace codecov with tj-actions coverage badge** (tooling) — 2026-06-03~~ ✓ done (379562e)
+- **Add make test command with pass/fail summary output** (tooling) — 2026-06-03
 
 ### Blockers/Concerns
 
