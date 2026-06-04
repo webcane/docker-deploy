@@ -323,22 +323,40 @@ func TestCheckDockerGroup_SudoL_NotVerbose(t *testing.T) {
 // CHECK-05: sudo access — conditional
 // ---------------------------------------------------------------------------
 
-func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
-	// No passwordless sudo available → returns warning, allows deploy to proceed with password prompts
+func TestCheck05_NoPasswordlessSudo_ReturnsWarn(t *testing.T) {
+	// No passwordless sudo available → CHECK-05 warns; target-dir also warns.
+	// Both must be non-blocking (no error returned).
 	client := newClient(
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 1},             // dir not writable
-		fakeCmd{match: "mkdir -p", exitCode: 1},            // mkdir without sudo fails
-		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},    // no passwordless sudo → fails
-		fakeCmd{match: "id -nG", output: []byte("docker")}, // user in docker group
+		fakeCmd{match: "sudo -n true", exitCode: 1},         // CHECK-05: no passwordless sudo
+		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},     // sudo mkdir also fails
+		fakeCmd{match: "id -nG", output: []byte("docker")},  // user in docker group
 	)
 	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
 		t.Fatalf("expected nil error (warning only), got %v", err)
 	}
-	// Find the target-dir check result
+
+	// CHECK-05 result must be present and warn
+	var check05Result *preflight.CheckResult
+	for i := range results {
+		if results[i].Name == "passwordless-sudo" {
+			check05Result = &results[i]
+			break
+		}
+	}
+	if check05Result == nil {
+		t.Fatal("passwordless-sudo check result not found")
+	}
+	if check05Result.Status != "warn" {
+		t.Errorf("expected CHECK-05 status 'warn', got %q", check05Result.Status)
+	}
+
+	// target-dir result must also be warn (sudo mkdir also failed)
 	var targetDirResult *preflight.CheckResult
 	for i := range results {
 		if results[i].Name == "target-dir" {
@@ -350,28 +368,51 @@ func TestCheck05_NoPasswordlessSudo_ReturnsError(t *testing.T) {
 		t.Fatal("target-dir check result not found")
 	}
 	if targetDirResult.Status != "warn" {
-		t.Errorf("expected status 'warn', got %q", targetDirResult.Status)
+		t.Errorf("expected target-dir status 'warn', got %q", targetDirResult.Status)
 	}
 }
 
-func TestCheck05_NotExecutedWhenNoSudoNeeded(t *testing.T) {
-	// User is in docker group + dir is writable → CHECK-05 should never be called
+func TestCheck05_AlwaysRuns_PassWhenPasswordlessSudoAvailable(t *testing.T) {
+	// CHECK-05 is unconditional — it must always run and report pass when
+	// passwordless sudo is available, regardless of directory writability.
 	client := newClient(
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "test -w", exitCode: 0}, // writable
+		fakeCmd{match: "sudo -n true", exitCode: 0},   // CHECK-05: passwordless sudo available
+		fakeCmd{match: "test -w", exitCode: 0},        // dir writable
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
-	_, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
+	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	// Verify sudo -n true was NOT called
+
+	// Verify CHECK-05 ran and is in the results
+	var check05Result *preflight.CheckResult
+	for i := range results {
+		if results[i].Name == "passwordless-sudo" {
+			check05Result = &results[i]
+			break
+		}
+	}
+	if check05Result == nil {
+		t.Fatal("passwordless-sudo check result not found — CHECK-05 must always run")
+	}
+	if check05Result.Status != "pass" {
+		t.Errorf("expected CHECK-05 status 'pass' when sudo -n true succeeds, got %q", check05Result.Status)
+	}
+
+	// Verify sudo -n true WAS called (unconditional)
+	found := false
 	for _, cmd := range client.matched {
 		if strings.Contains(cmd, "sudo -n true") {
-			t.Errorf("CHECK-05 (sudo -n true) should not have been executed but was: %q", cmd)
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Error("CHECK-05 (sudo -n true) must always run, but was not called")
 	}
 }
 

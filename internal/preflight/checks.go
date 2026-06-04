@@ -76,11 +76,10 @@ type CheckResult struct {
 // ready to accept a deploy. It returns structured CheckResults alongside any
 // blocking error.
 //
-// Execution order: CHECK-01 → CHECK-02 → CHECK-03 → CHECK-07 → CHECK-06
-// (calls CHECK-05 if needed) → CHECK-04 (calls CHECK-05 if needed).
+// Execution order: CHECK-01 → CHECK-02 → CHECK-03 → CHECK-07 → CHECK-05 → CHECK-06 → CHECK-04.
 //
 // Fail-fast on first hard-blocking error (D-04). Warnings (CHECK-03,
-// CHECK-07) are printed to os.Stderr and do not cause a non-nil return.
+// CHECK-05, CHECK-07) are printed to os.Stderr and do not cause a non-nil return.
 //
 // ctx is passed through for future deadline/cancellation wiring (Phase 5
 // does not enforce a per-check deadline).
@@ -108,6 +107,11 @@ func RunPreflightChecks(ctx context.Context, client SSHRunner, cfg config.Config
 
 	// CHECK-07: SSH user is root (warning only).
 	r = checkRootUser(cfg)
+	results = append(results, r)
+
+	// CHECK-05: Passwordless sudo available (warning only — deploy falls back to
+	// interactive password prompt if not configured).
+	r = checkPasswordlessSudo(client)
 	results = append(results, r)
 
 	// CHECK-06: Target directory writable (auto-fix via sudo if needed).
@@ -203,6 +207,28 @@ func checkRootUser(cfg config.Config) CheckResult {
 		Name:    "root-user",
 		Status:  "pass",
 		Message: "not deploying as root",
+	}
+}
+
+// checkPasswordlessSudo probes whether the remote user can run a command via
+// sudo without a password (`sudo -n true`). A warning is emitted when
+// passwordless sudo is not available — this is never a hard block because the
+// deploy falls back to an interactive password prompt (D-07).
+func checkPasswordlessSudo(client SSHRunner) CheckResult {
+	if err := runCmd(client, "sudo -n true"); err == nil {
+		return CheckResult{
+			Name:    "passwordless-sudo",
+			Status:  "pass",
+			Message: "passwordless sudo available",
+		}
+	}
+	fmt.Fprintf(os.Stderr,
+		"Warning: passwordless sudo not configured — deploy will prompt for sudo password if target directory requires elevation\n",
+	)
+	return CheckResult{
+		Name:    "passwordless-sudo",
+		Status:  "warn",
+		Message: "passwordless sudo not configured (will prompt if needed)",
 	}
 }
 
