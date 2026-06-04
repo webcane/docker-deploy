@@ -51,6 +51,12 @@ func TestShouldExclude(t *testing.T) {
 			want:     false,
 		},
 		{
+			name:     "Makefile not in built-in excludes",
+			relPath:  "Makefile",
+			excludes: []string{".git/", "node_modules/", "vendor/", "*.log", ".DS_Store", "__pycache__/"},
+			want:     false,
+		},
+		{
 			name:     "vendor/ directory prefix",
 			relPath:  "vendor/dep/lib.go",
 			excludes: []string{"vendor/"},
