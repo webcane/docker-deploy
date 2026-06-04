@@ -64,6 +64,19 @@ func TestHostFlagRegistered(t *testing.T) {
 	}
 }
 
+// TestComposeFileFlagRegistered verifies that the deploy command registers
+// --compose-file as a string flag (DEPLOY-01: compose file resolution, Plan 03).
+func TestComposeFileFlagRegistered(t *testing.T) {
+	cmd := buildDeployCmd()
+	f := cmd.Flags().Lookup("compose-file")
+	if f == nil {
+		t.Fatal("--compose-file flag not registered on deploy command")
+	}
+	if f.Value.Type() != "string" {
+		t.Errorf("--compose-file flag type = %q; want %q", f.Value.Type(), "string")
+	}
+}
+
 // TestPathFlagRegistered verifies that the deploy command registers --path as a
 // string flag (CFG-02: flag registration for Phase 2 SSH transport config).
 func TestPathFlagRegistered(t *testing.T) {
@@ -570,5 +583,38 @@ func TestFormatHealthcheckRow(t *testing.T) {
 				t.Errorf("formatHealthcheckRow(%+v) = %q; want %q", tc.hc, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestComposeFile_BasenameInjectionGuard verifies that runDeploy rejects a
+// --compose-file value containing path separators (T-04-03-01). A path like
+// "../evil.yaml" must be caught before the SSH dial step so no network
+// connection is attempted.
+func TestComposeFile_BasenameInjectionGuard(t *testing.T) {
+	// Use a temp dir with no deploy.yaml so LoadFile returns zero FileConfig.
+	tmpDir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("os.Chdir: %v", err)
+	}
+	defer os.Chdir(orig) //nolint:errcheck // restore only; test already done
+
+	// Provide a valid host so step-5 host validation passes, reaching step-5b.
+	err = runDeploy(
+		"ssh://user@host.example.com",
+		"/opt/test",
+		nil,   // excludes
+		false, // force
+		"../evil.yaml", // T-04-03-01: path traversal attempt
+		"", "", 0, false, false, false,
+	)
+	if err == nil {
+		t.Fatal("runDeploy: expected error for compose-file with path separator; got nil")
+	}
+	if !strings.Contains(err.Error(), "compose file must be a filename, not a path") {
+		t.Errorf("runDeploy: error = %q; want it to contain 'compose file must be a filename, not a path'", err.Error())
 	}
 }
