@@ -1334,6 +1334,87 @@ func TestResolve_AliasNotFound(t *testing.T) {
 	}
 }
 
+// TestResolve_FileTargetAliasResolved verifies D-02: Resolve() with
+// file.Target.Host set to a bare alias (no ssh:// prefix) routes through the
+// alias detection path — the same resolveHostString path as opts.Host.
+//
+// Two assertions are made:
+//
+//  1. Resolve() with file.Target.Host = bare alias → error contains
+//     "deploy.yaml target.host:" and "not found in" when the alias has no
+//     match in the real ~/.ssh/config.  This proves the file.Target.Host case
+//     in Resolve() calls resolveHostString (alias path) rather than ParseHost
+//     directly.  If the implementation were using ParseHost directly the error
+//     would be "invalid host URL" (scheme must be "ssh"), not "not found in".
+//
+//  2. resolveHostString called directly with file.Target.Host-style input
+//     ("minipc", tmpCfg) resolves to the real HostName/User/Port.  This
+//     confirms the alias resolution logic is correct for the file path value.
+func TestResolve_FileTargetAliasResolved(t *testing.T) {
+	// --- Part 1: Resolve() routes file.Target.Host through alias detection ---
+	//
+	// Use an alias that is guaranteed not to exist in the real ~/.ssh/config
+	// so the test is hermetic and deterministic regardless of the machine.
+	const ghostAlias = "minipc-nyquist-audit-ghost-alias-xyzzy"
+
+	dir := t.TempDir()
+	// Need a compose file so Resolve() doesn't fail on compose auto-detect first.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600); err != nil {
+		t.Fatalf("creating compose.yaml: %v", err)
+	}
+
+	fileConfig := FileConfig{
+		Target: TargetConfig{Host: ghostAlias},
+	}
+	_, err := Resolve(FlagOpts{}, fileConfig, FileConfig{}, "proj", dir)
+	if err == nil {
+		t.Fatal("Resolve() with bare alias in file.Target.Host should return error when alias not in ssh config, got nil")
+	}
+	// The error must come from the alias path, not from ParseHost's URL parsing.
+	// If it were parsed as a URL, the error would say "scheme must be \"ssh\"".
+	// The alias path produces "alias %q not found in <path>" wrapped as "deploy.yaml target.host: ...".
+	errStr := err.Error()
+	if !strings.Contains(errStr, "deploy.yaml target.host:") {
+		t.Errorf("error = %q, want it to contain \"deploy.yaml target.host:\" (proves file.Target.Host routes through resolveHostString)", errStr)
+	}
+	if !strings.Contains(errStr, "not found in") {
+		t.Errorf("error = %q, want it to contain \"not found in\" (proves alias detection path, not ParseHost URL-scheme error)", errStr)
+	}
+	// Explicitly confirm the error does NOT look like a ParseHost URL error.
+	if strings.Contains(errStr, "scheme must be") {
+		t.Errorf("error = %q, contains \"scheme must be\" — this means file.Target.Host was passed to ParseHost directly rather than through resolveHostString alias detection", errStr)
+	}
+
+	// --- Part 2: resolveHostString with file.Target.Host-style value resolves correctly ---
+	//
+	// Write a temp SSH config and call resolveHostString directly (package config,
+	// white-box access).  This verifies the successful alias resolution path that
+	// Resolve() uses for file.Target.Host when a matching block exists.
+	sshCfg := `Host minipc
+  HostName 192.168.1.50
+  User alice
+  Port 2222
+`
+	tmpCfg := filepath.Join(t.TempDir(), "ssh_config")
+	if err := os.WriteFile(tmpCfg, []byte(sshCfg), 0600); err != nil {
+		t.Fatalf("writing ssh config: %v", err)
+	}
+
+	h, err := resolveHostString("minipc", tmpCfg)
+	if err != nil {
+		t.Fatalf("resolveHostString(%q, tmpCfg) unexpected error: %v", "minipc", err)
+	}
+	if h.Hostname != "192.168.1.50" {
+		t.Errorf("Hostname = %q, want %q (file.Target.Host alias resolved to HostName directive)", h.Hostname, "192.168.1.50")
+	}
+	if h.User != "alice" {
+		t.Errorf("User = %q, want %q", h.User, "alice")
+	}
+	if h.Port != 2222 {
+		t.Errorf("Port = %d, want 2222", h.Port)
+	}
+}
+
 // TestResolve_SSHURLUnchanged verifies that an ssh:// URL is passed directly
 // to ParseHost without calling LookupHost (existing behaviour unchanged).
 func TestResolve_SSHURLUnchanged(t *testing.T) {
