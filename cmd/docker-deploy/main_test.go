@@ -606,8 +606,8 @@ func TestComposeFile_BasenameInjectionGuard(t *testing.T) {
 	err = runDeploy(
 		"ssh://user@host.example.com",
 		"/opt/test",
-		nil,   // excludes
-		false, // force
+		nil,            // excludes
+		false,          // force
 		"../evil.yaml", // T-04-03-01: path traversal attempt
 		"", "", 0, false, false, false,
 	)

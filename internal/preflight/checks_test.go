@@ -330,11 +330,11 @@ func TestCheck05_NoPasswordlessSudo_ReturnsWarn(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "sudo -n true", exitCode: 1},         // CHECK-05: no passwordless sudo
-		fakeCmd{match: "test -w", exitCode: 1},              // dir not writable
-		fakeCmd{match: "mkdir -p", exitCode: 1},             // mkdir without sudo fails
-		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},     // sudo mkdir also fails
-		fakeCmd{match: "id -nG", output: []byte("docker")},  // user in docker group
+		fakeCmd{match: "sudo -n true", exitCode: 1},        // CHECK-05: no passwordless sudo
+		fakeCmd{match: "test -w", exitCode: 1},             // dir not writable
+		fakeCmd{match: "mkdir -p", exitCode: 1},            // mkdir without sudo fails
+		fakeCmd{match: "sudo -n mkdir -p", exitCode: 1},    // sudo mkdir also fails
+		fakeCmd{match: "id -nG", output: []byte("docker")}, // user in docker group
 	)
 	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
 	if err != nil {
@@ -379,8 +379,8 @@ func TestCheck05_AlwaysRuns_PassWhenPasswordlessSudoAvailable(t *testing.T) {
 		fakeCmd{match: "docker --version", output: []byte("Docker version 25.0.3")},
 		fakeCmd{match: "docker compose version", output: []byte("Docker Compose version v2.24.0")},
 		fakeCmd{match: "docker info", output: []byte("Containers: 0")},
-		fakeCmd{match: "sudo -n true", exitCode: 0},   // CHECK-05: passwordless sudo available
-		fakeCmd{match: "test -w", exitCode: 0},        // dir writable
+		fakeCmd{match: "sudo -n true", exitCode: 0}, // CHECK-05: passwordless sudo available
+		fakeCmd{match: "test -w", exitCode: 0},      // dir writable
 		fakeCmd{match: "id -nG", output: []byte("docker deploy")},
 	)
 	results, err := preflight.RunPreflightChecks(context.Background(), client, defaultCfg())
