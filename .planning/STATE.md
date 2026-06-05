@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: complete
-stopped_at: Phase 16 UAT verified complete
-last_updated: "2026-06-03T07:49:41Z"
-last_activity: 2026-06-05 -- Milestone v1.0 summary generated (.planning/reports/MILESTONE_SUMMARY-v1.0.md)
+milestone_name: MVP
+status: archived
+stopped_at: v1.0 milestone archived 2026-06-05
+last_updated: "2026-06-05T00:00:00Z"
+last_activity: 2026-06-05 -- Milestone v1.0 archived (milestones/v1.0-ROADMAP.md, v1.0-REQUIREMENTS.md)
 progress:
   total_phases: 16
   completed_phases: 16
@@ -18,11 +18,11 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-13)
+See: .planning/PROJECT.md (updated 2026-06-05)
 
 **Core value:** Deploy a local docker-compose project to any SSH-accessible VPS with a single command — no git required on the remote.
-**Current focus:** Milestone v1.0 complete — all 16 phases verified
-**Shipped:** Phase 16 — Release Tooling Enhancement complete 2026-05-27
+**Current focus:** Planning next milestone — run `/gsd-new-milestone` to begin
+**Shipped:** v1.0 MVP — 15 phases, 60 plans, 690 commits (2026-06-05)
 
 ## Current Position
 
@@ -155,9 +155,33 @@ None yet.
 
 ## Deferred Items
 
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| *(none)* | | | |
+Items acknowledged and deferred at milestone close on 2026-06-05:
+
+| Category | Item | Status |
+|----------|------|--------|
+| quick_task | 260519-c216-fix-hanging-goroutines | missing (completed — state file absent) |
+| quick_task | 260519-oax-deduplicate-passwordless-sudo-not-config | missing (completed — state file absent) |
+| quick_task | 260519-q01-docker-compose-detached-mode | missing (completed — state file absent) |
+| quick_task | 260519-q02-fix-health-check-docker-inspect-ssh | missing (completed — state file absent) |
+| quick_task | 260521-afl-fix-deploy-complete-status-message-omit- | missing (completed — state file absent) |
+| quick_task | 260523-cos-fix-goreleaser-cosign-ci | missing (completed — state file absent) |
+| quick_task | 260523-fix-ci-integration-dial-tests | missing (completed — state file absent) |
+| quick_task | 260523-hkr-fix-ci-dind-host-key-capture | missing (completed — state file absent) |
+| quick_task | 260523-ins-fix-install-sh-main-to-master | missing (completed — state file absent) |
+| quick_task | 260523-n24-fix-ci-node24-actions | missing (completed — state file absent) |
+| quick_task | 260524-brw-fix-brew-install-symlink | missing (completed — state file absent) |
+| quick_task | 260527-brw-brew-symlink-post-install | missing (completed — state file absent) |
+| quick_task | 260527-bsi-brew-silicon-install-note | missing (completed — state file absent) |
+| quick_task | 260602-001-fix-brew-install-goreleaser | missing (completed — state file absent) |
+| quick_task | 260603-abc-close-codecov-todo | missing (completed — state file absent) |
+| verification | 02-VERIFICATION.md | human_needed (SSH transport — live host verification deferred) |
+| verification | 07-VERIFICATION.md | human_needed (verbose flag live SSH output deferred) |
+| verification | 16-VERIFICATION.md | human_needed (release tooling — deferred, covered by CI) |
+| uat | 09-HUMAN-UAT.md | partial (Homebrew E2E smoke test requires live tagged release) |
+| todo | 2026-06-02-add-cleanup-flag-remote.md | open (future feature — not v1.0 scope) |
+| todo | 2026-06-02-ssh-include-directive-support.md | open (future feature — not v1.0 scope) |
+| todo | 2026-06-03-add-make-test-summary-command.md | open (tooling improvement — deferred to v1.1) |
+| todo | 2026-06-03-makefile-test-cov-target.md | open (low priority tooling — deferred to v1.1) |
 
 ## Session Continuity
 
