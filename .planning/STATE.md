@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: MVP
 status: archived
 stopped_at: v1.0 milestone archived 2026-06-05
-last_updated: "2026-06-05T00:00:00Z"
-last_activity: 2026-06-05 -- Milestone v1.0 archived (milestones/v1.0-ROADMAP.md, v1.0-REQUIREMENTS.md)
+last_updated: "2026-06-05T14:34:18Z"
+last_activity: 2026-06-05 -- Released v1.0.1
 progress:
   total_phases: 16
   completed_phases: 16
