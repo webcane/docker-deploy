@@ -100,7 +100,7 @@ func sshRun(client *gossh.Client, cmd string, pw []byte) error {
 	if err := session.Wait(); err != nil {
 		// Use %v (not %w) — prevents error-chain unwrapping that could surface
 		// internal session details; keeps exit status in the message for debugging.
-		return fmt.Errorf("sudo command failed: %w", err) //nolint:goerr113
+		return fmt.Errorf("sudo command failed: %w", err)
 	}
 	return nil
 }
