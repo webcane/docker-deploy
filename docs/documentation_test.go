@@ -9,26 +9,11 @@ import (
 // mustReadDoc reads a file relative to the project root (one level up from docs/).
 func mustReadDoc(t *testing.T, rel string) string {
 	t.Helper()
-	data, err := os.ReadFile("../" + rel)
+	data, err := os.ReadFile("../" + rel) //nolint:gosec // G304: paths are project-relative constants, not user input
 	if err != nil {
 		t.Fatalf("cannot read %s: %v", rel, err)
 	}
 	return string(data)
-}
-
-// countOccurrences counts non-overlapping occurrences of substr in s.
-func countOccurrences(s, substr string) int {
-	count := 0
-	idx := 0
-	for {
-		i := strings.Index(s[idx:], substr)
-		if i == -1 {
-			break
-		}
-		count++
-		idx += i + len(substr)
-	}
-	return count
 }
 
 // TestSC095_READMEValueProposition verifies that README explains the value proposition:
@@ -62,7 +47,7 @@ func TestSC095_READMEValueProposition(t *testing.T) {
 
 // TestSC096_READMEAllFourInstallMethods verifies that README covers all four install methods
 // with copy-paste commands (SC-09-6). Requirement: Homebrew, install script, manual binary, go install.
-func TestSC096_READMEAllFourInstallMethods(t *testing.T) {
+func TestSC096_READMEAllFourInstallMethods(t *testing.T) { //nolint:gocognit // test validates multiple install paths; complexity is inherent to the requirement
 	content := mustReadDoc(t, "README.md")
 
 	// Check if methods are in README directly or linked to an install doc
@@ -122,7 +107,7 @@ func TestSC096_READMEAllFourInstallMethods(t *testing.T) {
 // README (Quick Start) + USAGE.md (full scenarios). This test verifies the actual requirement:
 // that a user reading README gets three distinct use-case scenarios with commands and deploy.yaml examples.
 // README linking to USAGE.md satisfies this only if USAGE.md has the scenarios and README references them.
-func TestSC097_READMEThreeUseCaseScenarios(t *testing.T) {
+func TestSC097_READMEThreeUseCaseScenarios(t *testing.T) { //nolint:gocognit // test validates multiple scenario paths with fallback reads; complexity is inherent
 	content := mustReadDoc(t, "README.md")
 
 	t.Run("has usage section", func(t *testing.T) {
@@ -185,7 +170,7 @@ func TestSC097_READMEThreeUseCaseScenarios(t *testing.T) {
 }
 
 // TestSC098_COMPARISONMDTableDimensions verifies that COMPARISON.md has an 8-tool x 9-dimension table (SC-09-8).
-func TestSC098_COMPARISONMDTableDimensions(t *testing.T) {
+func TestSC098_COMPARISONMDTableDimensions(t *testing.T) { //nolint:gocognit // test validates 8 tools × 9 dimensions; complexity is inherent to the requirement
 	content := mustReadDoc(t, "COMPARISON.md")
 
 	t.Run("contains comparison table section", func(t *testing.T) {
@@ -216,13 +201,13 @@ func TestSC098_COMPARISONMDTableDimensions(t *testing.T) {
 		// The 9 required dimensions from D-28
 		required := []string{
 			"Docker Compose native",
-			"secrets",        // .env / secrets handling
-			"first deploy",   // Time to first deploy
+			"secrets",
+			"first deploy",
 			"Compose-centric",
-			"SSH",            // SSH best practices
-			"Complexity",     // Complexity / learning curve
+			"SSH",
+			"Complexity",
 			"Remote dependencies",
-			"git on VPS",     // Requires git on VPS
+			"git on VPS",
 			"Best fit",
 		}
 		for _, dim := range required {
@@ -257,9 +242,9 @@ func TestSC099_PREREQUISITESMDCoversSshAndSudo(t *testing.T) {
 	})
 
 	t.Run("covers copying key to VPS", func(t *testing.T) {
-		hasCopyId := strings.Contains(content, "ssh-copy-id")
+		hasCopyID := strings.Contains(content, "ssh-copy-id")
 		hasManualCopy := strings.Contains(content, "authorized_keys")
-		if !hasCopyId && !hasManualCopy {
+		if !hasCopyID && !hasManualCopy {
 			t.Error("PREREQUISITES.md must cover copying SSH key to VPS (ssh-copy-id or authorized_keys)")
 		}
 	})
@@ -288,7 +273,7 @@ func TestSC099_PREREQUISITESMDCoversSshAndSudo(t *testing.T) {
 // all 5 required failure scenarios with actionable fixes (SC-09-10).
 // Note: the file may have additional scenarios beyond 5; the requirement is that all 5 mandated
 // scenarios are present, not that EXACTLY 5 exist.
-func TestSC0910_TROUBLESHOOTINGMDFiveFailureScenarios(t *testing.T) {
+func TestSC0910_TROUBLESHOOTINGMDFiveFailureScenarios(t *testing.T) { //nolint:gocognit // test validates 5 failure scenarios with multi-string detection; complexity is inherent
 	content := mustReadDoc(t, "TROUBLESHOOTING.md")
 
 	t.Run("covers SSH authentication failure", func(t *testing.T) {

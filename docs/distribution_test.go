@@ -1,6 +1,7 @@
 package docs_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,7 +12,7 @@ import (
 // Tests in this package run from the docs/ directory, so ../ is the project root.
 func mustReadDist(t *testing.T, rel string) string {
 	t.Helper()
-	data, err := os.ReadFile("../" + rel)
+	data, err := os.ReadFile("../" + rel) //nolint:gosec // G304: paths are project-relative constants, not user input
 	if err != nil {
 		t.Fatalf("cannot read %s: %v", rel, err)
 	}
@@ -45,7 +46,7 @@ func TestSC091_GoReleaserDarwinBuilds(t *testing.T) {
 
 // TestSC092_InstallShSHA256AndCosignFallback verifies that install.sh always verifies SHA256
 // against checksums.txt and prints the exact cosign fallback message when cosign is absent (SC-09-2).
-func TestSC092_InstallShSHA256AndCosignFallback(t *testing.T) {
+func TestSC092_InstallShSHA256AndCosignFallback(t *testing.T) { //nolint:gocognit // test validates multi-branch install.sh logic; complexity is inherent to the requirement
 	content := mustReadDist(t, "install.sh")
 
 	t.Run("starts with POSIX shebang", func(t *testing.T) {
@@ -118,7 +119,7 @@ func TestSC092_InstallShSHA256AndCosignFallback(t *testing.T) {
 	})
 
 	t.Run("POSIX syntax check via sh -n", func(t *testing.T) {
-		cmd := exec.Command("sh", "-n", "../install.sh")
+		cmd := exec.CommandContext(context.Background(), "sh", "-n", "../install.sh")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Errorf("sh -n install.sh failed (POSIX syntax error): %v\n%s", err, out)
 		}
