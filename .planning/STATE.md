@@ -5,7 +5,7 @@ milestone_name: milestone
 status: complete
 stopped_at: Phase 16 UAT verified complete
 last_updated: "2026-06-03T07:49:41Z"
-last_activity: 2026-06-05 -- Extracted learnings for all 15 phases (01–16)
+last_activity: 2026-06-05 -- Milestone v1.0 summary generated (.planning/reports/MILESTONE_SUMMARY-v1.0.md)
 progress:
   total_phases: 16
   completed_phases: 16
