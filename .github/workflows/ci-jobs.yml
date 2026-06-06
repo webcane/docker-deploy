@@ -40,7 +40,7 @@ jobs:
         run: go test -coverprofile=coverage.out ./...
 
       - name: Update coverage badge
-        uses: tj-actions/coverage-badge-go@v2
+        uses: tj-actions/coverage-badge-go@v3
         with:
           filename: coverage.out
 
