@@ -14,6 +14,7 @@ docker-deploy is designed for a specific use case — deploying a local docker-c
 | docker-compose + Watchtower | Yes | Must be pre-placed | 30 min | Yes | Yes | Medium | Docker + Watchtower container | No | Continuous auto-update from registry |
 | Portainer | Yes | Via UI | 15 min | Yes | Yes | Low (UI-driven) | Docker + Portainer agent | No | Teams needing a UI dashboard |
 | Kamal | No (kamal format) | Via .env.production file | 20–30 min | No | Yes | Medium | Docker + Traefik | No | Rails / single-container Ruby apps |
+| [Coolify](https://coolify.io) | Yes | Via UI / environment variables | 30–60 min | Partial (broader PaaS) | Yes | Medium | Coolify, Docker, reverse proxy | No | Teams wanting a self-hosted deployment dashboard |
 | Full CI/CD (GitHub Actions / GitLab CI) | Yes (via scripts) | Via CI secrets | 1–2 hours | No | Depends on setup | High | Docker + SSH agent | Yes (usually) | Team projects with automated pipelines |
 
 **Notes on table values:**
@@ -40,6 +41,7 @@ docker-deploy is designed for a specific use case — deploying a local docker-c
 - **Multi-server orchestration:** Use Ansible (config management) or Terraform (infrastructure provisioning) when you need to coordinate multiple hosts.
 - **Container registry + rolling deploys:** Use Kamal or a CI/CD pipeline if you are building images in CI, pushing to a registry, and need zero-downtime rolling updates.
 - **Team with UI management needs:** Use Portainer if your team needs a web dashboard for container monitoring, log browsing, and manual operations without SSH.
+- **Self-hosted PaaS with a deployment dashboard:** Use [Coolify](https://coolify.io) if you need Git push deployments, databases, domains, SSL, logs, and team management for one or more servers.
 - **Infrastructure-as-code requirements:** Use Terraform if your organisation requires declarative state management, drift detection, and audit trails for infrastructure.
 - **Automated pipeline with secrets management:** Use GitHub Actions or GitLab CI if you already have a CI system and want environment-specific secrets injected from a vault rather than copied from a local file.
 

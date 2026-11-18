@@ -41,7 +41,7 @@ See [PREREQUISITES.md](PREREQUISITES.md) for SSH key setup and passwordless sudo
 - [PREREQUISITES.md](PREREQUISITES.md) — SSH key setup, passwordless sudo for sshuser
 - [DEPLOY_CONFIG.md](DEPLOY_CONFIG.md) — Full deploy.yaml field reference
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Common failures and fixes
-- [COMPARISON.md](COMPARISON.md) — How docker-deploy compares to Kamal, Ansible, and other tools
+- [COMPARISON.md](COMPARISON.md) — How docker-deploy compares to Coolify, Kamal, Ansible, and other tools
 
 ## Feedback
 

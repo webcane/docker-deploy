@@ -169,8 +169,8 @@ func TestSC097_READMEThreeUseCaseScenarios(t *testing.T) { //nolint:gocognit // 
 	})
 }
 
-// TestSC098_COMPARISONMDTableDimensions verifies that COMPARISON.md has an 8-tool x 9-dimension table (SC-09-8).
-func TestSC098_COMPARISONMDTableDimensions(t *testing.T) { //nolint:gocognit // test validates 8 tools × 9 dimensions; complexity is inherent to the requirement
+// TestSC098_COMPARISONMDTableDimensions verifies that COMPARISON.md has the required tools and 9-dimension table (SC-09-8).
+func TestSC098_COMPARISONMDTableDimensions(t *testing.T) { //nolint:gocognit // test validates comparators × 9 dimensions; complexity is inherent to the requirement
 	content := mustReadDoc(t, "COMPARISON.md")
 
 	t.Run("contains comparison table section", func(t *testing.T) {
@@ -179,12 +179,13 @@ func TestSC098_COMPARISONMDTableDimensions(t *testing.T) { //nolint:gocognit // 
 		}
 	})
 
-	t.Run("table has all 8 required comparator tools", func(t *testing.T) {
+	t.Run("table has all required comparator tools", func(t *testing.T) {
 		required := []string{
 			"Terraform",
 			"Ansible",
 			"Kamal",
 			"Portainer",
+			"Coolify",
 			"Watchtower",
 			"Docker remote context",
 			"Manual SSH",
