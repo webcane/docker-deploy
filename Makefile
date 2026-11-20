@@ -1,5 +1,12 @@
 .PHONY: build install test test-ci lint lint-fix fmt completions
 
+GOBIN := $(shell go env GOBIN)
+ifeq ($(GOBIN),)
+GOBIN := $(shell go env GOPATH)/bin
+endif
+GOIMPORTS_VERSION := v0.53.0
+GOIMPORTS := $(GOBIN)/goimports
+
 build:
 	mkdir -p bin
 	go build -ldflags "-X main.version=dev \
@@ -36,5 +43,8 @@ lint:
 lint-fix:
 	golangci-lint run --fix ./...
 
-fmt:
-	find . -name '*.go' | xargs goimports -w -local github.com/webcane/docker-deploy
+$(GOIMPORTS):
+	go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+
+fmt: $(GOIMPORTS)
+	find . -name '*.go' -print0 | xargs -0 $(GOIMPORTS) -w -local github.com/webcane/docker-deploy
